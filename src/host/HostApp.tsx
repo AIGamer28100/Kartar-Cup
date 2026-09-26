@@ -7,6 +7,9 @@ import { SITE_TITLE } from '../config/event';
 import { isHost } from '../lib/db';
 import { auth, signInGoogle, signOutUser } from '../lib/firebase';
 import HostConsole from './HostConsole';
+import SettingsPage from './settings/SettingsPage';
+
+const onSettings = window.location.pathname.startsWith('/host/settings');
 
 type Gate =
   | { s: 'loading' }
@@ -108,7 +111,25 @@ export default function HostApp() {
         </div>
       )}
 
-      {gate.s === 'ok' && <HostConsole />}
+      {gate.s === 'ok' && (
+        <nav aria-label="Host sections" className="flex gap-2 border-b border-line py-2">
+          <a
+            href="/host"
+            aria-current={onSettings ? undefined : 'page'}
+            className="inline-flex min-h-11 items-center px-3 text-muted hover:text-ink aria-[current=page]:text-ink"
+          >
+            Console
+          </a>
+          <a
+            href="/host/settings"
+            aria-current={onSettings ? 'page' : undefined}
+            className="inline-flex min-h-11 items-center px-3 text-muted hover:text-ink aria-[current=page]:text-ink"
+          >
+            Settings
+          </a>
+        </nav>
+      )}
+      {gate.s === 'ok' && (onSettings ? <SettingsPage /> : <HostConsole />)}
     </main>
   );
 }
