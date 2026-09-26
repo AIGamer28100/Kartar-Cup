@@ -1,19 +1,20 @@
-import type { Answers } from '../lib/types';
+export type PickMap = Record<string, string>;
 
 export interface Draft {
   name: string;
   phone: string;
-  answers: Partial<Answers>;
+  answers: PickMap;
   step: number;
 }
 
-const KEY = 'kartar-cup:draft:v1';
+// Keyed by event id so a new race never shows the previous race's answers.
+const key = (eventId: string) => `kartar-cup:draft:v2:${eventId}`;
 export const EMPTY_DRAFT: Draft = { name: '', phone: '', answers: {}, step: 0 };
 
-export function loadDraft(): Draft {
+export function loadDraft(eventId: string): Draft {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...EMPTY_DRAFT };
+    const raw = localStorage.getItem(key(eventId));
+    if (!raw) return { ...EMPTY_DRAFT, answers: {} };
     const d = JSON.parse(raw) as Partial<Draft>;
     return {
       name: typeof d.name === 'string' ? d.name : '',
@@ -22,21 +23,21 @@ export function loadDraft(): Draft {
       step: typeof d.step === 'number' ? d.step : 0,
     };
   } catch {
-    return { ...EMPTY_DRAFT };
+    return { ...EMPTY_DRAFT, answers: {} };
   }
 }
 
-export function saveDraft(d: Draft): void {
+export function saveDraft(eventId: string, d: Draft): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(d));
+    localStorage.setItem(key(eventId), JSON.stringify(d));
   } catch {
     /* storage blocked or full: drafting is best-effort */
   }
 }
 
-export function clearDraft(): void {
+export function clearDraft(eventId: string): void {
   try {
-    localStorage.removeItem(KEY);
+    localStorage.removeItem(key(eventId));
   } catch {
     /* ignore */
   }

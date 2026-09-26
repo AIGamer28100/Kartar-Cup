@@ -1,25 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth, signInGoogle, signInGuest } from '../lib/firebase';
-import { watchEvent, watchOwnEntry, watchResults, submitEntry } from '../lib/db';
-import type { Answers, Entry, EventDoc, ResultsDoc } from '../lib/types';
+import { auth, signInGoogle, signOutUser } from '../lib/firebase';
+import { watchActiveEventId, watchEventConfig, watchOwnEntry, watchResults, submitEntry } from '../lib/db';
+import { useEventStatus } from '../lib/eventStatus';
+import type { Answers, DerivedStatus, Entry, EventConfig, ResultsDoc } from '../lib/types';
+import type { PickMap } from './draft';
 
 export interface GuestSession {
   authReady: boolean;
   user: User | null;
-  event: EventDoc | null | undefined; // undefined = still loading
+  event: EventConfig | null | undefined; // undefined = still loading, null = no live event
+  status: DerivedStatus | null;
   entry: Entry | null | undefined; // undefined = still loading
   pending: boolean;
   results: ResultsDoc | null;
   google: () => Promise<User>;
-  guest: () => Promise<User>;
-  submit: (a: { name: string; phone?: string; answers: Answers }) => Promise<void>;
+  signOut: () => Promise<void>;
+  submit: (a: { name: string; phone?: string; answers: PickMap }) => Promise<void>;
 }
 
 export function useGuestSession(): GuestSession {
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [event, setEvent] = useState<EventDoc | null | undefined>(undefined);
+  const [eventId, setEventId] = useState<string | null | undefined>(undefined);
+  const [event, setEvent] = useState<EventConfig | null | undefined>(undefined);
   const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
   const [pending, setPending] = useState(false);
   const [results, setResults] = useState<ResultsDoc | null>(null);
@@ -27,13 +31,25 @@ export function useGuestSession(): GuestSession {
   useEffect(
     () =>
       onAuthStateChanged(auth, (u) => {
-        setUser(u);
+        setUser(u && !u.isAnonymous ? u : null); // R14: Google only, stale anonymous sessions count as signed out
         setAuthReady(true);
       }),
     [],
   );
 
-  useEffect(() => watchEvent(setEvent), []);
+  useEffect(() => watchActiveEventId(setEventId, () => setEventId(null)), []);
+
+  useEffect(() => {
+    if (eventId === undefined) return;
+    if (eventId === null) {
+      setEvent(null);
+      return;
+    }
+    setEvent(undefined);
+    return watchEventConfig(eventId, setEvent, () => setEvent(null));
+  }, [eventId]);
+
+  const status = useEventStatus(event);
 
   const uid = user?.uid;
   useEffect(() => {
@@ -43,29 +59,30 @@ export function useGuestSession(): GuestSession {
       setEntry(e);
       setPending(p);
     });
-  }, [uid]);
+  }, [uid, eventId]);
 
-  const scored = event?.status === 'scored';
+  const scored = status === 'scored';
   useEffect(() => {
+    setResults(null);
     if (!scored || !uid) return;
     return watchResults(setResults, () => setResults(null));
-  }, [scored, uid]);
+  }, [scored, uid, eventId]);
 
   const google = useCallback(async () => (await signInGoogle()).user, []);
-  const guest = useCallback(async () => (await signInGuest()).user, []);
+  const signOut = useCallback(() => signOutUser(), []);
 
   const submit = useCallback(
-    async (a: { name: string; phone?: string; answers: Answers }) => {
+    async (a: { name: string; phone?: string; answers: PickMap }) => {
       const u = auth.currentUser;
-      if (!u) throw new Error('not signed in');
+      if (!u || u.isAnonymous) throw new Error('not signed in');
       await submitEntry(
         {
           uid: u.uid,
           name: a.name,
           ...(u.email ? { email: u.email } : {}),
           ...(a.phone ? { phone: a.phone } : {}),
-          provider: u.isAnonymous ? 'anonymous' : 'google',
-          answers: a.answers,
+          provider: 'google',
+          answers: a.answers as unknown as Answers,
         },
         !entry,
       );
@@ -73,5 +90,5 @@ export function useGuestSession(): GuestSession {
     [entry],
   );
 
-  return { authReady, user, event, entry, pending, results, google, guest, submit };
+  return { authReady, user, event, status, entry, pending, results, google, signOut, submit };
 }

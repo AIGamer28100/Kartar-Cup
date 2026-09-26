@@ -2,23 +2,26 @@ import { useId, useMemo, useState, type KeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, MagnifyingGlass } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { QUESTIONS, optionsFor } from '../config/event';
-import type { Answers } from '../lib/types';
-import { Eyebrow, PicksList, SPRING, Shell } from './parts';
+import type { EventConfig } from '../lib/types';
+import type { PickMap } from './draft';
+import { optionsFor } from './model';
+import { CloseTimer, Eyebrow, PicksList, SPRING, Shell } from './parts';
 
 interface Props {
-  answers: Partial<Answers>;
+  config: EventConfig;
+  answers: PickMap;
   step: number;
   submitting: boolean;
   error: string;
   isEdit: boolean;
-  onAnswer: (qid: keyof Answers, id: string) => void;
+  onAnswer: (qid: string, id: string) => void;
   onStep: (n: number) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }
 
 export default function Quiz({
+  config,
   answers,
   step,
   submitting,
@@ -30,12 +33,14 @@ export default function Quiz({
   onCancel,
 }: Props) {
   const reduce = useReducedMotion();
+  const QUESTIONS = config.questions;
   const total = QUESTIONS.length;
   const review = step >= total;
   const q = QUESTIONS[Math.min(step, total - 1)];
 
   return (
     <Shell>
+      <CloseTimer closesAt={config.closesAt.toMillis()} className="mb-5" />
       <div className="flex items-center justify-between">
         <Eyebrow>{review ? 'Final check' : 'Question'}</Eyebrow>
         <p className="font-mono text-sm tabular-nums text-muted" aria-live="polite">
@@ -72,9 +77,9 @@ export default function Quiz({
           {review ? (
             <>
               <h1 className="text-3xl font-semibold leading-tight tracking-tight">Ready to commit?</h1>
-              <p className="mt-2 text-muted">Use back to change a pick. Picks lock at lights-out.</p>
+              <p className="mt-2 text-muted">Use back to change a pick. Picks close when the pit lane does.</p>
               <div className="mt-4">
-                <PicksList answers={answers} />
+                <PicksList config={config} answers={answers} />
               </div>
               {error && (
                 <p role="alert" className="mt-4 text-sm text-accent">
@@ -93,6 +98,7 @@ export default function Quiz({
           ) : (
             <Step
               key={q.id}
+              config={config}
               qi={step}
               value={answers[q.id]}
               onPick={(id) => onAnswer(q.id, id)}
@@ -107,20 +113,23 @@ export default function Quiz({
 }
 
 function Step({
+  config,
   qi,
   value,
   onPick,
   onBack,
   onNext,
 }: {
+  config: EventConfig;
   qi: number;
   value: string | undefined;
   onPick: (id: string) => void;
   onBack?: () => void;
   onNext: () => void;
 }) {
+  const QUESTIONS = config.questions;
   const q = QUESTIONS[qi];
-  const opts = useMemo(() => optionsFor(q), [q]);
+  const opts = useMemo(() => optionsFor(config, q), [config, q]);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const uid = useId();
