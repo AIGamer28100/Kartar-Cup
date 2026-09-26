@@ -61,7 +61,7 @@ export default function HostApp() {
           {SITE_TITLE} <span className="text-muted">pit wall</span>
         </h1>
         {gate.s === 'ok' && (
-          <Button variant="ghost" onClick={() => void signOutUser()}>
+          <Button variant="ghost" className="whitespace-nowrap" onClick={() => void signOutUser()}>
             <SignOut size={20} weight="regular" /> Sign out
           </Button>
         )}

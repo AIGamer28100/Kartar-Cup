@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, X } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { QUESTIONS } from '../config/event';
-import { QUESTION_IDS } from '../lib/types';
+import { DEFAULT_QUESTION_IDS as QUESTION_IDS } from '../lib/types';
 import type { RankedRow } from '../lib/types';
 
 const spring = { type: 'spring', stiffness: 380, damping: 34 } as const;

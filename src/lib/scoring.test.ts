@@ -22,6 +22,18 @@ describe('scoreEntry', () => {
   });
 });
 
+describe('dynamic question ids', () => {
+  const ids = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
+  const R8: Results = { ...R, q6: ['a'], q7: ['b'], q8: ['c'] };
+  const A8: Answers = { ...A, q6: 'a', q7: 'b', q8: 'c' };
+  it('8 questions all correct = 8', () => expect(scoreEntry(A8, R8, ids).score).toBe(8));
+  it('derives ids from results keys', () => expect(scoreEntry(A8, R8).score).toBe(8));
+  it('q6..q8 rank', () => {
+    const rows = rankEntries([e('a', 1, A), e('b', 2, A8)], R8, null, ids);
+    expect(rows.map((r) => r.uid)).toEqual(['b', 'a']);
+  });
+});
+
 describe('rankEntries', () => {
   it('earlier submittedAtMs wins ties', () => {
     const rows = rankEntries([e('a', 200, A), e('b', 100, A)], R);

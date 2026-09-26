@@ -156,7 +156,7 @@ export function watchOwnEntry(
 export interface SubmitEntryInput {
   uid: string;
   name: string;
-  email?: string;
+  email: string;
   phone?: string;
   provider: Provider;
   answers: Answers;
@@ -171,8 +171,7 @@ async function requireActive(): Promise<string> {
 export async function submitEntry(input: SubmitEntryInput, isFirst: boolean): Promise<void> {
   const id = await requireActive();
   const { uid, name, email, phone, provider, answers } = input;
-  const data: Record<string, unknown> = { uid, name, provider, answers };
-  if (email !== undefined) data.email = email;
+  const data: Record<string, unknown> = { uid, name, email, provider, answers };
   if (phone !== undefined) data.phone = phone;
   if (isFirst) {
     await setDoc(entryRef(id, uid), {

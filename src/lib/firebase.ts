@@ -3,7 +3,6 @@ import {
   GoogleAuthProvider,
   connectAuthEmulator,
   getAuth,
-  signInAnonymously,
   signInWithCredential,
   signInWithPopup,
   signOut,
@@ -42,10 +41,6 @@ if (useEmulators) {
 
 export function signInGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, new GoogleAuthProvider());
-}
-
-export function signInGuest(): Promise<UserCredential> {
-  return signInAnonymously(auth);
 }
 
 export function signOutUser(): Promise<void> {

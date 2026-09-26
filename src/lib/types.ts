@@ -1,11 +1,11 @@
 import type { Timestamp } from 'firebase/firestore';
 
-export type QuestionId = 'q1' | 'q2' | 'q3' | 'q4' | 'q5';
-export const QUESTION_IDS: QuestionId[] = ['q1', 'q2', 'q3', 'q4', 'q5'];
-export type Answers = Record<QuestionId, string>; // option id per question
-export type Results = Record<QuestionId, string[]>; // multiple accepted ids; [] = voided
+export type QuestionId = string;
+export const DEFAULT_QUESTION_IDS: QuestionId[] = ['q1', 'q2', 'q3', 'q4', 'q5'];
+export type Answers = Record<string, string>; // option id per question
+export type Results = Record<string, string[]>; // multiple accepted ids; [] = voided
 export type EventStatus = 'open' | 'locked' | 'scored';
-export type Provider = 'google' | 'anonymous';
+export type Provider = 'google';
 export interface EventDoc {
   status: EventStatus;
   lightsOutUtc: Timestamp;
@@ -35,7 +35,7 @@ export interface ScorableEntry {
 }
 export interface RankedRow extends ScorableEntry {
   score: number;
-  ticks: Record<QuestionId, boolean>;
+  ticks: Record<string, boolean>;
   rank: number;
   tiedOnScore: boolean;
 }
@@ -74,6 +74,7 @@ export interface EventConfig {
   drivers: DriverCfg[];
   questions: QuestionCfg[];
   questionIds: string[];
+  nextQuestionSeq?: number; // monotonic; ids are never reissued
   winnerRevealed: boolean;
   tiebreakOverride: string | null;
   createdAt: Timestamp;
@@ -85,7 +86,7 @@ export interface Option {
   sub?: string; // team / grid slot
 }
 export interface Question {
-  id: QuestionId;
+  id: string;
   prompt: string;
   kind: 'team' | 'driver';
   hint?: string;

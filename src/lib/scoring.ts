@@ -1,5 +1,5 @@
-import { QUESTION_IDS } from './types';
-import type { Answers, QuestionId, RankedRow, Results, ScorableEntry } from './types';
+import { DEFAULT_QUESTION_IDS } from './types';
+import type { Answers, RankedRow, Results, ScorableEntry } from './types';
 
 export function normalize(id: string): string {
   return id.trim().toLowerCase();
@@ -8,10 +8,11 @@ export function normalize(id: string): string {
 export function scoreEntry(
   a: Answers,
   r: Results,
-): { score: number; ticks: Record<QuestionId, boolean> } {
-  const ticks = {} as Record<QuestionId, boolean>;
+  ids?: string[],
+): { score: number; ticks: Record<string, boolean> } {
+  const ticks: Record<string, boolean> = {};
   let score = 0;
-  for (const q of QUESTION_IDS) {
+  for (const q of ids ?? [...new Set([...DEFAULT_QUESTION_IDS, ...Object.keys(r)])]) {
     const accepted = (r[q] ?? []).map(normalize);
     const ok = accepted.length > 0 && accepted.includes(normalize(a[q] ?? ''));
     ticks[q] = ok;
@@ -24,8 +25,9 @@ export function rankEntries(
   entries: ScorableEntry[],
   r: Results,
   override?: string | null,
+  ids?: string[],
 ): RankedRow[] {
-  const scored = entries.map((e) => ({ ...e, ...scoreEntry(e.answers, r) }));
+  const scored = entries.map((e) => ({ ...e, ...scoreEntry(e.answers, r, ids) }));
   scored.sort(
     (x, y) =>
       y.score - x.score ||

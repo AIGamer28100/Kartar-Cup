@@ -74,12 +74,12 @@ export function useGuestSession(): GuestSession {
   const submit = useCallback(
     async (a: { name: string; phone?: string; answers: PickMap }) => {
       const u = auth.currentUser;
-      if (!u || u.isAnonymous) throw new Error('not signed in');
+      if (!u || u.isAnonymous || !u.email) throw new Error('not signed in');
       await submitEntry(
         {
           uid: u.uid,
           name: a.name,
-          ...(u.email ? { email: u.email } : {}),
+          email: u.email,
           ...(a.phone ? { phone: a.phone } : {}),
           provider: 'google',
           answers: a.answers as unknown as Answers,

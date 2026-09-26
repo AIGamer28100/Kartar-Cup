@@ -1,5 +1,5 @@
-import { normalize, scoreEntry } from '../lib/scoring';
-import type { EventConfig, Option, QuestionCfg, Results } from '../lib/types';
+import { scoreEntry } from '../lib/scoring';
+import type { EventConfig, Option, QuestionCfg } from '../lib/types';
 import type { PickMap } from './draft';
 
 const WA_ALLOW = ['https://chat.whatsapp.com/', 'https://whatsapp.com/channel/'];
@@ -22,26 +22,12 @@ export function optionLabel(config: EventConfig, q: QuestionCfg, id: string | un
   return optionsFor(config, q).find((o) => o.id === id)?.label ?? id;
 }
 
-/**
- * Score across the event's own questions. lib/scoring.scoreEntry only knows q1..q5, so it is
- * used for those ids and the same normalised comparison is applied to any extra ids (q6..q8).
- */
 export function scoreOwn(
   config: EventConfig,
   answers: PickMap,
   results: Record<string, string[]>,
 ): { score: number; ticks: Record<string, boolean> } {
-  const legacy = scoreEntry(answers as never, results as Results).ticks as Record<string, boolean>;
-  const ticks: Record<string, boolean> = {};
-  let score = 0;
-  for (const q of config.questions) {
-    const accepted = (results[q.id] ?? []).map(normalize);
-    const ok =
-      q.id in legacy ? legacy[q.id] : accepted.length > 0 && accepted.includes(normalize(answers[q.id] ?? ''));
-    ticks[q.id] = ok;
-    if (ok) score += 1;
-  }
-  return { score, ticks };
+  return scoreEntry(answers, results, config.questionIds);
 }
 
 const IST = 'Asia/Kolkata';

@@ -3,7 +3,7 @@ import { FloppyDisk } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { QUESTIONS, optionsFor } from '../config/event';
 import { saveResults } from '../lib/db';
-import type { QuestionId, Results, ResultsDoc } from '../lib/types';
+import type { Results, ResultsDoc } from '../lib/types';
 
 export default function ResultsForm({
   resultsDoc,
@@ -24,7 +24,7 @@ export default function ResultsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedKey]);
 
-  function toggle(q: QuestionId, id: string) {
+  function toggle(q: string, id: string) {
     setDraft((d) => ({
       ...d,
       [q]: d[q].includes(id) ? d[q].filter((x) => x !== id) : [...d[q], id],

@@ -74,7 +74,8 @@ for (const [i, [uid, name, phone, a]] of entries.entries()) {
   const fields = {
     uid: str(uid),
     name: str(name),
-    provider: str('anonymous'),
+    provider: str('google'),
+    email: str(`${uid}@example.com`),
     answers: { mapValue: { fields: Object.fromEntries(Object.entries(a).map(([k, v]) => [k, str(v)])) } },
     submittedAt: when,
     createdAt: when,

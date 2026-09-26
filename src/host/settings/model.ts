@@ -55,7 +55,7 @@ export function configToForm(c: EventConfig): FormState {
     teams: c.teams.map((t) => ({ ...t })),
     drivers: [...c.drivers].sort((a, b) => a.grid - b.grid).map(({ id, label, teamId }) => ({ id, label, teamId })),
     questions: c.questions.map((q) => ({ ...q })),
-    qCounter: Math.max(0, ...c.questions.map((q) => qNum(q.id))),
+    qCounter: Math.max(c.nextQuestionSeq ?? 1, 1 + Math.max(0, ...c.questions.map((q) => qNum(q.id)))) - 1,
   };
 }
 
@@ -147,6 +147,7 @@ export function formToConfig(f: FormState): EventConfig {
       return hint?.trim() ? { ...rest, hint: hint.trim() } : rest;
     }),
     questionIds: f.questions.map((q) => q.id),
+    nextQuestionSeq: Math.max(f.qCounter, ...f.questions.map((q) => qNum(q.id))) + 1,
     winnerRevealed: f.winnerRevealed,
     tiebreakOverride: f.tiebreakOverride,
     createdAt: Timestamp.fromMillis(f.createdAtMs),

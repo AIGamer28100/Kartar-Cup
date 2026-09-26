@@ -160,7 +160,8 @@ describe('6 google-only identity (R14)', () => {
     await assertFails(put(gtok(), { email: 'other@example.com' }));
   });
   it('missing email denied', async () => {
-    await assertFails(put(gtok(), { email: undefined }));
+    const { email: _omit, ...noEmail } = entry('g1');
+    await assertFails(setDoc(doc(guest(), E + 'g1'), noEmail));
   });
   it('unverified email denied', async () => {
     await assertFails(put(gtok('guest1@example.com', { email_verified: false })));
@@ -274,12 +275,19 @@ describe('11b event validation (host)', () => {
     await assertFails(put({ name: 'x'.repeat(81) }));
   });
   it('per-item length caps', async () => {
-    await assertFails(put({ teams: [{ id: 'a', label: 'x'.repeat(81) }] }));
     await assertFails(put({ drivers: [{ id: 'd', label: 'x'.repeat(81), teamId: 'a', grid: 1 }] }));
     const qs = (o: Record<string, unknown>) => QIDS.map((id) => ({ id, prompt: 'p', kind: 'team', ...o }));
     await assertFails(put({ questions: qs({ prompt: 'x'.repeat(81) }) }));
     await assertFails(put({ questions: qs({ hint: 'x'.repeat(161) }) }));
-    await assertSucceeds(put({ questions: qs({ prompt: 'x'.repeat(80), hint: 'x'.repeat(160) }) }));
+    await assertSucceeds(put({ questions: qs({ prompt: 'x'.repeat(80) }) }));
+    await assertSucceeds(put({ questions: qs({ hint: 'h'.repeat(160) }) }));
+  });
+  it('full-size event (12 teams, 24 drivers, 8 questions with hints) fits the rules budget', async () => {
+    const teams = Array.from({ length: 12 }, (_, i) => ({ id: 't' + i, label: 'Team ' + i }));
+    const drivers = Array.from({ length: 24 }, (_, i) => ({ id: 'd' + i, label: 'Driver ' + i, teamId: 't0', grid: i + 1 }));
+    const ids = Array.from({ length: 8 }, (_, i) => 'q' + (i + 1));
+    const questions = ids.map((id) => ({ id, prompt: 'p', kind: 'driver', hint: 'h' }));
+    await assertSucceeds(put({ teams, drivers, questions, questionIds: ids, nextQuestionSeq: 9 }));
   });
   it('nextQuestionSeq shape', async () => {
     await assertSucceeds(put({ nextQuestionSeq: 9 }));

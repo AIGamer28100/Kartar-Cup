@@ -17,11 +17,9 @@ async function serious(page: Page) {
 test('guest sign-in and quiz have no serious violations', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /get on the grid/i }).click();
-  await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
   expect(await serious(page)).toEqual([]);
 
-  await page.getByLabel('Name', { exact: true }).fill('Lakshmi Narayanan');
-  await page.getByRole('button', { name: 'Join with this name' }).click();
+  await hostLogin(page, 'guest@example.com'); // emulator Google credential (R14)
   await expect(page.getByRole('combobox')).toBeVisible();
   expect(await serious(page)).toEqual([]);
 });

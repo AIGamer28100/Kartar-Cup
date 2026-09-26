@@ -23,15 +23,14 @@ service cloud.firestore {
         || u.matches('^https://chat\\.whatsapp\\.com/[A-Za-z0-9_-]{1,64}$')
         || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
     }
-    function labelsOk(l, i) {
-      return l.size() <= i || (l[i].label is string && l[i].label.size() <= 80);
-    }
+    // NOTE: per-item label caps for drivers/questions are inlined (1000-expression budget); teams are client-capped.
     function promptsOk(l, i) {
-      return l.size() <= i || (l[i].prompt is string && l[i].prompt.size() <= 80
-        && (!('hint' in l[i]) || (l[i].hint is string && l[i].hint.size() <= 160)));
+      return l.size() <= i || (l[i].prompt.size() <= 80 && l[i].get('hint', '').size() <= 160);
     }
     function validEvent(eventId) {
       let d = request.resource.data;
+      let dr = d.drivers;
+      let qs = d.questions;
       return d.keys().hasOnly(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
                 'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
                 'winnerRevealed','tiebreakOverride','nextQuestionSeq','createdAt','updatedAt'])
@@ -55,17 +54,14 @@ service cloud.firestore {
         && d.questionIds is list && d.questionIds.size() <= 8
         && d.questionIds.size() == d.questions.size()
         && (!('nextQuestionSeq' in d) || (d.nextQuestionSeq is int && d.nextQuestionSeq >= 1 && d.nextQuestionSeq <= 1000))
-        && labelsOk(d.teams, 0) && labelsOk(d.teams, 1) && labelsOk(d.teams, 2) && labelsOk(d.teams, 3)
-        && labelsOk(d.teams, 4) && labelsOk(d.teams, 5) && labelsOk(d.teams, 6) && labelsOk(d.teams, 7)
-        && labelsOk(d.teams, 8) && labelsOk(d.teams, 9) && labelsOk(d.teams, 10) && labelsOk(d.teams, 11)
-        && labelsOk(d.drivers, 0) && labelsOk(d.drivers, 1) && labelsOk(d.drivers, 2) && labelsOk(d.drivers, 3)
-        && labelsOk(d.drivers, 4) && labelsOk(d.drivers, 5) && labelsOk(d.drivers, 6) && labelsOk(d.drivers, 7)
-        && labelsOk(d.drivers, 8) && labelsOk(d.drivers, 9) && labelsOk(d.drivers, 10) && labelsOk(d.drivers, 11)
-        && labelsOk(d.drivers, 12) && labelsOk(d.drivers, 13) && labelsOk(d.drivers, 14) && labelsOk(d.drivers, 15)
-        && labelsOk(d.drivers, 16) && labelsOk(d.drivers, 17) && labelsOk(d.drivers, 18) && labelsOk(d.drivers, 19)
-        && labelsOk(d.drivers, 20) && labelsOk(d.drivers, 21) && labelsOk(d.drivers, 22) && labelsOk(d.drivers, 23)
-        && promptsOk(d.questions, 0) && promptsOk(d.questions, 1) && promptsOk(d.questions, 2) && promptsOk(d.questions, 3)
-        && promptsOk(d.questions, 4) && promptsOk(d.questions, 5) && promptsOk(d.questions, 6) && promptsOk(d.questions, 7)
+        && (dr.size() <= 0 || dr[0].label.size() <= 80) && (dr.size() <= 1 || dr[1].label.size() <= 80) && (dr.size() <= 2 || dr[2].label.size() <= 80) && (dr.size() <= 3 || dr[3].label.size() <= 80)
+        && (dr.size() <= 4 || dr[4].label.size() <= 80) && (dr.size() <= 5 || dr[5].label.size() <= 80) && (dr.size() <= 6 || dr[6].label.size() <= 80) && (dr.size() <= 7 || dr[7].label.size() <= 80)
+        && (dr.size() <= 8 || dr[8].label.size() <= 80) && (dr.size() <= 9 || dr[9].label.size() <= 80) && (dr.size() <= 10 || dr[10].label.size() <= 80) && (dr.size() <= 11 || dr[11].label.size() <= 80)
+        && (dr.size() <= 12 || dr[12].label.size() <= 80) && (dr.size() <= 13 || dr[13].label.size() <= 80) && (dr.size() <= 14 || dr[14].label.size() <= 80) && (dr.size() <= 15 || dr[15].label.size() <= 80)
+        && (dr.size() <= 16 || dr[16].label.size() <= 80) && (dr.size() <= 17 || dr[17].label.size() <= 80) && (dr.size() <= 18 || dr[18].label.size() <= 80) && (dr.size() <= 19 || dr[19].label.size() <= 80)
+        && (dr.size() <= 20 || dr[20].label.size() <= 80) && (dr.size() <= 21 || dr[21].label.size() <= 80) && (dr.size() <= 22 || dr[22].label.size() <= 80) && (dr.size() <= 23 || dr[23].label.size() <= 80)
+        && promptsOk(qs, 0) && promptsOk(qs, 1) && promptsOk(qs, 2) && promptsOk(qs, 3)
+        && promptsOk(qs, 4) && promptsOk(qs, 5) && promptsOk(qs, 6) && promptsOk(qs, 7)
         && d.winnerRevealed is bool
         && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
     }
