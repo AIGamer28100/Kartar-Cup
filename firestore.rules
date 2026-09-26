@@ -23,11 +23,18 @@ service cloud.firestore {
         || u.matches('^https://chat\\.whatsapp\\.com/[A-Za-z0-9_-]{1,64}$')
         || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
     }
+    function labelsOk(l, i) {
+      return l.size() <= i || (l[i].label is string && l[i].label.size() <= 80);
+    }
+    function promptsOk(l, i) {
+      return l.size() <= i || (l[i].prompt is string && l[i].prompt.size() <= 80
+        && (!('hint' in l[i]) || (l[i].hint is string && l[i].hint.size() <= 160)));
+    }
     function validEvent(eventId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
                 'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
-                'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
+                'winnerRevealed','tiebreakOverride','nextQuestionSeq','createdAt','updatedAt'])
         && d.keys().hasAll(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
                 'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
                 'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
@@ -47,6 +54,18 @@ service cloud.firestore {
         && d.questions is list && d.questions.size() <= 8
         && d.questionIds is list && d.questionIds.size() <= 8
         && d.questionIds.size() == d.questions.size()
+        && (!('nextQuestionSeq' in d) || (d.nextQuestionSeq is int && d.nextQuestionSeq >= 1 && d.nextQuestionSeq <= 1000))
+        && labelsOk(d.teams, 0) && labelsOk(d.teams, 1) && labelsOk(d.teams, 2) && labelsOk(d.teams, 3)
+        && labelsOk(d.teams, 4) && labelsOk(d.teams, 5) && labelsOk(d.teams, 6) && labelsOk(d.teams, 7)
+        && labelsOk(d.teams, 8) && labelsOk(d.teams, 9) && labelsOk(d.teams, 10) && labelsOk(d.teams, 11)
+        && labelsOk(d.drivers, 0) && labelsOk(d.drivers, 1) && labelsOk(d.drivers, 2) && labelsOk(d.drivers, 3)
+        && labelsOk(d.drivers, 4) && labelsOk(d.drivers, 5) && labelsOk(d.drivers, 6) && labelsOk(d.drivers, 7)
+        && labelsOk(d.drivers, 8) && labelsOk(d.drivers, 9) && labelsOk(d.drivers, 10) && labelsOk(d.drivers, 11)
+        && labelsOk(d.drivers, 12) && labelsOk(d.drivers, 13) && labelsOk(d.drivers, 14) && labelsOk(d.drivers, 15)
+        && labelsOk(d.drivers, 16) && labelsOk(d.drivers, 17) && labelsOk(d.drivers, 18) && labelsOk(d.drivers, 19)
+        && labelsOk(d.drivers, 20) && labelsOk(d.drivers, 21) && labelsOk(d.drivers, 22) && labelsOk(d.drivers, 23)
+        && promptsOk(d.questions, 0) && promptsOk(d.questions, 1) && promptsOk(d.questions, 2) && promptsOk(d.questions, 3)
+        && promptsOk(d.questions, 4) && promptsOk(d.questions, 5) && promptsOk(d.questions, 6) && promptsOk(d.questions, 7)
         && d.winnerRevealed is bool
         && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
     }
@@ -57,12 +76,14 @@ service cloud.firestore {
       let d = request.resource.data;
       let q = evDoc(eventId).questionIds;
       return d.keys().hasOnly(['uid','name','email','phone','provider','answers','submittedAt','createdAt'])
-        && d.keys().hasAll(['uid','name','provider','answers','submittedAt','createdAt'])
+        && d.keys().hasAll(['uid','name','email','provider','answers','submittedAt','createdAt'])
         && d.uid == uid
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 60
         && (!('phone' in d) || (d.phone is string && d.phone.matches('^[+0-9 ]{7,16}$')))
-        && (!('email' in d) || d.email == request.auth.token.email)
-        && d.provider in ['google','anonymous']
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && d.email is string && d.email.lower() == request.auth.token.email.lower()
+        && d.provider == 'google'
         && d.answers is map
         && d.answers.keys().toSet().hasOnly(q.toSet())
         && d.answers.keys().toSet().hasAll(q)

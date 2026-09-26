@@ -52,11 +52,14 @@ const RES = 'events/' + EID + '/results/answers';
 
 const answers = () => ({ q1: 'a', q2: 'b', q3: 'c', q4: 'd', q5: 'e' });
 const entry = (uid: string, over: Record<string, unknown> = {}) => ({
-  uid, name: 'Guest One', provider: 'anonymous', answers: answers(),
+  uid, name: 'Guest One', provider: 'google', email: 'guest1@example.com', answers: answers(),
   submittedAt: serverTimestamp(), createdAt: serverTimestamp(), ...over,
 });
 
-const guest = (uid = 'g1') => env.authenticatedContext(uid).firestore();
+const gtok = (email = 'guest1@example.com', extra: Record<string, unknown> = {}) => ({
+  email, email_verified: true, firebase: { sign_in_provider: 'google.com' }, ...extra,
+});
+const guest = (uid = 'g1') => env.authenticatedContext(uid, gtok()).firestore();
 const host = () => env.authenticatedContext('h1', HOST_TOKEN).firestore();
 
 beforeAll(async () => {
@@ -69,7 +72,7 @@ afterAll(async () => { await env.cleanup(); });
 beforeEach(async () => { await env.clearFirestore(); await seed(); });
 
 describe('1 create', () => {
-  it('anon guest creates own entry', async () => {
+  it('google guest creates own entry', async () => {
     await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
 });
@@ -150,10 +153,27 @@ describe('5 malformed', () => {
     await assertFails(put(entry('g1', { submittedAt: Timestamp.fromMillis(Date.now() - 86400_000) })));
   });
 });
-describe('6 email mismatch', () => {
-  it('denied', async () => {
-    const db = env.authenticatedContext('g1', { email: 'me@x.com' }).firestore();
-    await assertFails(setDoc(doc(db, E + 'g1'), entry('g1', { provider: 'google', email: 'other@x.com' })));
+describe('6 google-only identity (R14)', () => {
+  const put = (ctxTok: Record<string, unknown>, over: Record<string, unknown> = {}) =>
+    setDoc(doc(env.authenticatedContext('g1', ctxTok).firestore(), E + 'g1'), entry('g1', over));
+  it('email mismatch denied', async () => {
+    await assertFails(put(gtok(), { email: 'other@example.com' }));
+  });
+  it('missing email denied', async () => {
+    await assertFails(put(gtok(), { email: undefined }));
+  });
+  it('unverified email denied', async () => {
+    await assertFails(put(gtok('guest1@example.com', { email_verified: false })));
+  });
+  it('anonymous provider user denied', async () => {
+    await assertFails(put({ firebase: { sign_in_provider: 'anonymous' } }, { provider: 'anonymous' }));
+    await assertFails(put({ firebase: { sign_in_provider: 'anonymous' } }));
+  });
+  it('provider field anonymous denied', async () => {
+    await assertFails(put(gtok(), { provider: 'anonymous' }));
+  });
+  it('case-insensitive email ok', async () => {
+    await assertSucceeds(put(gtok('Guest1@Example.com')));
   });
 });
 describe('7 update', () => {
@@ -161,7 +181,7 @@ describe('7 update', () => {
   async function seedOwn() {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), E + 'g1'), {
-        uid: 'g1', name: 'Guest One', provider: 'anonymous', answers: answers(),
+        uid: 'g1', name: 'Guest One', provider: 'google', email: 'guest1@example.com', answers: answers(),
         submittedAt: created, createdAt: created,
       });
     });
@@ -253,6 +273,19 @@ describe('11b event validation (host)', () => {
     await assertFails(put({ questions: qs, questionIds: qs.map((q) => q.id) }));
     await assertFails(put({ name: 'x'.repeat(81) }));
   });
+  it('per-item length caps', async () => {
+    await assertFails(put({ teams: [{ id: 'a', label: 'x'.repeat(81) }] }));
+    await assertFails(put({ drivers: [{ id: 'd', label: 'x'.repeat(81), teamId: 'a', grid: 1 }] }));
+    const qs = (o: Record<string, unknown>) => QIDS.map((id) => ({ id, prompt: 'p', kind: 'team', ...o }));
+    await assertFails(put({ questions: qs({ prompt: 'x'.repeat(81) }) }));
+    await assertFails(put({ questions: qs({ hint: 'x'.repeat(161) }) }));
+    await assertSucceeds(put({ questions: qs({ prompt: 'x'.repeat(80), hint: 'x'.repeat(160) }) }));
+  });
+  it('nextQuestionSeq shape', async () => {
+    await assertSucceeds(put({ nextQuestionSeq: 9 }));
+    await assertFails(put({ nextQuestionSeq: 'nine' }));
+    await assertFails(put({ nextQuestionSeq: 0 }));
+  });
   it('bad override and questionIds mirror mismatch rejected', async () => {
     await assertFails(put({ override: 'maybe' }));
     await assertFails(put({ questionIds: ['q1'] }));
@@ -274,7 +307,7 @@ describe('12 non-hosts', () => {
     await assertFails(setDoc(doc(db, 'events/' + EID), eventDoc()));
   });
   it('anonymous user denied', async () => {
-    const db = env.authenticatedContext('u7', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+    const db = env.authenticatedContext('u7', { firebase: { sign_in_provider: 'google', email: 'guest1@example.com' } }).firestore();
     await assertFails(getDocs(collection(db, 'events/' + EID + '/entries')));
     await assertFails(setDoc(doc(db, 'events/' + EID), eventDoc()));
   });
