@@ -23,8 +23,13 @@ async function adminPatch(path: string, fields: Record<string, unknown>, mask: s
   if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`);
 }
 
+export const EVENT_ID = 'test-event';
+
+/** 'locked' = manual override closed, 'open' = back to the auto window, 'scored' = winner revealed. */
 export const setStatus = (status: 'open' | 'locked' | 'scored') =>
-  adminPatch('event/current', { status: { stringValue: status } }, ['status']);
+  status === 'scored'
+    ? adminPatch(`events/${EVENT_ID}`, { winnerRevealed: { booleanValue: true } }, ['winnerRevealed'])
+    : adminPatch(`events/${EVENT_ID}`, { override: { stringValue: status === 'locked' ? 'closed' : 'none' } }, ['override']);
 
 export async function saveResultsAdmin(answers: Record<string, string[]>): Promise<void> {
   const fields = Object.fromEntries(
@@ -34,7 +39,7 @@ export async function saveResultsAdmin(answers: Record<string, string[]>): Promi
     ]),
   );
   await adminPatch(
-    'event/results',
+    `events/${EVENT_ID}/results/answers`,
     {
       answers: { mapValue: { fields } },
       source: { stringValue: 'e2e' },

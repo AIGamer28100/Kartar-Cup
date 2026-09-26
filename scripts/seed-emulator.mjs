@@ -16,12 +16,52 @@ async function put(path, fields) {
 }
 
 const now = Date.now();
-await put('event/current', {
-  status: str('open'),
-  lightsOutUtc: ts(new Date(now + 2 * 3600_000)),
+const EID = 'test-event';
+const arr = (values) => ({ arrayValue: { values } });
+const map = (fields) => ({ mapValue: { fields } });
+const num = (integerValue) => ({ integerValue: String(integerValue) });
+const teams = [['mercedes', 'Mercedes'], ['ferrari', 'Ferrari'], ['mclaren', 'McLaren'], ['red-bull', 'Red Bull'],
+  ['alpine', 'Alpine'], ['haas', 'Haas'], ['racing-bulls', 'Racing Bulls'], ['williams', 'Williams'],
+  ['audi', 'Audi'], ['cadillac', 'Cadillac'], ['aston-martin', 'Aston Martin']];
+const drivers = [['russell', 'Russell', 'mercedes'], ['leclerc', 'Leclerc', 'ferrari'], ['piastri', 'Piastri', 'mclaren'],
+  ['hadjar', 'Hadjar', 'red-bull'], ['norris', 'Norris', 'mclaren'], ['hamilton', 'Hamilton', 'ferrari'],
+  ['gasly', 'Gasly', 'alpine'], ['verstappen', 'Verstappen', 'red-bull'], ['colapinto', 'Colapinto', 'alpine'],
+  ['bearman', 'Bearman', 'haas'], ['lawson', 'Lawson', 'racing-bulls'], ['albon', 'Albon', 'williams'],
+  ['ocon', 'Ocon', 'haas'], ['sainz', 'Sainz', 'williams'], ['lindblad', 'Lindblad', 'racing-bulls'],
+  ['antonelli', 'Antonelli', 'mercedes'], ['bortoleto', 'Bortoleto', 'audi'], ['hulkenberg', 'Hulkenberg', 'audi'],
+  ['perez', 'Perez', 'cadillac'], ['bottas', 'Bottas', 'cadillac'], ['alonso', 'Alonso', 'aston-martin'],
+  ['stroll', 'Stroll', 'aston-martin']];
+const questions = [
+  ['q1', 'team', 'Which constructor has the SLOWEST pit stop?', 'Box, box... and then a long, awkward silence on the radio.'],
+  ['q2', 'driver', 'Which driver makes the MOST overtakes?', 'Copy, we are going for the gap. Do not lift.'],
+  ['q3', 'driver', 'Which driver will DNF?', 'Stop the car, stop the car. Check the barriers.'],
+  ['q4', 'team', 'Which constructor has the FASTEST pit stop?', 'Gun crew is ready. Two seconds or we talk about it.'],
+  ['q5', 'driver', 'Which driver sets the FASTEST LAP?', 'Purple sector, purple sector. Send it, no mercy.'],
+];
+// Quiz is open: opensAt = now-1min, closesAt = now+81min (90 min race, 0.9 x duration).
+await put(`events/${EID}`, {
+  id: str(EID),
+  raceId: str('custom'),
+  name: str('Race Watch Party'),
+  subtitle: str('The Karter Cup watch party'),
+  circuit: { nullValue: null },
+  themeId: str('default'),
+  raceStartUtc: ts(new Date(now - 60_000)),
+  raceDurationMin: num(90),
+  opensAt: ts(new Date(now - 60_000)),
+  closesAt: ts(new Date(now + 81 * 60_000)),
+  override: str('none'),
+  whatsappUrl: str(''),
+  teams: arr(teams.map(([id, label]) => map({ id: str(id), label: str(label) }))),
+  drivers: arr(drivers.map(([id, label, teamId], i) => map({ id: str(id), label: str(label), teamId: str(teamId), grid: num(i + 1) }))),
+  questions: arr(questions.map(([id, kind, prompt, hint]) => map({ id: str(id), kind: str(kind), prompt: str(prompt), hint: str(hint) }))),
+  questionIds: arr(questions.map(([id]) => str(id))),
   winnerRevealed: { booleanValue: false },
   tiebreakOverride: { nullValue: null },
+  createdAt: ts(new Date(now)),
+  updatedAt: ts(new Date(now)),
 });
+await put('settings/active', { eventId: str(EID) });
 await put('hosts/host@example.com', { addedAt: ts(new Date(now)) });
 
 const entries = [
@@ -40,6 +80,6 @@ for (const [i, [uid, name, phone, a]] of entries.entries()) {
     createdAt: when,
   };
   if (phone) fields.phone = str(phone);
-  await put(`entries/${uid}`, fields);
+  await put(`events/${EID}/entries/${uid}`, fields);
 }
-console.log(`Seeded ${PROJECT} on ${HOST}: event/current, hosts/host@example.com, ${entries.length} entries`);
+console.log(`Seeded ${PROJECT} on ${HOST}: settings/active, events/${EID}, hosts/host@example.com, ${entries.length} entries`);

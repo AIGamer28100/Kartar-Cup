@@ -20,20 +20,35 @@ const HOST_TOKEN = {
 
 const future = () => Timestamp.fromMillis(Date.now() + 3600_000);
 const past = () => Timestamp.fromMillis(Date.now() - 3600_000);
+const EID = 'ev1';
+const QIDS = ['q1', 'q2', 'q3', 'q4', 'q5'];
 
-async function seed(status = 'open', lightsOut: Timestamp = future()) {
+const eventDoc = (over: Record<string, unknown> = {}) => ({
+  id: EID, raceId: 'custom', name: 'Test Race', subtitle: 'Sub', circuit: null, themeId: 't',
+  raceStartUtc: past(), raceDurationMin: 90, opensAt: past(), closesAt: future(),
+  override: 'none', whatsappUrl: '',
+  teams: [{ id: 'a', label: 'A' }],
+  drivers: [{ id: 'd', label: 'D', teamId: 'a', grid: 1 }],
+  questions: QIDS.map((id) => ({ id, prompt: 'p', kind: 'team' })),
+  questionIds: QIDS, winnerRevealed: false, tiebreakOverride: null,
+  createdAt: Timestamp.now(), updatedAt: Timestamp.now(), ...over,
+});
+
+async function seed(over: Record<string, unknown> = {}, activeId: string | null = EID) {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'event/current'), {
-      status, lightsOutUtc: lightsOut, winnerRevealed: false, tiebreakOverride: null,
-    });
-    await setDoc(doc(db, 'event/results'), {
+    await setDoc(doc(db, 'events/' + EID), eventDoc(over));
+    if (activeId) await setDoc(doc(db, 'settings/active'), { eventId: activeId });
+    await setDoc(doc(db, 'events/' + EID + '/results/answers'), {
       answers: { q1: ['a'], q2: ['b'], q3: ['c'], q4: ['d'], q5: ['e'] }, source: 's', updatedAt: Timestamp.now(),
     });
     await setDoc(doc(db, 'hosts/host@x.com'), { role: 'host' });
-    await setDoc(doc(db, 'entries/other'), { uid: 'other', name: 'Other' });
+    await setDoc(doc(db, 'events/' + EID + '/entries/other'), { uid: 'other', name: 'Other' });
   });
 }
+
+const E = 'events/' + EID + '/entries/';
+const RES = 'events/' + EID + '/results/answers';
 
 const answers = () => ({ q1: 'a', q2: 'b', q3: 'c', q4: 'd', q5: 'e' });
 const entry = (uid: string, over: Record<string, unknown> = {}) => ({
@@ -55,31 +70,66 @@ beforeEach(async () => { await env.clearFirestore(); await seed(); });
 
 describe('1 create', () => {
   it('anon guest creates own entry', async () => {
-    await assertSucceeds(setDoc(doc(guest(), 'entries/g1'), entry('g1')));
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
 });
 describe('2 other uid', () => {
   it('denied for other doc id', async () => {
-    await assertFails(setDoc(doc(guest(), 'entries/g2'), entry('g2')));
+    await assertFails(setDoc(doc(guest(), E + 'g2'), entry('g2')));
   });
   it('denied for mismatched uid field', async () => {
-    await assertFails(setDoc(doc(guest(), 'entries/g1'), entry('g2')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g2')));
   });
 });
-describe('3 locked', () => {
-  it('denied when locked', async () => {
-    await seed('locked');
-    await assertFails(setDoc(doc(guest(), 'entries/g1'), entry('g1')));
+describe('3 override closed', () => {
+  it('denied when override closed', async () => {
+    await seed({ override: 'closed' });
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
 });
-describe('4 past lights out', () => {
-  it('denied when open but past lightsOut', async () => {
-    await seed('open', past());
-    await assertFails(setDoc(doc(guest(), 'entries/g1'), entry('g1')));
+describe('4 window (server clock)', () => {
+  it('denied before opensAt', async () => {
+    await seed({ opensAt: future(), closesAt: Timestamp.fromMillis(Date.now() + 7200_000) });
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('denied after closesAt', async () => {
+    await seed({ opensAt: Timestamp.fromMillis(Date.now() - 7200_000), closesAt: past() });
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('override open allowed before opensAt', async () => {
+    await seed({ override: 'open', opensAt: future(), closesAt: Timestamp.fromMillis(Date.now() + 7200_000) });
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('override open denied after closesAt', async () => {
+    await seed({ override: 'open', opensAt: Timestamp.fromMillis(Date.now() - 7200_000), closesAt: past() });
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('denied for a non-active event', async () => {
+    await seed({}, 'other-event');
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('denied when no active event is set', async () => {
+    await env.clearFirestore();
+    await seed({}, null);
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+});
+describe('4b questionIds', () => {
+  it('answers not matching questionIds denied', async () => {
+    await seed({ questionIds: ['x1', 'x2', 'x3', 'x4', 'x5'],
+      questions: ['x1', 'x2', 'x3', 'x4', 'x5'].map((id) => ({ id, prompt: 'p', kind: 'team' })) });
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('matching custom questionIds allowed', async () => {
+    await seed({ questionIds: ['x1', 'x2'], questions: ['x1', 'x2'].map((id) => ({ id, prompt: 'p', kind: 'team' })) });
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1', { answers: { x1: 'a', x2: 'b' } })));
+  });
+  it('answer over 40 chars denied', async () => {
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1', { answers: { ...answers(), q1: 'x'.repeat(41) } })));
   });
 });
 describe('5 malformed', () => {
-  const put = (data: Record<string, unknown>) => setDoc(doc(guest(), 'entries/g1'), data);
+  const put = (data: Record<string, unknown>) => setDoc(doc(guest(), E + 'g1'), data);
   it('missing q5', async () => {
     const a: Record<string, string> = answers(); delete a.q5;
     await assertFails(put(entry('g1', { answers: a })));
@@ -103,14 +153,14 @@ describe('5 malformed', () => {
 describe('6 email mismatch', () => {
   it('denied', async () => {
     const db = env.authenticatedContext('g1', { email: 'me@x.com' }).firestore();
-    await assertFails(setDoc(doc(db, 'entries/g1'), entry('g1', { provider: 'google', email: 'other@x.com' })));
+    await assertFails(setDoc(doc(db, E + 'g1'), entry('g1', { provider: 'google', email: 'other@x.com' })));
   });
 });
 describe('7 update', () => {
   const created = Timestamp.fromMillis(Date.now() - 5000);
   async function seedOwn() {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'entries/g1'), {
+      await setDoc(doc(ctx.firestore(), E + 'g1'), {
         uid: 'g1', name: 'Guest One', provider: 'anonymous', answers: answers(),
         submittedAt: created, createdAt: created,
       });
@@ -118,54 +168,94 @@ describe('7 update', () => {
   }
   it('owner updates answers while open', async () => {
     await seedOwn();
-    await assertSucceeds(setDoc(doc(guest(), 'entries/g1'),
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'),
       entry('g1', { answers: { ...answers(), q1: 'z' }, createdAt: created })));
   });
   it('changing createdAt denied', async () => {
     await seedOwn();
-    await assertFails(setDoc(doc(guest(), 'entries/g1'), entry('g1')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
 });
 describe('8 reads', () => {
   it('guest get other entry denied', async () => {
-    await assertFails(getDoc(doc(guest(), 'entries/other')));
+    await assertFails(getDoc(doc(guest(), E + 'other')));
   });
   it('guest list denied', async () => {
-    await assertFails(getDocs(collection(guest(), 'entries')));
+    await assertFails(getDocs(collection(guest(), 'events/' + EID + '/entries')));
   });
   it('unauth get denied', async () => {
-    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'entries/other')));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), E + 'other')));
   });
 });
-describe('9 event/current', () => {
-  it('guest reads', async () => {
-    await assertSucceeds(getDoc(doc(guest(), 'event/current')));
+describe('9 settings and events', () => {
+  it('guest reads settings/active', async () => {
+    await assertSucceeds(getDoc(doc(guest(), 'settings/active')));
   });
-  it('guest writes denied', async () => {
-    await assertFails(setDoc(doc(guest(), 'event/current'), { status: 'scored' }));
+  it('guest reads event', async () => {
+    await assertSucceeds(getDoc(doc(guest(), 'events/' + EID)));
+  });
+  it('guest writes event denied', async () => {
+    await assertFails(setDoc(doc(guest(), 'events/' + EID), eventDoc()));
+  });
+  it('guest writes settings/active denied', async () => {
+    await assertFails(setDoc(doc(guest(), 'settings/active'), { eventId: 'evil' }));
   });
 });
-describe('10 event/results', () => {
-  it('denied while locked', async () => {
-    await seed('locked');
-    await assertFails(getDoc(doc(guest(), 'event/results')));
+describe('10 results', () => {
+  it('denied before reveal', async () => {
+    await assertFails(getDoc(doc(guest(), RES)));
   });
-  it('allowed after scored', async () => {
-    await seed('scored');
-    await assertSucceeds(getDoc(doc(guest(), 'event/results')));
+  it('allowed after reveal', async () => {
+    await seed({ winnerRevealed: true });
+    await assertSucceeds(getDoc(doc(guest(), RES)));
+  });
+  it('guest write denied', async () => {
+    await assertFails(setDoc(doc(guest(), RES), { answers: {}, source: 'x', updatedAt: Timestamp.now() }));
   });
 });
 describe('11 host', () => {
   it('lists entries', async () => {
-    await assertSucceeds(getDocs(collection(host(), 'entries')));
+    await assertSucceeds(getDocs(collection(host(), 'events/' + EID + '/entries')));
   });
-  it('writes event/current', async () => {
-    await assertSucceeds(setDoc(doc(host(), 'event/current'),
-      { status: 'locked', lightsOutUtc: future(), winnerRevealed: false, tiebreakOverride: null }));
+  it('writes event', async () => {
+    await assertSucceeds(setDoc(doc(host(), 'events/' + EID), eventDoc({ override: 'closed' })));
   });
-  it('writes event/results', async () => {
-    await assertSucceeds(setDoc(doc(host(), 'event/results'),
+  it('writes new event and settings/active', async () => {
+    await assertSucceeds(setDoc(doc(host(), 'events/ev2'), eventDoc({ id: 'ev2' })));
+    await assertSucceeds(setDoc(doc(host(), 'settings/active'), { eventId: 'ev2' }));
+  });
+  it('writes results', async () => {
+    await assertSucceeds(setDoc(doc(host(), RES),
       { answers: { q1: [], q2: [], q3: [], q4: [], q5: [] }, source: 'x', updatedAt: Timestamp.now() }));
+  });
+});
+describe('11b event validation (host)', () => {
+  const put = (over: Record<string, unknown>) => setDoc(doc(host(), 'events/' + EID), eventDoc(over));
+  it('closesAt <= opensAt rejected', async () => {
+    const t = Timestamp.fromMillis(Date.now() + 1000);
+    await assertFails(put({ opensAt: t, closesAt: t }));
+    await assertFails(put({ opensAt: future(), closesAt: past() }));
+  });
+  it('whatsappUrl allowlist', async () => {
+    await assertSucceeds(put({ whatsappUrl: 'https://chat.whatsapp.com/AbC123' }));
+    await assertSucceeds(put({ whatsappUrl: 'https://whatsapp.com/channel/AbC123' }));
+    await assertSucceeds(put({ whatsappUrl: '' }));
+    await assertFails(put({ whatsappUrl: 'https://evil.com/x' }));
+    await assertFails(put({ whatsappUrl: 'http://chat.whatsapp.com/AbC123' }));
+    await assertFails(put({ whatsappUrl: 'https://chat.whatsapp.com.evil.com/AbC' }));
+    await assertFails(put({ whatsappUrl: 'javascript:alert(1)' }));
+  });
+  it('size caps', async () => {
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ id: 'x' + i, label: 'x' }));
+    await assertFails(put({ teams: many(13) }));
+    await assertFails(put({ drivers: many(25) }));
+    const qs = Array.from({ length: 9 }, (_, i) => ({ id: 'q' + i, prompt: 'p', kind: 'team' }));
+    await assertFails(put({ questions: qs, questionIds: qs.map((q) => q.id) }));
+    await assertFails(put({ name: 'x'.repeat(81) }));
+  });
+  it('bad override and questionIds mirror mismatch rejected', async () => {
+    await assertFails(put({ override: 'maybe' }));
+    await assertFails(put({ questionIds: ['q1'] }));
   });
 });
 describe('12 non-hosts', () => {
@@ -173,20 +263,20 @@ describe('12 non-hosts', () => {
     const db = env.authenticatedContext('u9', {
       email: 'nobody@x.com', email_verified: true, firebase: { sign_in_provider: 'google.com' },
     }).firestore();
-    await assertFails(getDocs(collection(db, 'entries')));
-    await assertFails(setDoc(doc(db, 'event/current'), { status: 'scored' }));
+    await assertFails(getDocs(collection(db, 'events/' + EID + '/entries')));
+    await assertFails(setDoc(doc(db, 'events/' + EID), eventDoc()));
   });
   it('allowlisted but unverified email denied', async () => {
     const db = env.authenticatedContext('u8', {
       email: 'host@x.com', email_verified: false, firebase: { sign_in_provider: 'google.com' },
     }).firestore();
-    await assertFails(getDocs(collection(db, 'entries')));
-    await assertFails(setDoc(doc(db, 'event/current'), { status: 'scored' }));
+    await assertFails(getDocs(collection(db, 'events/' + EID + '/entries')));
+    await assertFails(setDoc(doc(db, 'events/' + EID), eventDoc()));
   });
   it('anonymous user denied', async () => {
     const db = env.authenticatedContext('u7', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
-    await assertFails(getDocs(collection(db, 'entries')));
-    await assertFails(setDoc(doc(db, 'event/current'), { status: 'scored' }));
+    await assertFails(getDocs(collection(db, 'events/' + EID + '/entries')));
+    await assertFails(setDoc(doc(db, 'events/' + EID), eventDoc()));
   });
 });
 describe('13 hosts writes', () => {
@@ -203,8 +293,8 @@ describe('13 hosts writes', () => {
 describe('14 delete', () => {
   it('guest deletes own entry denied', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'entries/g1'), { uid: 'g1', name: 'Guest One' });
+      await setDoc(doc(ctx.firestore(), E + 'g1'), { uid: 'g1', name: 'Guest One' });
     });
-    await assertFails(deleteDoc(doc(guest(), 'entries/g1')));
+    await assertFails(deleteDoc(doc(guest(), E + 'g1')));
   });
 });
