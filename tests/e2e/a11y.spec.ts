@@ -20,6 +20,7 @@ test('guest sign-in and quiz have no serious violations', async ({ page }) => {
   expect(await serious(page)).toEqual([]);
 
   await hostLogin(page, 'guest@example.com'); // emulator Google credential (R14)
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('combobox')).toBeVisible();
   expect(await serious(page)).toEqual([]);
 });

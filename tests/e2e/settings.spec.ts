@@ -37,8 +37,9 @@ test('pick a race then save and set live', async ({ page }) => {
   const picker = page.locator('#race-picker');
   const opt = picker.locator('option:not([disabled])').nth(3);
   const value = await opt.getAttribute('value');
+  const before = await page.getByLabel('Event name').inputValue();
   await picker.selectOption(value!);
-  await expect(page.getByLabel('Event name')).not.toHaveValue('');
+  await expect(page.getByLabel('Event name')).not.toHaveValue(before); // pickRace is async
   const name = await page.getByLabel('Event name').inputValue();
   await page.getByRole('button', { name: 'Set as live event' }).click();
   await expect(page.getByTestId('save-banner')).toContainText('live event');
