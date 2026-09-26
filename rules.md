@@ -11,3 +11,6 @@
 | R7 | Use Opus to plan; design skill + taste skill; Playwright for visual checks | User request | Process |
 | R8 | Site title text "Kartar CUP" (user spelling) | User typed it | Copy |
 | R9 | No emojis; one accent colour; no Inter; no pure black; no centered hero | design-taste-frontend skill | Design review |
+| R10 | Host allowlist is exactly hariharankvasn@gmail.com (user's own Google account) | Only the user may reach the admin/settings page | `hosts/hariharankvasn@gmail.com` doc + host rules; emulator seed uses a separate test host |
+| R11 | WhatsApp community link must be configurable on the settings page, not hard-coded | Link changes per community/event; user wants no redeploy | Settings page writes it to Firestore; guest CTA reads it (hidden when empty) |
+| R12 | Race is admin-selectable; per-race themes for the 2026 remaining calendar and 2027, next race first, rest later | Reuse the site for every watch party | Calendar catalog + per-race theme files (Phase B/C) |
