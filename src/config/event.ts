@@ -1,4 +1,6 @@
-import type { Option, Question } from '../lib/types';
+import { Timestamp } from 'firebase/firestore';
+import type { RaceInfo } from './calendar/types';
+import type { EventConfig, Option, Question } from '../lib/types';
 
 export const LIGHTS_OUT_UTC = '2026-09-26T11:00:00Z';
 export const WHATSAPP_COMMUNITY_URL = '';
@@ -57,6 +59,41 @@ export const QUESTIONS: Question[] = [
   { id: 'q5', kind: 'driver', prompt: 'Which driver sets the FASTEST LAP?',
     hint: 'Purple sector, purple sector. Send it, no mercy.' },
 ];
+
+export const DEFAULT_RACE_DURATION_MIN = 90;
+// RaceInfo carries a date only; hosts adjust the start time on the settings page.
+export const DEFAULT_RACE_START_UTC_TIME = '13:00:00';
+
+export function buildDefaultEvent(race: RaceInfo, durationMin = DEFAULT_RACE_DURATION_MIN): EventConfig {
+  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
+  const closesMs = startMs + Math.round(0.9 * durationMin * 60_000);
+  const now = Timestamp.now();
+  return {
+    id: race.id,
+    raceId: race.id,
+    name: race.name,
+    subtitle: EVENT_SUBTITLE,
+    circuit: race.circuit,
+    themeId: race.themeId,
+    raceStartUtc: Timestamp.fromMillis(startMs),
+    raceDurationMin: durationMin,
+    opensAt: Timestamp.fromMillis(startMs),
+    closesAt: Timestamp.fromMillis(closesMs),
+    override: 'none',
+    whatsappUrl: WHATSAPP_COMMUNITY_URL,
+    teams: TEAMS.map((t) => ({ id: t.id, label: t.label })),
+    drivers: DRIVERS.map((d, i) => {
+      const teamLabel = (d.sub ?? '').split(' · ')[0];
+      return { id: d.id, label: d.label, teamId: TEAMS.find((t) => t.label === teamLabel)?.id ?? '', grid: i + 1 };
+    }),
+    questions: QUESTIONS.map((q) => ({ ...q })),
+    questionIds: QUESTIONS.map((q) => q.id),
+    winnerRevealed: false,
+    tiebreakOverride: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
 
 export function optionsFor(q: Question): Option[] {
   return q.kind === 'team' ? TEAMS : DRIVERS;

@@ -39,6 +39,46 @@ export interface RankedRow extends ScorableEntry {
   rank: number;
   tiedOnScore: boolean;
 }
+export type Override = 'none' | 'open' | 'closed';
+export type DerivedStatus = 'scheduled' | 'open' | 'closed' | 'scored';
+export interface TeamCfg {
+  id: string;
+  label: string;
+}
+export interface DriverCfg {
+  id: string;
+  label: string;
+  teamId: string;
+  grid: number;
+}
+export interface QuestionCfg {
+  id: string;
+  prompt: string;
+  kind: 'team' | 'driver';
+  hint?: string;
+}
+export interface EventConfig {
+  id: string;
+  raceId: string; // calendar id or 'custom'
+  name: string;
+  subtitle: string;
+  circuit: string | null;
+  themeId: string;
+  raceStartUtc: Timestamp;
+  raceDurationMin: number;
+  opensAt: Timestamp;
+  closesAt: Timestamp;
+  override: Override;
+  whatsappUrl: string;
+  teams: TeamCfg[];
+  drivers: DriverCfg[];
+  questions: QuestionCfg[];
+  questionIds: string[];
+  winnerRevealed: boolean;
+  tiebreakOverride: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
 export interface Option {
   id: string;
   label: string;

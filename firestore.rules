@@ -8,12 +8,54 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com'
         && exists(/databases/$(database)/documents/hosts/$(request.auth.token.email.lower()));
     }
-    function ev() { return get(/databases/$(database)/documents/event/current).data; }
-    function acceptingEntries() {
-      return ev().status == 'open' && request.time < ev().lightsOutUtc;
+    function evDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)).data; }
+    function activeId() { return get(/databases/$(database)/documents/settings/active).data.eventId; }
+    // Server clock (request.time); R13 window plus manual override. Override 'open' can never pass closesAt.
+    function acceptingEntries(eventId) {
+      let ev = evDoc(eventId);
+      return activeId() == eventId
+        && ev.override != 'closed'
+        && request.time < ev.closesAt
+        && (ev.override == 'open' || request.time >= ev.opensAt);
     }
-    function validEntry(uid) {
+    function validWhatsapp(u) {
+      return u is string && (u == ''
+        || u.matches('^https://chat\\.whatsapp\\.com/[A-Za-z0-9_-]{1,64}$')
+        || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
+    }
+    function validEvent(eventId) {
       let d = request.resource.data;
+      return d.keys().hasOnly(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
+        && d.keys().hasAll(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
+        && d.id == eventId
+        && d.raceId is string && d.raceId.size() <= 60
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.subtitle is string && d.subtitle.size() <= 120
+        && (d.circuit == null || (d.circuit is string && d.circuit.size() <= 80))
+        && d.themeId is string && d.themeId.size() <= 60
+        && d.raceStartUtc is timestamp
+        && d.raceDurationMin is number && d.raceDurationMin >= 10 && d.raceDurationMin <= 600
+        && d.opensAt is timestamp && d.closesAt is timestamp && d.closesAt > d.opensAt
+        && d.override in ['none','open','closed']
+        && validWhatsapp(d.whatsappUrl)
+        && d.teams is list && d.teams.size() <= 12
+        && d.drivers is list && d.drivers.size() <= 24
+        && d.questions is list && d.questions.size() <= 8
+        && d.questionIds is list && d.questionIds.size() <= 8
+        && d.questionIds.size() == d.questions.size()
+        && d.winnerRevealed is bool
+        && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
+    }
+    function answerOk(a, q, i) {
+      return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40);
+    }
+    function validEntry(eventId, uid) {
+      let d = request.resource.data;
+      let q = evDoc(eventId).questionIds;
       return d.keys().hasOnly(['uid','name','email','phone','provider','answers','submittedAt','createdAt'])
         && d.keys().hasAll(['uid','name','provider','answers','submittedAt','createdAt'])
         && d.uid == uid
@@ -22,31 +64,37 @@ service cloud.firestore {
         && (!('email' in d) || d.email == request.auth.token.email)
         && d.provider in ['google','anonymous']
         && d.answers is map
-        && d.answers.keys().hasOnly(['q1','q2','q3','q4','q5'])
-        && d.answers.keys().hasAll(['q1','q2','q3','q4','q5'])
-        && d.answers.q1 is string && d.answers.q1.size() <= 40
-        && d.answers.q2 is string && d.answers.q2.size() <= 40
-        && d.answers.q3 is string && d.answers.q3.size() <= 40
-        && d.answers.q4 is string && d.answers.q4.size() <= 40
-        && d.answers.q5 is string && d.answers.q5.size() <= 40
+        && d.answers.keys().toSet().hasOnly(q.toSet())
+        && d.answers.keys().toSet().hasAll(q)
+        && answerOk(d.answers, q, 0) && answerOk(d.answers, q, 1) && answerOk(d.answers, q, 2)
+        && answerOk(d.answers, q, 3) && answerOk(d.answers, q, 4) && answerOk(d.answers, q, 5)
+        && answerOk(d.answers, q, 6) && answerOk(d.answers, q, 7)
         && d.submittedAt == request.time;
     }
 
-    match /event/current {
+    match /settings/active {
       allow read: if true;
-      allow write: if isHost();
+      allow write: if isHost() && request.resource.data.keys().hasOnly(['eventId'])
+                   && request.resource.data.eventId is string
+                   && request.resource.data.eventId.size() >= 1 && request.resource.data.eventId.size() <= 60;
     }
-    match /event/results {
-      allow read: if isHost() || ev().status == 'scored';
-      allow write: if isHost();
-    }
-    match /entries/{uid} {
-      allow get: if (signedIn() && request.auth.uid == uid) || isHost();
-      allow list, delete: if isHost();
-      allow create: if signedIn() && request.auth.uid == uid && acceptingEntries() && validEntry(uid)
-                    && request.resource.data.createdAt == request.time;
-      allow update: if signedIn() && request.auth.uid == uid && acceptingEntries() && validEntry(uid)
-                    && request.resource.data.createdAt == resource.data.createdAt;
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update: if isHost() && validEvent(eventId);
+      allow delete: if isHost();
+
+      match /results/answers {
+        allow read: if isHost() || evDoc(eventId).winnerRevealed == true;
+        allow write: if isHost();
+      }
+      match /entries/{uid} {
+        allow get: if (signedIn() && request.auth.uid == uid) || isHost();
+        allow list, delete: if isHost();
+        allow create: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == request.time;
+        allow update: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == resource.data.createdAt;
+      }
     }
     match /hosts/{email} {
       allow get: if signedIn() && request.auth.token.email.lower() == email;
