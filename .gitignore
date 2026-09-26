@@ -147,3 +147,4 @@ dist
 test-results
 .firebase
 firestore-debug.log
+.env*.local
