@@ -77,7 +77,7 @@ export default function ResultsForm({
                       type="button"
                       aria-pressed={on}
                       onClick={() => toggle(q.id, o.id)}
-                      className={`min-h-11 rounded-lg border px-4 text-base transition duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                      className={`min-h-11 rounded-lg border px-4 text-[1rem] transition duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                         on
                           ? 'border-accent bg-accent text-accent-ink'
                           : 'border-line bg-raised text-ink hover:border-muted'
@@ -107,7 +107,7 @@ export default function ResultsForm({
           value={source}
           onChange={(e) => setSource(e.target.value)}
           placeholder="e.g. official timing sheet, lap 41 review"
-          className="min-h-12 rounded-lg border border-line bg-raised px-3 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="min-h-12 rounded-lg border border-line bg-raised px-3 text-[1rem] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         />
       </label>
       <div className="mt-4 flex flex-wrap items-center gap-4">

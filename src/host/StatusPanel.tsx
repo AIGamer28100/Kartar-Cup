@@ -87,7 +87,7 @@ export default function StatusPanel({ event, count }: { event: EventDoc | null; 
               type="datetime-local"
               value={lights}
               onChange={(e) => setLights(e.target.value)}
-              className={`min-h-12 rounded-lg border border-line bg-raised px-3 font-mono text-base text-ink ${focus}`}
+              className={`min-h-12 rounded-lg border border-line bg-raised px-3 font-mono text-[1rem] text-ink ${focus}`}
             />
           </label>
           <Button type="submit" variant="secondary" disabled={busy || !lights}>

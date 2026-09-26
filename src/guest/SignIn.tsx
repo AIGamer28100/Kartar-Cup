@@ -9,7 +9,7 @@ export const PHONE_RE = /^[0-9+ ]{7,16}$/;
 export const validName = (n: string) => n.trim().length >= 2;
 
 const inputCls =
-  'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-base text-ink placeholder:text-muted focus:border-accent';
+  'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
 interface Props {
   name: string;

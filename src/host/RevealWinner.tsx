@@ -59,12 +59,12 @@ export default function RevealWinner({
           <motion.div
             role="dialog"
             aria-label="Winner"
-            className="fixed inset-0 z-50 grid place-items-center bg-base p-6"
+            className="fixed inset-0 z-50 grid place-items-center bg-base p-6 md:p-16"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="max-w-full text-center">
+            <div className="max-w-full text-left">
               <motion.p
                 {...item(0.1)}
                 className="text-xl uppercase tracking-widest text-muted md:text-3xl"

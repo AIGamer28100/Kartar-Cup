@@ -174,7 +174,7 @@ function Step({
           aria-autocomplete="list"
           aria-activedescendant={shown[cur] ? `${uid}-o-${shown[cur].id}` : undefined}
           autoComplete="off"
-          className="min-h-12 w-full rounded-lg border border-line bg-raised pl-11 pr-4 text-base text-ink placeholder:text-muted focus:border-accent"
+          className="min-h-12 w-full rounded-lg border border-line bg-raised pl-11 pr-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent"
           placeholder={q.kind === 'team' ? 'Type a team' : 'Type a driver or team'}
           value={query}
           onChange={(e) => {
@@ -205,7 +205,7 @@ function Step({
               }`}
             >
               <span>
-                <span className={`block text-base ${sel ? 'font-semibold text-ink' : 'text-ink'}`}>
+                <span className={`block text-[1rem] ${sel ? 'font-semibold text-ink' : 'text-ink'}`}>
                   {o.label}
                 </span>
                 {o.sub && <span className="block font-mono text-xs text-muted">{o.sub}</span>}

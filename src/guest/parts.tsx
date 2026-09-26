@@ -52,7 +52,7 @@ export function WhatsAppCta() {
       href={WHATSAPP_COMMUNITY_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-raised px-5 text-base font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
+      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
     >
       <WhatsappLogo size={22} weight="regular" aria-hidden="true" />
       Join The Karter Cup WhatsApp community
