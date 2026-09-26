@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { DownloadSimple } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Skeleton from '../components/Skeleton';
+import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
 import { rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
@@ -40,7 +41,7 @@ export default function HostConsole() {
     const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'kartar-cup-baku-entries.csv';
+    a.download = `${EVENT_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-entries.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

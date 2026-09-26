@@ -3,6 +3,8 @@ import type { Option, Question } from '../lib/types';
 export const LIGHTS_OUT_UTC = '2026-09-26T11:00:00Z';
 export const WHATSAPP_COMMUNITY_URL = '';
 export const SITE_TITLE = 'Kartar CUP';
+export const EVENT_NAME = 'Race Watch Party';
+export const EVENT_SUBTITLE = 'The Karter Cup watch party';
 
 export const TEAMS: Option[] = [
   { id: 'mercedes', label: 'Mercedes' },

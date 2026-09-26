@@ -5,7 +5,7 @@ import Countdown from '../components/Countdown';
 import Divider from '../components/Divider';
 import Skeleton from '../components/Skeleton';
 import StatusDot from '../components/StatusDot';
-import { LIGHTS_OUT_UTC, QUESTIONS } from '../config/event';
+import { EVENT_SUBTITLE, LIGHTS_OUT_UTC, QUESTIONS } from '../config/event';
 import { scoreEntry } from '../lib/scoring';
 import { useCountdown } from '../lib/useCountdown';
 import { QUESTION_IDS, type Answers } from '../lib/types';
@@ -197,7 +197,7 @@ export default function GuestApp() {
           <Reveal>
             <div className="flex items-center gap-2">
               <StatusDot status="open" />
-              <Eyebrow>The Karter Cup watch party, Baku round</Eyebrow>
+              <Eyebrow>{EVENT_SUBTITLE}</Eyebrow>
             </div>
             <h1 className="mt-6 text-6xl font-semibold leading-[0.95] tracking-tighter">Kartar CUP</h1>
             <p className="mt-4 max-w-[28ch] text-lg text-muted">

@@ -21,7 +21,7 @@ import type {
 } from './types';
 
 const eventRef = () => doc(db, 'event', 'current');
-const resultsRef = () => doc(db, 'results', 'current');
+const resultsRef = () => doc(db, 'event', 'results');
 const entryRef = (uid: string) => doc(db, 'entries', uid);
 
 export function watchEvent(cb: (e: EventDoc | null) => void): Unsubscribe {
