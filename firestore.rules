@@ -1,9 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Placeholder: deny all. Replaced by the rules task.
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() { return request.auth != null; }
+    function isHost() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && exists(/databases/$(database)/documents/hosts/$(request.auth.token.email.lower()));
+    }
+    function ev() { return get(/databases/$(database)/documents/event/current).data; }
+    function acceptingEntries() {
+      return ev().status == 'open' && request.time < ev().lightsOutUtc;
+    }
+    function validEntry(uid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['uid','name','email','phone','provider','answers','submittedAt','createdAt'])
+        && d.keys().hasAll(['uid','name','provider','answers','submittedAt','createdAt'])
+        && d.uid == uid
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 60
+        && (!('phone' in d) || (d.phone is string && d.phone.matches('^[+0-9 ]{7,16}$')))
+        && (!('email' in d) || d.email == request.auth.token.email)
+        && d.provider in ['google','anonymous']
+        && d.answers is map
+        && d.answers.keys().hasOnly(['q1','q2','q3','q4','q5'])
+        && d.answers.keys().hasAll(['q1','q2','q3','q4','q5'])
+        && d.answers.q1 is string && d.answers.q1.size() <= 40
+        && d.answers.q2 is string && d.answers.q2.size() <= 40
+        && d.answers.q3 is string && d.answers.q3.size() <= 40
+        && d.answers.q4 is string && d.answers.q4.size() <= 40
+        && d.answers.q5 is string && d.answers.q5.size() <= 40
+        && d.submittedAt == request.time;
+    }
+
+    match /event/current {
+      allow read: if true;
+      allow write: if isHost();
+    }
+    match /event/results {
+      allow read: if isHost() || ev().status == 'scored';
+      allow write: if isHost();
+    }
+    match /entries/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isHost();
+      allow list, delete: if isHost();
+      allow create: if signedIn() && request.auth.uid == uid && acceptingEntries() && validEntry(uid)
+                    && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && request.auth.uid == uid && acceptingEntries() && validEntry(uid)
+                    && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    match /hosts/{email} {
+      allow get: if signedIn() && request.auth.token.email.lower() == email;
+      allow write: if false;
     }
   }
 }
