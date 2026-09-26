@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Placeholder: deny all. Replaced by the rules task.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
