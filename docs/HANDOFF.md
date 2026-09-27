@@ -1,4 +1,4 @@
-# Handoff — Kartar CUP (updated 2026-09-28 01:03 IST — usage climbing fast, pausing here)
+# Handoff — Kartar CUP (updated 2026-09-28 01:23 IST — session at 92% usage, stopping now)
 
 This is the end of the current session's weekly quota. Everything below is verified true at this
 moment, not assumed. Read rules.md (R1-R31) and decisions.md before doing anything — they are the
@@ -48,7 +48,24 @@ git merge worktree-build-v1
   script from earlier in the day. Explicitly superseded by the OpenF1 approach (R30, see below).
   Safe to delete.
 
-## Since the last handoff entry (00:42), added and verified
+## TOP PRIORITY for next session (explicit user feedback, not yet acted on)
+User's own words: "font, spacing and text placement are not the best... this is so bad right now."
+They explicitly asked to check MULTIPLE real design/content sources with similar content (other
+F1/motorsport sites, ticketing/event sites) before touching typography again, rather than guess.
+They also flagged that several installed design skills (Leonxlnx/taste-skill pack: gpt-taste,
+high-end-visual-design, industrial-brutalist-ui, minimalist-ui, stitch-design-taste, brandkit,
+redesign-existing-projects — see .agents/skills/, still uncommitted/unreviewed by me) are sitting
+unused and should actually be tried, not just installed. THIS WAS NOT ACTED ON TONIGHT — usage hit
+92% right as this request landed, and starting an open-ended multi-source typography research pass
+at that point would have been irresponsible. Do this FIRST next session, before any new feature.
+Suggested approach: (1) actually invoke 2-3 of the unused skills (e.g. redesign-existing-projects
+seems purpose-built for exactly this — "upgrades existing websites... identifies generic AI
+patterns") and compare their output/critique against the current site; (2) look at real reference
+sites for spacing/type-scale conventions, not just formula1.com (checked tonight, has no countdown
+widget and is fairly sparse itself — look at ticketing sites, other motorsport community sites);
+(3) apply findings as a focused pass across src/guest/** and src/styles/tokens.css, not a rewrite.
+
+## More since the last handoff entry (00:42), added and verified
 9. `/events` restructured into an asymmetric card grid (R32) — a featured "next race" card, then a
    2-column grid grouped by month, each card showing that race's REAL circuit outline (the
    validated geometry from earlier, e.g. Sepang/Marina Bay/COTA) with a CSS-only 3D tilt
@@ -73,6 +90,34 @@ from research (Eshkol Event Space, ₹399/798/1596), and R26 says never build sp
 without confirmation. Next session should get real pricing from the user FIRST, then build both
 sides of booking together (they're tightly coupled: a guest can't buy a ticket for a booking event
 that no host UI has ever let anyone create).
+
+## Final stretch (01:03-01:23), all committed and verified (build + 120 unit tests green)
+12. Merged home page's hero and "what's on next" into one top row (hero 35% / next-race 65%,
+    height-matched to hero). Replaced the digital countdown pill with a genuine analog wall-clock
+    (tick marks, sweeping second hand, digital D:HH:MM:SS at centre), then gave it real depth
+    (conic-gradient bezel, radial face, pivot dot) after it was reported as "plain/boring."
+    Checked formula1.com directly for both: no countdown widget or analog dial exists there to
+    copy (their broadcast clock is a small TAG Heuer-branded badge, TV-only convention).
+13. /events: added a real F1.com-style featured row (Previous small ~15% / Next large ~65%, 5%
+    outer padding, ~2.5% gap — `previousRace()` new helper in eventsModel.ts, skips
+    cancelled-by-host races same as upcomingRaces, gracefully returns null when there's genuinely
+    no earlier scheduled race in our data, which is true right now).
+14. Fixed a REAL reported bug: circuit outlines overflowing their card boundary. Two causes: the
+    SVG's h-auto let an off-aspect circuit exceed the stage's fixed height (fixed with
+    max-h-full), and a leftover prefers-reduced-motion hover rule still jumped to the pre-fix
+    rotateX(28deg), reintroducing the exact overflow an earlier same-night fix had reduced.
+15. Every race card (not just featured) now uses info-left / square-track-right, replacing the
+    up/down stack on compact cards, per explicit request. NOT visually re-screenshotted this pass
+    (usage hit 92%) — verified by build + tests only. Worth a quick visual sanity check first
+    thing next session before trusting it fully.
+16. Logged R33: 2027 season should become a dotted-gap TIMELINE (>1 week between races = dotted
+    line, showing the gap length) instead of track-layout cards — NOT BUILT YET, real next task,
+    buildable now with existing raceDate data, no fabrication needed.
+17. Logged (not built, real data missing): an interactive-globe alternative to the timeline — red
+    landmark dots per circuit, an animated flight in race order with a trailing line, free camera
+    movement, hover for full session schedule. Blocked on real per-circuit lat/long and full
+    per-session (practice/quali/sprint) timing, neither of which exist in the data yet, plus would
+    need a new Three.js/WebGL dependency. Source the data FIRST if this gets picked up later.
 
 ## What got built this session (chronological, see rules.md for the "why" on each)
 1. Booking data model + Firestore rules + mock-pay flow (R23), rules-tested (B1).
