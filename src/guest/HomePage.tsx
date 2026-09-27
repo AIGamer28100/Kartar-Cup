@@ -15,7 +15,7 @@ import { ALL_RACES, nextRace } from "../config/calendar";
 import { trackForRace } from "../config/tracks";
 import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
 import { istReadout, safeWhatsappUrl } from "./model";
-import { Eyebrow, H1, Reveal, Shell, Split } from "./parts";
+import { Eyebrow, H1, Reveal, Shell } from "./parts";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { useGuestSession } from "./useGuestSession";
@@ -62,65 +62,88 @@ function PlainDivider() {
   return <Divider className="my-14" />;
 }
 
-function CommunityHero({
-  trackId,
-  onSeeWhatsOn,
-}: {
-  trackId: string | undefined;
-  onSeeWhatsOn: () => void;
-}) {
-  const track = trackId ? trackForRace(trackId) : null;
+/** Merged hero + "what's on next", per the user's explicit layout: hero text at 30-40% width,
+ * the next race (wall clock, track, details) at 60-70%, side by side at the TOP of the page —
+ * height-matched to the hero's own natural height (the right column scales its content down to
+ * fit, never the other way around). QuizBanner is NOT inside this row (kept below, full-width)
+ * so height-matching stays predictable regardless of quiz state. */
+function HeroAndNextRace() {
+  const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
+  const track = next ? trackForRace(next.id) : null;
+  const targetMs = next ? Date.parse(`${next.raceDate}T13:00:00Z`) : 0;
   const trackWrapRef = useRef<HTMLDivElement>(null);
   const desktopMotion = useDesktopMotion();
   const { scrollYProgress } = useScroll({
     target: trackWrapRef,
     offset: ["start start", "end start"],
   });
-  const trackY = useTransform(scrollYProgress, [0, 1], [0, 40]);
-  const trackOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.4]);
+  const trackY = useTransform(scrollYProgress, [0, 1], [0, 24]);
+  const trackOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
+
   return (
-    <Split
-      left={
-        <>
-          <Reveal>
-            <Eyebrow>Chennai &amp; Coimbatore · motorsport community</Eyebrow>
-            <h1 className={`mt-6 ${H1}`}>The Karter Cup</h1>
-            <p className="mt-4 max-w-[36ch] text-lg text-muted md:text-xl">
-              A leisure go-karting league and F1-style motorsport community —
-              karting days, sim racing and watch parties, run by people who
-              actually turn up.
-            </p>
-          </Reveal>
-          <Reveal index={1} className="mt-8">
-            <button
-              type="button"
-              onClick={onSeeWhatsOn}
-              className="text-gradient-brand inline-flex min-h-12 items-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-semibold transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
-            >
-              See what&rsquo;s on
-            </button>
-          </Reveal>
-        </>
-      }
-      right={
-        track ? (
-          <div
-            ref={trackWrapRef}
-            className="rounded-none border-y border-line py-8"
+    <div className="grid gap-10 lg:grid-cols-[35fr_65fr] lg:items-stretch lg:gap-14">
+      <div className="flex flex-col justify-center">
+        <Reveal>
+          <Eyebrow>Chennai &amp; Coimbatore · motorsport community</Eyebrow>
+          <h1 className={`mt-4 ${H1}`}>The Karter Cup</h1>
+          <p className="mt-4 max-w-[36ch] text-muted md:text-lg">
+            A leisure go-karting league and F1-style motorsport community —
+            karting days, sim racing and watch parties, run by people who
+            actually turn up.
+          </p>
+        </Reveal>
+        <Reveal index={1} className="mt-6">
+          <Link
+            to="/events"
+            className="text-gradient-brand inline-flex min-h-12 items-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-semibold transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
           >
-            {/* R29: subtle scroll-linked depth on the track-line as the guest scrolls past the
-               hero — desktop only (useDesktopMotion drops it on touch/narrow + reduced motion). */}
-            <motion.div
-              style={
-                desktopMotion ? { y: trackY, opacity: trackOpacity } : undefined
-              }
-            >
-              <TrackMap track={track} animate className="mx-auto max-w-md" />
-            </motion.div>
+            See the full calendar
+          </Link>
+        </Reveal>
+      </div>
+
+      {next && (
+        <div
+          ref={trackWrapRef}
+          className="flex flex-col justify-center gap-6 rounded-none border-y border-line py-8 lg:flex-row lg:items-center lg:gap-10"
+        >
+          <div className="min-w-0">
+            <Reveal index={1}>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                Round {String(next.round).padStart(2, "0")} · watch-party
+                night
+              </p>
+              <p className="mt-1 text-xl font-medium text-ink lg:text-2xl">
+                {next.name}
+              </p>
+              <p className="mt-1 text-sm text-muted lg:text-base">
+                {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
+                {next.locality}, {next.country}
+              </p>
+            </Reveal>
+            <Reveal index={2} className="mt-5">
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                Lights out in
+              </p>
+              <div className="mt-2">
+                <CountdownReadout targetMs={targetMs} />
+              </div>
+            </Reveal>
           </div>
-        ) : undefined
-      }
-    />
+          {track && (
+            <Reveal index={3} className="min-w-0 flex-1">
+              <motion.div
+                style={
+                  desktopMotion ? { y: trackY, opacity: trackOpacity } : undefined
+                }
+              >
+                <TrackMap track={track} animate className="mx-auto max-h-56 max-w-xs lg:max-h-64" />
+              </motion.div>
+            </Reveal>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -174,28 +197,69 @@ function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
   );
 }
 
-/** F1-broadcast-style digital countdown display: a dark segmented-numeral pill, the way a live
- * session clock reads on TV (styled after that convention — never the sponsor's actual name or
- * mark, per R27's same principle applied to a third party's trademark). Shows the 5-lights strip
- * once inside the final 5 hours. */
-function CountdownReadout({ targetMs }: { targetMs: number }) {
-  const { days, hours, minutes, seconds, totalMs, done } = useCountdown(targetMs);
+const CLOCK_TICKS = Array.from({ length: 12 }, (_, i) => i);
+
+/** Wall-clock-style countdown: a genuine round dial (tick marks, a sweeping second hand) with the
+ * D:HH:MM:SS countdown as digital numerals at its centre — F1.com's own site has no clock widget
+ * to copy (checked directly; their broadcast overlay is TV-only and Rolex-branded, so not reused
+ * here per R27's principle), so this combines a real analog wall-clock face with the digital
+ * readout the countdown actually needs to show days remaining. */
+function WallClock({ targetMs, size = 176 }: { targetMs: number; size?: number }) {
+  const { days, hours, minutes, seconds, done } = useCountdown(targetMs);
   const pad = (n: number) => String(n).padStart(2, "0");
+  const secondHandDeg = seconds * 6;
+  return (
+    <div
+      className="relative shrink-0 rounded-full border border-line bg-base shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_20px_40px_-24px_rgba(0,0,0,0.6)]"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={done ? "Lights out" : `${days} days ${pad(hours)}:${pad(minutes)}:${pad(seconds)} to lights out`}
+    >
+      {CLOCK_TICKS.map((i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={`absolute left-1/2 top-1/2 origin-bottom rounded-full ${i % 3 === 0 ? "h-[9%] w-[2.5px] bg-muted" : "h-[6%] w-px bg-line"}`}
+          style={{ transform: `rotate(${i * 30}deg) translateX(-50%)`, transformOrigin: "50% 0" }}
+        />
+      ))}
+      {!done && (
+        <span
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 h-[38%] w-px origin-bottom bg-accent shadow-[0_0_6px_1px_var(--color-accent)] motion-reduce:hidden"
+          style={{ transform: `translateX(-50%) rotate(${secondHandDeg}deg)`, transformOrigin: "50% 0" }}
+        />
+      )}
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
+        {done ? (
+          <p className="font-mono text-sm font-semibold uppercase tracking-wider text-ink">
+            Lights out
+          </p>
+        ) : (
+          <>
+            {days > 0 && (
+              <p className="font-mono text-[0.65rem] uppercase tracking-widest text-muted">
+                {days}d
+              </p>
+            )}
+            <p className="font-mono text-lg font-semibold tabular-nums tracking-tight text-ink">
+              {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Wall-clock + 5-lights, sized to sit alongside the hero at reduced scale so the combined row
+ * matches the hero's own height (R32 follow-up: "height matching the hero section"). */
+function CountdownReadout({ targetMs }: { targetMs: number }) {
+  const { totalMs, done } = useCountdown(targetMs);
   const hoursRemaining = totalMs / 3_600_000;
   return (
-    <div>
-      <div className="inline-flex items-center rounded-md border border-line bg-base px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <p className="font-mono text-3xl font-semibold tabular-nums tracking-wider text-ink">
-          {done ? (
-            "LIGHTS OUT"
-          ) : (
-            <>
-              {days > 0 && <span className="mr-2 text-lg align-middle">{days}d</span>}
-              {pad(hours)}:{pad(minutes)}:{pad(seconds)}
-            </>
-          )}
-        </p>
-      </div>
+    <div className="flex items-center gap-4">
+      <WallClock targetMs={targetMs} size={112} />
       {!done && hoursRemaining <= 5 && (
         <FiveLightsStrip hoursRemaining={hoursRemaining} />
       )}
@@ -206,7 +270,9 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
 /** R32 follow-up: only the NEXT event, with its real circuit visualization and a live countdown —
  * the full schedule moved to its own page (/events), so this section stays a single, focused
  * "what's on next" moment rather than a 3-up list. */
-function UpcomingEventsSection({
+/** The quiz's entry point (R25: minor, event-only) — race details/clock/track now live in
+ * HeroAndNextRace up top, so this is just the banner, full-width, no longer sharing a row. */
+function QuizBannerSection({
   event,
   status,
   quizRevealed,
@@ -217,64 +283,10 @@ function UpcomingEventsSection({
   quizRevealed: boolean;
   onReveal: () => void;
 }) {
-  const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
-  const track = next ? trackForRace(next.id) : null;
-  const targetMs = next ? Date.parse(`${next.raceDate}T13:00:00Z`) : 0;
-
+  if (quizRevealed) return null;
   return (
     <div id="events">
-      <SectionHeading eyebrow="Upcoming">What&rsquo;s on next</SectionHeading>
-      {next ? (
-        <div className="mt-8 flex flex-col gap-10 lg:grid lg:grid-cols-[3fr_7fr] lg:items-center lg:gap-16">
-          {track && (
-            <Reveal className="lg:order-2">
-              <div className="rounded-none border-y border-line py-8">
-                <TrackMap track={track} animate className="mx-auto max-w-xl lg:max-w-none" />
-              </div>
-            </Reveal>
-          )}
-          <div className="lg:order-1">
-            <Reveal index={1}>
-              <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                Round {String(next.round).padStart(2, "0")} · watch-party
-                night
-              </p>
-              <p className="mt-2 text-2xl font-medium text-ink">
-                {next.name}
-              </p>
-              <p className="mt-1 text-muted">
-                {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
-                {next.locality}, {next.country}
-              </p>
-            </Reveal>
-            <Reveal index={2} className="mt-6">
-              <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                Lights out in
-              </p>
-              <div className="mt-1">
-                <CountdownReadout targetMs={targetMs} />
-              </div>
-            </Reveal>
-            <Reveal index={3} className="mt-6">
-              <Link to="/events" className={linkCls}>
-                See the full calendar
-                <ArrowRight size={18} weight="regular" aria-hidden="true" />
-              </Link>
-            </Reveal>
-          </div>
-        </div>
-      ) : (
-        <Reveal index={1} className="mt-6">
-          <p className="text-muted">
-            No races left on the calendar — check back for the next season.
-          </p>
-        </Reveal>
-      )}
-      {!quizRevealed && (
-        <div className="mt-8">
-          <QuizBanner event={event} status={status} onReveal={onReveal} />
-        </div>
-      )}
+      <QuizBanner event={event} status={status} onReveal={onReveal} />
     </div>
   );
 }
@@ -445,23 +457,17 @@ export default function HomePage() {
     <>
       <ScrollProgressPath />
       <Shell>
-        <CommunityHero
-          trackId={s.event?.raceId}
-          onSeeWhatsOn={() =>
-            document
-              .getElementById("events")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" })
-          }
-        />
+        <HeroAndNextRace />
+        <div className="mt-10">
+          <QuizBannerSection
+            event={s.event}
+            status={s.status}
+            quizRevealed={quizRevealed}
+            onReveal={() => setQuizRevealed(true)}
+          />
+        </div>
         <CheckerDivider />
         <AboutSection />
-        <PlainDivider />
-        <UpcomingEventsSection
-          event={s.event}
-          status={s.status}
-          quizRevealed={quizRevealed}
-          onReveal={() => setQuizRevealed(true)}
-        />
         <PlainDivider />
         <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
         <CheckerDivider />
