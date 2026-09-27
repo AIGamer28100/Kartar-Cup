@@ -29,8 +29,9 @@ test('host leaderboard has no serious violations', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   await saveResultsAdmin({ q1: ['williams'], q2: ['norris'], q3: ['stroll'], q4: ['red-bull'], q5: ['russell'] });
+  await page.goto('/');
+  await hostLogin(page, 'host@example.com'); // must be signed in before entering /host* (R18 bounces signed-out visitors home)
   await page.goto('/host');
-  await hostLogin(page, 'host@example.com');
   await expect(page.getByRole('region', { name: 'Leaderboard' })).toContainText('Priya Venkatesh');
   expect(await serious(page)).toEqual([]);
   await ctx.close();

@@ -4,8 +4,9 @@ import { SCREENS, hostLogin, resetAndSeed } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await resetAndSeed();
+  await page.goto('/');
+  await hostLogin(page, 'host@example.com'); // must be signed in before entering /host* (R18 bounces signed-out visitors home)
   await page.goto('/host/settings');
-  await hostLogin(page, 'host@example.com');
   await expect(page.getByRole('heading', { name: 'Event settings' })).toBeVisible();
   await expect(page.getByLabel('Event name')).not.toHaveValue('');
 });
@@ -28,8 +29,8 @@ test('whatsapp link: invalid shows inline error, valid saves', async ({ page }) 
   await page.getByRole('button', { name: 'Save event' }).click();
   await expect(page.getByTestId('save-banner')).toContainText('Event saved');
   await expect(page.getByTestId('dirty-indicator')).toContainText('All changes saved');
-  await page.reload();
-  await hostLogin(page, 'host@example.com');
+  await page.reload(); // persisted emulator session should restore without a fresh __e2eLogin call
+  await expect(page.getByRole('heading', { name: 'Event settings' })).toBeVisible();
   await expect(page.getByLabel('Community link')).toHaveValue('https://chat.whatsapp.com/AbC123xyz');
 });
 
@@ -57,6 +58,37 @@ test('extend closing by 10 minutes updates the close time', async ({ page }) => 
   const before = await minutes();
   await page.getByRole('button', { name: /extend closing \+10/i }).click();
   await expect.poll(async () => ((await minutes()) - before + 1440) % 1440).toBe(10);
+});
+
+test('editors are tabbed, keyboard-operable, and the unsaved indicator survives a tab switch (R22)', async ({ page }) => {
+  const tablist = page.getByRole('tablist', { name: 'Settings sections' });
+  await expect(tablist).toBeVisible();
+  const details = page.getByRole('tab', { name: 'Details' });
+  const grid = page.getByRole('tab', { name: 'Grid' });
+  const teams = page.getByRole('tab', { name: 'Teams' });
+  const questions = page.getByRole('tab', { name: 'Questions' });
+  await expect(details).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('Event name')).toBeVisible();
+
+  await page.getByLabel('Event name').fill('Edited name');
+  await expect(page.getByTestId('dirty-indicator')).toContainText('Unsaved');
+
+  await details.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(grid).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Starting grid' })).toBeVisible();
+  await expect(page.getByTestId('dirty-indicator')).toContainText('Unsaved');
+
+  await page.keyboard.press('ArrowRight');
+  await expect(teams).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Add team' })).toBeVisible();
+
+  await questions.click();
+  await expect(page.getByRole('button', { name: /Add question/ })).toBeVisible();
+  await expect(page.getByLabel('Event name')).toHaveCount(0); // Details fields are unmounted while another tab is active
+
+  await details.click();
+  await expect(page.getByLabel('Event name')).toHaveValue('Edited name');
 });
 
 test('settings page has no serious a11y violations and screenshots', async ({ page }) => {
