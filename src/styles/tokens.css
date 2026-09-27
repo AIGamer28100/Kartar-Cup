@@ -31,6 +31,55 @@
   color: transparent;
 }
 
+/*
+ * R32: /events card grid — a CSS-only "3D" presentation of each race's REAL 2D circuit outline
+ * (TrackMap renders the validated geometry; nothing here invents elevation/depth data, it only
+ * tilts the flat SVG in perspective space for a premium/extruded feel). Static perspective tilt
+ * by default; hover/entrance easing is transform-only and skipped under reduced motion. Flattens
+ * on narrow screens where perspective tricks read poorly on touch (handled via Tailwind classes
+ * on the element, not here — this file only holds the shared tilt surface + hover easing).
+ */
+.track-tilt-stage {
+  perspective: 1400px;
+}
+.track-tilt {
+  transform: rotateX(18deg) rotateZ(-1deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 14px 16px rgb(0 0 0 / 0.45));
+  transition: transform 400ms ease, filter 400ms ease;
+  will-change: transform;
+}
+.group:hover .track-tilt {
+  transform: rotateX(10deg) rotateZ(-1deg) translateY(-3px) scale(1.02);
+  filter: drop-shadow(0 20px 22px rgb(0 0 0 / 0.5));
+}
+.track-tilt-featured {
+  transform: rotateX(20deg) rotateZ(-2deg);
+}
+.group:hover .track-tilt-featured {
+  transform: rotateX(12deg) rotateZ(-1deg) translateY(-4px) scale(1.015);
+}
+@media (max-width: 767px) {
+  .track-tilt,
+  .track-tilt-featured {
+    transform: rotateX(10deg);
+  }
+  .group:hover .track-tilt,
+  .group:hover .track-tilt-featured {
+    transform: rotateX(10deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .track-tilt,
+  .track-tilt-featured {
+    transition: none;
+  }
+  .group:hover .track-tilt,
+  .group:hover .track-tilt-featured {
+    transform: rotateX(28deg) rotateZ(-2deg);
+  }
+}
+
 /* Subtle checkered-motif divider strip. Sparing use only (1-2 spots): under the hero, or as a
    section divider. Static tile, no motion — respects prefers-reduced-motion trivially. */
 .divider-checker {

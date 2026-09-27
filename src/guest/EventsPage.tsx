@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarBlank, TicketIcon } from '@phosphor-icons/react';
+import { CalendarBlank, FlagCheckered, TicketIcon } from '@phosphor-icons/react';
 import Divider from '../components/Divider';
 import Skeleton, { Busy } from '../components/Skeleton';
+import TrackMap from '../components/TrackMap';
 import { ALL_RACES, type RaceInfo } from '../config/calendar';
 import { DEFAULT_RACE_START_UTC_TIME } from '../config/event';
 import { trackForRace } from '../config/tracks';
@@ -67,63 +68,112 @@ function useActiveQuizRace(): { raceId: string | null; status: ReturnType<typeof
   return { raceId: event?.raceId ?? null, status };
 }
 
-function RowSkeleton() {
+function CardSkeleton({ featured = false }: { featured?: boolean }) {
   return (
-    <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-baseline sm:justify-between">
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-6 w-64" />
-        <Skeleton className="h-4 w-48" />
-      </div>
-      <Skeleton className="h-4 w-40" />
+    <div className={`rounded-lg border border-line bg-raised p-6 ${featured ? 'sm:col-span-2' : ''}`}>
+      <Skeleton className={`w-full rounded-md ${featured ? 'h-64' : 'h-40'}`} />
+      <Skeleton className="mt-5 h-3 w-32" />
+      <Skeleton className="mt-3 h-6 w-64" />
+      <Skeleton className="mt-2 h-4 w-48" />
     </div>
   );
 }
 
-function EventRow({
+/** The circuit visual: the race's REAL validated 2D outline (TrackMap) given a CSS-only
+ * perspective/tilt presentation for depth — no fabricated elevation data (R17/R32). Races with
+ * no track coverage (`trackForRace` -> null) get a graceful text-only placeholder instead of a
+ * broken/blank card. */
+function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }) {
+  const track = trackForRace(race.id);
+  if (!track) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-md border border-dashed border-line bg-base ${
+          featured ? 'h-64' : 'h-40'
+        }`}
+      >
+        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+          <FlagCheckered size={16} weight="regular" aria-hidden="true" />
+          Circuit layout coming soon
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`track-tilt-stage flex items-center justify-center overflow-hidden ${featured ? 'h-64 sm:h-80' : 'h-40 sm:h-48'}`}
+    >
+      <div className={`w-3/5 ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
+        <TrackMap raceId={race.id} title={`${race.name} circuit layout`} />
+      </div>
+    </div>
+  );
+}
+
+function TicketReadout({ ticket }: { ticket: { available: boolean; bookingEventId: string | null } }) {
+  return ticket.available && ticket.bookingEventId ? (
+    <Link
+      to={`/events/${ticket.bookingEventId}`}
+      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+    >
+      <TicketIcon size={18} weight="regular" aria-hidden="true" />
+      Tickets available
+    </Link>
+  ) : (
+    <p className="text-sm text-muted">Watch party — booking coming soon</p>
+  );
+}
+
+/** One race card. `featured` renders the next-up race large with a bigger circuit visual and a
+ * two-column internal layout on wider screens (mirrors HomePage's UpcomingEventsSection); all
+ * other races render as the compact card used in the surrounding grid. */
+function RaceCard({
   race,
   index,
   ticket,
   quizNote,
+  featured = false,
 }: {
   race: RaceInfo;
   index: number;
   ticket: { available: boolean; bookingEventId: string | null };
   quizNote: boolean;
+  featured?: boolean;
 }) {
   const { range, local, ist } = raceDateReadout(race);
   return (
-    <Reveal index={index} className="py-6 sm:flex sm:items-baseline sm:justify-between sm:gap-8">
-      <div>
-        <p className="font-mono text-xs uppercase tracking-widest text-muted">
-          Round {String(race.round).padStart(2, '0')} · {range}
-        </p>
-        <p className="mt-2 text-lg font-medium text-ink md:text-xl">{race.name}</p>
-        <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-          <CalendarBlank size={16} weight="regular" aria-hidden="true" />
-          <span>watch party {local} local</span>
-          <span aria-hidden="true">·</span>
-          <span>{ist} IST</span>
-        </p>
-        {quizNote && (
-          <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
-            Predictions open at lights-out
+    <Reveal
+      index={index}
+      className={`group overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-muted ${
+        featured ? 'sm:col-span-2' : ''
+      }`}
+    >
+      <div className={featured ? 'sm:grid sm:grid-cols-[3fr_2fr] sm:items-center sm:gap-6' : ''}>
+        <div className={`border-b border-line p-4 ${featured ? 'sm:border-b-0 sm:border-r sm:p-6' : ''}`}>
+          <CircuitVisual race={race} featured={featured} />
+        </div>
+        <div className={`p-5 ${featured ? 'sm:p-6' : ''}`}>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted">
+            Round {String(race.round).padStart(2, '0')} · {range}
+            {featured && ' · next up'}
           </p>
-        )}
-      </div>
-      <div className="mt-3 shrink-0 sm:mt-0 sm:text-right">
-        {ticket.available && ticket.bookingEventId ? (
-          <Link
-            to={`/events/${ticket.bookingEventId}`}
-            className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
-          >
-            <TicketIcon size={18} weight="regular" aria-hidden="true" />
-            Tickets available
-          </Link>
-        ) : (
-          <p className="text-sm text-muted">Watch party — booking coming soon</p>
-        )}
+          <p className={`mt-2 font-medium text-ink ${featured ? 'text-2xl' : 'text-lg'}`}>{race.name}</p>
+          <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+            <CalendarBlank size={16} weight="regular" aria-hidden="true" />
+            <span>watch party {local} local</span>
+            <span aria-hidden="true">·</span>
+            <span>{ist} IST</span>
+          </p>
+          {quizNote && (
+            <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
+              Predictions open at lights-out
+            </p>
+          )}
+          <div className="mt-4">
+            <TicketReadout ticket={ticket} />
+          </div>
+        </div>
       </div>
     </Reveal>
   );
@@ -193,39 +243,38 @@ export default function EventsPage() {
       <Divider className="mt-8" />
 
       {bookingEvents === undefined && !loadError ? (
-        <Busy>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i}>
-              <RowSkeleton />
-              {i < 3 && <Divider />}
-            </div>
-          ))}
+        <Busy className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <CardSkeleton featured />
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </Busy>
       ) : races.length === 0 ? (
         <Reveal className="py-10">
           <p className="text-muted">No races left on the calendar — check back for the next season.</p>
         </Reveal>
       ) : (
-        <div>
+        <div className="mt-8">
           {loadError && (
             <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
               Couldn&rsquo;t load ticket status — showing the schedule only.
             </p>
           )}
           {groups.map((group, gi) => (
-            <section key={group.label} aria-label={group.label} className={gi > 0 ? 'mt-8' : ''}>
+            <section key={group.label} aria-label={group.label} className={gi > 0 ? 'mt-12' : ''}>
               <p className="font-mono text-xs uppercase tracking-widest text-muted">{group.label}</p>
-              {group.races.map((race, i) => (
-                <div key={race.id}>
-                  <Divider className="mt-3" />
-                  <EventRow
+              <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                {group.races.map((race, i) => (
+                  <RaceCard
+                    key={race.id}
                     race={race}
                     index={gi * 3 + i}
                     ticket={ticketStatusFor(race.id, bookingEvents ?? [])}
                     quizNote={quizVisible && quizRaceId === race.id}
+                    featured={gi === 0 && i === 0}
                   />
-                </div>
-              ))}
+                ))}
+              </div>
             </section>
           ))}
         </div>
