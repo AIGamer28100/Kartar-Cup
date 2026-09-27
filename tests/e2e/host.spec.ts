@@ -7,12 +7,10 @@ test.beforeEach(async () => {
 
 test('gate rejects non-host, host runs the whole night', async ({ page }) => {
   await page.goto('/host');
-  await expect(page.getByText(/marshals only/i)).toBeVisible();
-  await page.screenshot({ path: `${SCREENS}/host-gate.png` });
-
-  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/); // R18: no host login UI, unauthenticated /host bounces home
 
   await hostLogin(page, 'host@example.com');
+  await page.getByRole('link', { name: 'Host console' }).click();
   await expect(page.getByRole('region', { name: 'Race control' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Race control' }).locator('[aria-live]')).toHaveText('3');
   await expect(page.getByText('Karthik Subramanian')).toBeVisible();

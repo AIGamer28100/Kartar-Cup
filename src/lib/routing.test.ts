@@ -17,9 +17,9 @@ describe('decideRoute', () => {
     expect(decideRoute({ ...base, path: '/host', loading: true })).toEqual({ kind: 'loading' });
     expect(decideRoute({ ...base, path: '/host/settings', loading: true })).toEqual({ kind: 'loading' });
   });
-  it('signed-out host visits get the in-place gate, no redirect', () => {
-    expect(decideRoute({ ...base, path: '/host' })).toEqual({ kind: 'signin' });
-    expect(decideRoute({ ...base, path: '/host/settings' })).toEqual({ kind: 'signin' });
+  it('signed-out host visits are redirected to /', () => {
+    expect(decideRoute({ ...base, path: '/host' })).toEqual({ kind: 'redirect', to: '/' });
+    expect(decideRoute({ ...base, path: '/host/settings' })).toEqual({ kind: 'redirect', to: '/' });
   });
   it('shows loading while the host lookup resolves, never host UI', () => {
     expect(decideRoute({ ...base, path: '/host', user: true })).toEqual({ kind: 'loading' });

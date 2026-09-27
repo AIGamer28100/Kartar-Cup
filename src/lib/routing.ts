@@ -3,8 +3,6 @@ export const isHostPath = (path: string): boolean => path === '/host' || path.st
 export type RouteDecision =
   | { kind: 'render' }
   | { kind: 'loading' }
-  /** Signed out on a host route: show the in-place Google gate. */
-  | { kind: 'signin' }
   | { kind: 'redirect'; to: string };
 
 export interface RouteInput {
@@ -21,7 +19,7 @@ export interface RouteInput {
 export function decideRoute({ path, user, isHost, loading }: RouteInput): RouteDecision {
   if (!isHostPath(path)) return { kind: 'render' };
   if (loading) return { kind: 'loading' };
-  if (!user) return { kind: 'signin' };
+  if (!user) return { kind: 'redirect', to: '/' };
   if (isHost === undefined) return { kind: 'loading' };
   return isHost ? { kind: 'render' } : { kind: 'redirect', to: '/' };
 }

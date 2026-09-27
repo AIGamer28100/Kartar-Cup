@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
-import { Check, SignIn, SignOut, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Check, Gauge, SignIn, SignOut, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
@@ -42,10 +42,16 @@ const linkCls =
  * "Sign in" button that focuses the hero's Google CTA (id g-cta).
  */
 export function Shell({ children, bare = false, signIn = false }: { children: ReactNode; bare?: boolean; signIn?: boolean }) {
-  const { ready, user } = useAuth();
+  const { ready, user, isHost } = useAuth();
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6 lg:px-16">
-      <div className="mb-6 flex min-h-11 justify-end md:mb-2">
+      <div className="mb-6 flex min-h-11 items-center justify-end gap-4 md:mb-2">
+        {!bare && user && isHost === true && (
+          <Link to="/host" className={linkCls}>
+            <Gauge size={20} weight="regular" aria-hidden="true" />
+            Host console
+          </Link>
+        )}
         {!bare && ready && (user ? (
           <Link to="/logout" className={linkCls}>
             <SignOut size={20} weight="regular" aria-hidden="true" />

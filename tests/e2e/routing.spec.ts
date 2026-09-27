@@ -34,11 +34,20 @@ test('guest visiting /host/settings is redirected to /', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Event settings' })).toHaveCount(0);
 });
 
-test('signed-out /host shows the gate in place, then lands on the console for a host', async ({ page }) => {
+test('signed-out /host is redirected to / with no host UI', async ({ page }) => {
   await page.goto('/host');
-  await expect(page).toHaveURL(/\/host$/);
-  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toHaveCount(0);
+  await expect(page.getByText('pit wall')).toHaveCount(0);
+});
+
+test('host sees the Host console link and can open /host; guest never sees it', async ({ page }) => {
+  await page.goto('/');
+  await hostLogin(page, 'guest@example.com');
+  await expect(page.getByRole('link', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Host console' })).toHaveCount(0);
   await hostLogin(page, 'host@example.com');
+  await page.getByRole('link', { name: 'Host console' }).click();
   await expect(page).toHaveURL(/\/host$/);
   await expect(page.getByRole('region', { name: 'Race control' })).toBeVisible();
 });
