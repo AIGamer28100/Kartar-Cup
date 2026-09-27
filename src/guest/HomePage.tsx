@@ -210,33 +210,56 @@ function WallClock({ targetMs, size = 176 }: { targetMs: number; size?: number }
   const secondHandDeg = seconds * 6;
   return (
     <div
-      className="relative shrink-0 rounded-full border border-line bg-base shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_20px_40px_-24px_rgba(0,0,0,0.6)]"
-      style={{ width: size, height: size }}
+      className="relative shrink-0 rounded-full p-[6%]"
+      style={{
+        width: size,
+        height: size,
+        // Metal bezel: a subtle conic sweep (never a flat ring) plus an inset highlight along the
+        // top edge, the way a real watch case catches light. Neutral tones only, no new hue.
+        background:
+          "conic-gradient(from 220deg, var(--color-line), var(--color-raised) 35%, var(--color-line) 55%, var(--color-raised) 80%, var(--color-line))",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 2px rgba(0,0,0,0.5), 0 24px 48px -24px rgba(0,0,0,0.7)",
+      }}
       role="img"
       aria-label={done ? "Lights out" : `${days} days ${pad(hours)}:${pad(minutes)}:${pad(seconds)} to lights out`}
     >
-      {CLOCK_TICKS.map((i) => (
+      <div
+        className="relative h-full w-full rounded-full"
+        style={{
+          // The face itself: a faint radial gradient for depth, darker than the bezel so the
+          // bezel reads as a raised ring around it.
+          background:
+            "radial-gradient(circle at 35% 30%, var(--color-raised), var(--color-base) 70%)",
+          boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55)",
+        }}
+      >
+        {CLOCK_TICKS.map((i) => (
+          <span
+            key={i}
+            aria-hidden="true"
+            className={`absolute left-1/2 top-1/2 origin-bottom rounded-full ${i % 3 === 0 ? "h-[11%] w-[2.5px] bg-ink/70" : "h-[6%] w-px bg-line"}`}
+            style={{ transform: `rotate(${i * 30}deg) translateX(-50%)`, transformOrigin: "50% 0" }}
+          />
+        ))}
+        {!done && (
+          <span
+            aria-hidden="true"
+            className="absolute left-1/2 top-1/2 h-[40%] w-[1.5px] origin-bottom rounded-full bg-accent shadow-[0_0_8px_1.5px_var(--color-accent)] motion-reduce:hidden"
+            style={{ transform: `translateX(-50%) rotate(${secondHandDeg}deg)`, transformOrigin: "50% 0" }}
+          />
+        )}
         <span
-          key={i}
           aria-hidden="true"
-          className={`absolute left-1/2 top-1/2 origin-bottom rounded-full ${i % 3 === 0 ? "h-[9%] w-[2.5px] bg-muted" : "h-[6%] w-px bg-line"}`}
-          style={{ transform: `rotate(${i * 30}deg) translateX(-50%)`, transformOrigin: "50% 0" }}
+          className="absolute left-1/2 top-1/2 h-[7%] w-[7%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_4px_rgba(0,0,0,0.6)]"
         />
-      ))}
-      {!done && (
-        <span
-          aria-hidden="true"
-          className="absolute left-1/2 top-1/2 h-[38%] w-px origin-bottom bg-accent shadow-[0_0_6px_1px_var(--color-accent)] motion-reduce:hidden"
-          style={{ transform: `translateX(-50%) rotate(${secondHandDeg}deg)`, transformOrigin: "50% 0" }}
-        />
-      )}
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
-        {done ? (
-          <p className="font-mono text-sm font-semibold uppercase tracking-wider text-ink">
-            Lights out
-          </p>
-        ) : (
-          <>
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
+          {done ? (
+            <p className="font-mono text-sm font-semibold uppercase tracking-wider text-ink">
+              Lights out
+            </p>
+          ) : (
+            <>
             {days > 0 && (
               <p className="font-mono text-[0.65rem] uppercase tracking-widest text-muted">
                 {days}d
@@ -247,6 +270,7 @@ function WallClock({ targetMs, size = 176 }: { targetMs: number; size?: number }
             </p>
           </>
         )}
+        </div>
       </div>
     </div>
   );
