@@ -11,7 +11,7 @@ import Hero from './Hero';
 import { scoreOwn } from './model';
 import Quiz from './Quiz';
 import SignIn, { Profile, accountName } from './SignIn';
-import { CloseTimer, Eyebrow, PicksList, Reveal, Shell, TickStrip, WhatsAppCta } from './parts';
+import { CloseTimer, Eyebrow, H1, PicksList, Reveal, Shell, Split, TickStrip, WhatsAppCta } from './parts';
 import { useGuestSession, type GuestSession } from './useGuestSession';
 
 const CLOSED_MSG = 'Pit lane closed: your picks arrived after the window shut.';
@@ -26,11 +26,11 @@ export default function GuestApp() {
   if (ev === null || ev.questions.length === 0 || !s.status) {
     return (
       <Shell>
-        <Reveal>
+        <Split left={<Reveal>
           <Eyebrow>Kartar CUP</Eyebrow>
-          <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">Grid not open yet</h1>
+          <h1 className={`mt-3 ${H1}`}>Grid not open yet</h1>
           <p className="mt-3 text-muted">Race control has not set up this event. Check back in a few minutes.</p>
-        </Reveal>
+        </Reveal>} />
       </Shell>
     );
   }
@@ -80,50 +80,59 @@ function EventFlow({
     if (!s.entry || !entryAnswers) {
       return (
         <Shell>
-          <Reveal>
+          <Split left={<Reveal>
             <Eyebrow>Chequered flag</Eyebrow>
-            <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">Results are in</h1>
+            <h1 className={`mt-3 ${H1}`}>Results are in</h1>
             <p className="mt-3 text-muted">You did not enter this round. Catch the leaderboard on the big screen.</p>
-          </Reveal>
-          <Reveal index={1} className="mt-6">
+          </Reveal>} right={<Reveal index={1}>
             <WhatsAppCta url={wa} />
-          </Reveal>
+          </Reveal>} />
         </Shell>
       );
     }
     const sc = s.results ? scoreOwn(event, entryAnswers, s.results.answers) : null;
     return (
       <Shell>
-        <Reveal>
-          <Eyebrow>Chequered flag</Eyebrow>
-          <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">{s.entry.name}, your result</h1>
-        </Reveal>
-        <Reveal index={1} className="mt-8">
-          {sc ? (
+        <Split
+          left={
             <>
-              <p className="font-mono text-7xl font-semibold tabular-nums leading-none">
-                {sc.score}
-                <span className="text-3xl text-muted"> / {event.questions.length}</span>
-              </p>
-              <div className="mt-6">
-                <TickStrip config={event} ticks={sc.ticks} />
-              </div>
+              <Reveal>
+                <Eyebrow>Chequered flag</Eyebrow>
+                <h1 className={`mt-3 ${H1}`}>{s.entry.name}, your result</h1>
+              </Reveal>
+              <Divider className="my-8" />
+              <Reveal index={2}>
+                <p className="mb-2 text-sm text-muted">Your picks</p>
+                <PicksList config={event} answers={entryAnswers} />
+              </Reveal>
             </>
-          ) : (
-            <div className="flex flex-col gap-3" aria-busy="true">
-              <Skeleton className="h-16 w-40" />
-              <Skeleton className="h-11 w-full" />
-            </div>
-          )}
-        </Reveal>
-        <Divider className="my-8" />
-        <Reveal index={2}>
-          <p className="mb-2 text-sm text-muted">Your picks</p>
-          <PicksList config={event} answers={entryAnswers} />
-        </Reveal>
-        <Reveal index={3} className="mt-6">
-          <WhatsAppCta url={wa} />
-        </Reveal>
+          }
+          right={
+            <>
+              <Reveal index={1}>
+                {sc ? (
+                  <>
+                    <p className="font-mono text-[clamp(5rem,14vw,12rem)] font-semibold tabular-nums leading-none">
+                      {sc.score}
+                      <span className="text-[0.4em] text-muted"> / {event.questions.length}</span>
+                    </p>
+                    <div className="mt-8">
+                      <TickStrip config={event} ticks={sc.ticks} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-3" aria-busy="true">
+                    <Skeleton className="h-16 w-40" />
+                    <Skeleton className="h-11 w-full" />
+                  </div>
+                )}
+              </Reveal>
+              <Reveal index={3} className="mt-8">
+                <WhatsAppCta url={wa} />
+              </Reveal>
+            </>
+          }
+        />
       </Shell>
     );
   }
@@ -131,26 +140,34 @@ function EventFlow({
   if (status === 'closed') {
     return (
       <Shell>
-        <Reveal>
-          <div className="flex items-center gap-2">
-            <StatusDot status="locked" />
-            <Eyebrow>{event.name}</Eyebrow>
-          </div>
-          <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">Pit lane closed</h1>
-          <p className="mt-3 text-muted">
-            {entryAnswers
-              ? 'Nobody touches the wheel now. Here is what you called.'
-              : 'You did not radio in any picks, so there is nothing to show. Watch the race and heckle accordingly.'}
-          </p>
-        </Reveal>
-        {entryAnswers && (
-          <Reveal index={1} className="mt-6">
-            <PicksList config={event} answers={entryAnswers} />
-          </Reveal>
-        )}
-        <Reveal index={2} className="mt-6">
-          <WhatsAppCta url={wa} />
-        </Reveal>
+        <Split
+          left={
+            <Reveal>
+              <div className="flex items-center gap-2">
+                <StatusDot status="locked" />
+                <Eyebrow>{event.name}</Eyebrow>
+              </div>
+              <h1 className={`mt-3 ${H1}`}>Pit lane closed</h1>
+              <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
+                {entryAnswers
+                  ? 'Nobody touches the wheel now. Here is what you called.'
+                  : 'You did not radio in any picks, so there is nothing to show. Watch the race and heckle accordingly.'}
+              </p>
+            </Reveal>
+          }
+          right={
+            <>
+              {entryAnswers && (
+                <Reveal index={1}>
+                  <PicksList config={event} answers={entryAnswers} />
+                </Reveal>
+              )}
+              <Reveal index={2} className="mt-6">
+                <WhatsAppCta url={wa} />
+              </Reveal>
+            </>
+          }
+        />
       </Shell>
     );
   }
@@ -178,40 +195,47 @@ function EventFlow({
     const ok = !s.pending;
     return (
       <Shell>
-        <Reveal>
-          <div className="flex items-center gap-2">
-            <StatusDot status="open" />
-            <Eyebrow>{event.name}</Eyebrow>
-          </div>
-          <CloseTimer closesAt={event.closesAt.toMillis()} className="mt-3" />
-        </Reveal>
-        <Divider className="my-8" />
-        <Reveal index={1}>
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight" role="status">
-            {ok ? 'Picks locked in' : 'Transmitting to race control'}
-          </h1>
-          <p className="mt-2 text-muted">
-            {ok
-              ? 'Copy that, ' + s.entry.name + '. Change your mind while the pit lane is open if you must.'
-              : 'Hold the line while the signal gets through.'}
-          </p>
-        </Reveal>
-        <Reveal index={2} className="mt-4">
-          <PicksList config={event} answers={entryAnswers} />
-        </Reveal>
-        <Reveal index={3} className="mt-6 flex flex-col gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setError('');
-              patch({ step: 0 });
-              setEditing(true);
-            }}
-          >
-            Edit my picks
-          </Button>
-          <WhatsAppCta url={wa} />
-        </Reveal>
+        <Split
+          left={
+            <>
+              <Reveal>
+                <div className="flex items-center gap-2">
+                  <StatusDot status="open" />
+                  <Eyebrow>{event.name}</Eyebrow>
+                </div>
+                <CloseTimer closesAt={event.closesAt.toMillis()} className="mt-3" />
+              </Reveal>
+              <Reveal index={1} className="mt-8">
+                <h1 className={H1} role="status">
+                  {ok ? 'Picks locked in' : 'Transmitting to race control'}
+                </h1>
+                <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
+                  {ok
+                    ? 'Copy that, ' + s.entry.name + '. Change your mind while the pit lane is open if you must.'
+                    : 'Hold the line while the signal gets through.'}
+                </p>
+              </Reveal>
+              <Reveal index={3} className="mt-8 flex flex-col items-start gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setError('');
+                    patch({ step: 0 });
+                    setEditing(true);
+                  }}
+                >
+                  Edit my picks
+                </Button>
+                <WhatsAppCta url={wa} />
+              </Reveal>
+            </>
+          }
+          right={
+            <Reveal index={2}>
+              <PicksList config={event} answers={entryAnswers} />
+            </Reveal>
+          }
+        />
       </Shell>
     );
   }
@@ -220,13 +244,14 @@ function EventFlow({
     if (!started) {
       return (
         <Shell>
-          <Hero config={event} status={scheduled ? 'scheduled' : 'open'} />
-          <Reveal index={3} className="mt-auto pt-8">
-            <Button className="w-full" onClick={() => setStarted(true)}>
-              Get on the grid
-              <ArrowRight size={20} weight="regular" aria-hidden="true" />
-            </Button>
-          </Reveal>
+          <Hero config={event} status={scheduled ? 'scheduled' : 'open'}>
+            <Reveal index={3} className="pt-2 md:max-w-md">
+              <Button className="w-full md:min-h-14" onClick={() => setStarted(true)}>
+                Get on the grid
+                <ArrowRight size={20} weight="regular" aria-hidden="true" />
+              </Button>
+            </Reveal>
+          </Hero>
         </Shell>
       );
     }
@@ -251,8 +276,8 @@ function EventFlow({
   if (scheduled) {
     return (
       <Shell>
-        <Hero config={event} status="scheduled" />
-        <Reveal index={3} className="mt-auto pt-8">
+        <Hero config={event} status="scheduled">
+        <Reveal index={3} className="md:max-w-md">
           <p role="status" className="mb-3 text-sm text-muted">
             You are on the grid, {accountName(s.user)}. The quiz unlocks by itself when picks open.
           </p>
@@ -260,6 +285,7 @@ function EventFlow({
             Picks open in <Countdown target={event.opensAt.toMillis()} />
           </Button>
         </Reveal>
+        </Hero>
       </Shell>
     );
   }

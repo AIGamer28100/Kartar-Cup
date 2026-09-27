@@ -4,7 +4,7 @@ import { Copy, GoogleLogo } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Divider from '../components/Divider';
 import { isInAppBrowser } from '../lib/inAppBrowser';
-import { Eyebrow, Reveal, Shell } from './parts';
+import { Eyebrow, H1, Reveal, Shell, Split } from './parts';
 
 export const PHONE_RE = /^[0-9+ ]{7,16}$/;
 
@@ -95,12 +95,16 @@ export default function SignIn({ onGoogle }: SignInProps) {
 
   return (
     <Shell>
+      <Split
+        left={
       <Reveal>
         <Eyebrow>Driver briefing</Eyebrow>
-        <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">Radio in with Google</h1>
-        <p className="mt-3 text-muted">Your Google name goes on the board. Prizes need a name to read out.</p>
+        <h1 className={`mt-3 ${H1}`}>Radio in with Google</h1>
+        <p className="mt-3 max-w-[40ch] text-muted md:text-lg">Your Google name goes on the board. Prizes need a name to read out.</p>
       </Reveal>
-      <Reveal index={1} className="mt-8 flex flex-col gap-4">
+        }
+        right={
+      <Reveal index={1} className="flex max-w-md flex-col gap-4">
         {inApp && <InAppPanel />}
         {inApp && <Divider />}
         <Button disabled={busy} onClick={() => void go()} className={focusCls}>
@@ -113,6 +117,8 @@ export default function SignIn({ onGoogle }: SignInProps) {
           </p>
         )}
       </Reveal>
+        }
+      />
     </Shell>
   );
 }
@@ -137,19 +143,24 @@ export function Profile({ user, phone, onPhone, onContinue, onSwitch }: ProfileP
   };
   return (
     <Shell>
+      <Split
+        left={
       <Reveal>
         <Eyebrow>Driver briefing</Eyebrow>
-        <h1 className="mt-3 text-4xl font-semibold leading-none tracking-tight">You are on the radio</h1>
-      </Reveal>
-      <Reveal index={1} className="mt-8">
+        <h1 className={`mt-3 ${H1}`}>You are on the radio</h1>
+      <div className="mt-8">
         <p className="text-sm text-muted">Signed in as</p>
         <p className="mt-1 text-xl font-semibold">{accountName(user)}</p>
         {user.email && <p className="font-mono text-sm text-muted">{user.email}</p>}
         <button type="button" onClick={onSwitch} className={`mt-1 min-h-11 text-sm text-muted underline ${focusCls}`}>
           Not you? Switch account
         </button>
+      </div>
       </Reveal>
-      <Reveal index={2} className="mt-6">
+        }
+        right={
+      <div className="max-w-md">
+      <Reveal index={2}>
         <label htmlFor="g-phone" className="mb-2 block text-sm font-medium">
           Phone <span className="font-normal text-muted">(optional)</span>
         </label>
@@ -174,11 +185,14 @@ export function Profile({ user, phone, onPhone, onContinue, onSwitch }: ProfileP
           If you add a number, we may invite you to The Karter Cup WhatsApp community. Leave it blank to skip.
         </p>
       </Reveal>
-      <Reveal index={3} className="mt-auto pt-8">
+      <Reveal index={3} className="pt-8">
         <Button className="w-full" onClick={next}>
           Continue
         </Button>
       </Reveal>
+      </div>
+        }
+      />
     </Shell>
   );
 }

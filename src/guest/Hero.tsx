@@ -4,7 +4,8 @@ import StatusDot from '../components/StatusDot';
 import { getRace } from '../config/calendar';
 import type { EventConfig } from '../lib/types';
 import { istReadout } from './model';
-import { CloseTimer, Eyebrow, Reveal } from './parts';
+import type { ReactNode } from 'react';
+import { CloseTimer, Eyebrow, H1, Reveal, Split } from './parts';
 
 /** Decorative track outline. The accent stroke draws itself (stroke only; static under reduced motion). */
 function TrackLine() {
@@ -37,7 +38,7 @@ function Readout({ config }: { config: EventConfig }) {
         {race ? `Round ${String(race.round).padStart(2, '0')}` : 'Race weekend'}
         {config.circuit ? ` / ${config.circuit}` : ''}
       </p>
-      <p className="mt-2 font-mono text-7xl font-medium leading-[0.9] tabular-nums tracking-tighter">
+      <p className="mt-2 font-mono text-7xl font-medium leading-[0.9] md:text-[clamp(4rem,8vw,7.5rem)] tabular-nums tracking-tighter">
         {t.day}
         <span className="text-muted"> {t.month}</span>
       </p>
@@ -49,17 +50,27 @@ function Readout({ config }: { config: EventConfig }) {
 }
 
 /** Landing hero for the scheduled and open states (before the guest is in the quiz). */
-export default function Hero({ config, status }: { config: EventConfig; status: 'scheduled' | 'open' }) {
+export default function Hero({
+  config,
+  status,
+  children,
+}: {
+  config: EventConfig;
+  status: 'scheduled' | 'open';
+  children?: ReactNode;
+}) {
   const scheduled = status === 'scheduled';
   return (
+    <Split
+      left={
     <>
       <Reveal>
         <div className="flex items-center gap-2">
           <StatusDot status={scheduled ? 'locked' : 'open'} />
           <Eyebrow>{config.subtitle}</Eyebrow>
         </div>
-        <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-tighter">{config.name}</h1>
-        <p className="mt-4 max-w-[30ch] text-lg text-muted">
+        <h1 className={`mt-6 ${H1}`}>{config.name}</h1>
+        <p className="mt-4 max-w-[34ch] text-lg text-muted md:text-xl">
           {scheduled
             ? 'Picks open at lights-out. Get your name on the grid now and radio your calls the second the lights go.'
             : 'Picks are open. Radio your calls in before the pit lane closes.'}
@@ -69,7 +80,7 @@ export default function Hero({ config, status }: { config: EventConfig; status: 
         {scheduled ? (
           <>
             <p className="text-sm text-muted">Picks open in</p>
-            <Countdown target={config.opensAt.toMillis()} className="block text-5xl font-medium" />
+            <Countdown target={config.opensAt.toMillis()} className="block text-5xl font-medium md:text-[clamp(3rem,5vw,4.5rem)]" />
           </>
         ) : (
           <CloseTimer closesAt={config.closesAt.toMillis()} />
@@ -78,9 +89,19 @@ export default function Hero({ config, status }: { config: EventConfig; status: 
       <Reveal index={2} className="mt-10">
         <Readout config={config} />
       </Reveal>
-      <div className="mt-6 flex flex-1 items-center">
+      <div className="mt-8 flex flex-1 items-center md:hidden">
         <TrackLine />
       </div>
     </>
+      }
+      right={
+        <>
+          <div className="mb-10 hidden md:block">
+            <TrackLine />
+          </div>
+          {children}
+        </>
+      }
+    />
   );
 }
