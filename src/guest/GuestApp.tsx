@@ -252,7 +252,7 @@ function EventFlow({
 
   if (!s.user) {
     return (
-      <Shell signIn>
+      <Shell>
         <Hero config={event} status={scheduled ? 'scheduled' : 'open'}>
           <Reveal index={3} className="pt-2">
             <GoogleCta onGoogle={async () => void (await s.google())} />

@@ -1,8 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
-import { Check, Gauge, SignIn, SignOut, TicketIcon, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Check, Gauge, Images, SignIn, SignOut, TicketIcon, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
+import { signInGoogle } from '../lib/firebase';
+import { isInAppBrowser } from '../lib/inAppBrowser';
+import { signInError } from './SignIn';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
 import Divider from '../components/Divider';
@@ -37,46 +40,89 @@ export function Reveal({
 const linkCls =
   'inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
-/**
- * Page shell. Unless `bare`, shows "Sign out" top right when signed in. `signIn` (hero only) adds a
- * "Sign in" button that focuses the hero's Google CTA (id g-cta).
- */
-export function Shell({ children, bare = false, signIn = false }: { children: ReactNode; bare?: boolean; signIn?: boolean }) {
+/** Small text wordmark used as the header's logo placeholder — R27: no real Karter Cup artwork
+ * is in this repo, only a plain dot+text mark in the site's own established style. Links home. */
+function LogoMark() {
+  return (
+    <Link
+      to="/"
+      className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+    >
+      <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+      Kartar CUP
+    </Link>
+  );
+}
+
+/** Header sign-in: a real, working "Continue with Google" entry point on every page (not just the
+ * hero), per R28 — still contextual/on-demand, never a page-wide gate. Same in-app-browser and
+ * popup-error handling as the hero's own CTA, condensed for the header. */
+function HeaderSignIn() {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  if (isInAppBrowser()) return null; // hero's full InAppPanel is the real entry point there
+  return (
+    <div className="flex items-center gap-2">
+      {err && <span className="hidden text-xs text-muted sm:inline">{err}</span>}
+      <button
+        type="button"
+        className={linkCls}
+        disabled={busy}
+        onClick={async () => {
+          setErr('');
+          setBusy(true);
+          try {
+            await signInGoogle();
+          } catch (e) {
+            setErr(signInError(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <SignIn size={20} weight="regular" aria-hidden="true" />
+        {busy ? 'Signing in…' : 'Sign in'}
+      </button>
+    </div>
+  );
+}
+
+/** Page shell. Left: logo placeholder linking home. Right: Events link, Host console link (hosts
+ * only), and Sign out / Sign in. Sign-in works on every non-bare page (R28: on-demand, not a gate). */
+export function Shell({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   const { ready, user, isHost } = useAuth();
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6 lg:px-16">
-      <div className="mb-6 flex min-h-11 items-center justify-end gap-4 md:mb-2">
-        {!bare && (
-          <Link to="/events" className={linkCls}>
-            <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            Events
-          </Link>
-        )}
-        {!bare && user && isHost === true && (
-          <Link to="/host" className={linkCls}>
-            <Gauge size={20} weight="regular" aria-hidden="true" />
-            Host console
-          </Link>
-        )}
-        {!bare && ready && (user ? (
-          <Link to="/logout" className={linkCls}>
-            <SignOut size={20} weight="regular" aria-hidden="true" />
-            Sign out
-          </Link>
-        ) : signIn ? (
-          <button
-            type="button"
-            className={linkCls}
-            onClick={() => {
-              const cta = document.getElementById('g-cta');
-              cta?.scrollIntoView({ block: 'center' });
-              cta?.focus();
-            }}
-          >
-            <SignIn size={20} weight="regular" aria-hidden="true" />
-            Sign in
-          </button>
-        ) : null)}
+      <div className="mb-6 flex min-h-11 items-center justify-between gap-4 md:mb-2">
+        {bare ? <span /> : <LogoMark />}
+        <div className="flex items-center gap-4">
+          {!bare && (
+            <Link to="/events" className={linkCls}>
+              <TicketIcon size={20} weight="regular" aria-hidden="true" />
+              Events
+            </Link>
+          )}
+          {!bare && (
+            <Link to="/gallery" className={`hidden sm:inline-flex ${linkCls}`}>
+              <Images size={20} weight="regular" aria-hidden="true" />
+              Gallery
+            </Link>
+          )}
+          {!bare && user && isHost === true && (
+            <Link to="/host" className={linkCls}>
+              <Gauge size={20} weight="regular" aria-hidden="true" />
+              Host console
+            </Link>
+          )}
+          {!bare && ready && (user ? (
+            <Link to="/logout" className={linkCls}>
+              <SignOut size={20} weight="regular" aria-hidden="true" />
+              Sign out
+            </Link>
+          ) : (
+            <HeaderSignIn />
+          ))}
+        </div>
       </div>
       {children}
     </main>

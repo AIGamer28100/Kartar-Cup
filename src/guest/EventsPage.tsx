@@ -158,7 +158,7 @@ export default function EventsPage() {
   const quizVisible = quizGateVariant(quizStatus) !== 'none';
 
   return (
-    <Shell signIn>
+    <Shell>
       <div className="max-w-[52ch]">
         <Reveal>
           <Eyebrow>Calendar</Eyebrow>

@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  Images,
   InstagramLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
@@ -295,47 +296,34 @@ function JoinCommunitySection({
   );
 }
 
-/** R29: past events as a horizontally-scrollable strip (native overflow-x + CSS scroll-snap —
- * no JS drag library, so it costs nothing on low-spec hardware and works with touch/trackpad/wheel
- * out of the box). Bleeds edge-to-edge past the Shell's own padding via matching negative margins.
- * Asymmetric card widths/aspect ratios (DESIGN_VARIANCE 8-9) instead of a uniform grid. */
+/** R29 follow-up: the gallery moved to its own page (/gallery, mirroring /events) — this is now a
+ * short teaser only, a few placeholder thumbnails plus a link, not the full horizontal-scroll strip. */
 function GallerySection() {
+  const preview = GALLERY_PLACEHOLDERS.slice(0, 4);
   return (
     <div>
       <SectionHeading eyebrow="Past events">Gallery</SectionHeading>
-      <Reveal index={1} className="mt-4">
-        <p className="text-sm text-muted">
-          Placeholder images for now — real event photos will be swapped in
-          later.
-        </p>
+      <Reveal index={1} className="mt-6 grid grid-cols-4 gap-3">
+        {preview.map((g) => (
+          <img
+            key={g.seed}
+            src={gallerySrc(g.seed, 320, 320)}
+            alt={g.caption}
+            loading="lazy"
+            className="aspect-square w-full rounded-lg border border-line object-cover"
+          />
+        ))}
       </Reveal>
-      <Reveal index={2} className="mt-6">
-        <div
-          className="scroll-hide -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:-mx-10 md:px-10 lg:-mx-16 lg:px-16"
-          style={{ scrollSnapType: "x mandatory" }}
+      <Reveal index={2} className="mt-5">
+        <Link
+          to="/gallery"
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          {GALLERY_PLACEHOLDERS.map((g, i) => {
-            const tall = i % 3 === 1;
-            return (
-              <figure
-                key={g.seed}
-                className={`m-0 shrink-0 snap-start ${tall ? "w-[68vw] sm:w-[38vw] md:w-[26vw]" : "w-[58vw] sm:w-[30vw] md:w-[20vw]"}`}
-              >
-                <img
-                  src={gallerySrc(g.seed, tall ? 480 : 600, tall ? 600 : 420)}
-                  alt={g.caption}
-                  loading="lazy"
-                  className={`w-full rounded-lg border border-line object-cover ${tall ? "aspect-[4/5]" : "aspect-[3/2]"}`}
-                />
-                <figcaption className="sr-only">{g.caption}</figcaption>
-              </figure>
-            );
-          })}
-        </div>
+          <Images size={20} weight="regular" aria-hidden="true" />
+          See the full gallery
+          <ArrowRight size={16} weight="regular" aria-hidden="true" />
+        </Link>
       </Reveal>
-      <p className="mt-2 text-xs text-muted md:hidden" aria-hidden="true">
-        Swipe to browse
-      </p>
     </div>
   );
 }

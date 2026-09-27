@@ -17,7 +17,7 @@ const inputCls =
 
 const focusCls = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
-function signInError(e: unknown): string {
+export function signInError(e: unknown): string {
   const code = (e as { code?: string }).code ?? '';
   if (code === 'auth/popup-blocked')
     return 'Your browser blocked the Google window. Allow pop-ups for this site, then try again.';
