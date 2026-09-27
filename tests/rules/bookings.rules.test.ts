@@ -6,7 +6,7 @@ import {
   assertSucceeds,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -43,7 +43,7 @@ async function seed(over: Record<string, unknown> = {}) {
 const booking = (id: string, over: Record<string, unknown> = {}) => ({
   id, bookingEventId: BEID, buyerUid: 'g1', buyerName: 'Guest One', buyerEmail: 'guest1@example.com',
   tierId: 't1', qty: 1, unitPriceInr: 500, discountAmountInr: 0, totalInr: 500, status: 'reserved',
-  qrToken: id, createdAt: Timestamp.now(), ...over,
+  qrToken: id, createdAt: serverTimestamp(), ...over,
 });
 
 async function seedBooking(id: string, over: Record<string, unknown> = {}) {
@@ -141,7 +141,7 @@ describe('reservation create', () => {
 describe('markPaidMock', () => {
   it('owner can flip reserved -> paid_mock', async () => {
     await seedBooking('b1');
-    await assertSucceeds(updateDoc(doc(guest(), 'bookings/b1'), { status: 'paid_mock', paidAt: Timestamp.now() }));
+    await assertSucceeds(updateDoc(doc(guest(), 'bookings/b1'), { status: 'paid_mock', paidAt: serverTimestamp() }));
   });
   it('non-owner denied', async () => {
     await seedBooking('b1');
@@ -166,7 +166,7 @@ describe('checkIn', () => {
   it('host checks in a paid booking', async () => {
     await seedBooking('b1', { status: 'paid_mock' });
     await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'),
-      { status: 'checked_in', checkedInAt: Timestamp.now(), checkedInBy: 'host@x.com' }));
+      { status: 'checked_in', checkedInAt: serverTimestamp(), checkedInBy: 'host@x.com' }));
   });
   it('non-host cannot check in', async () => {
     await seedBooking('b1', { status: 'paid_mock' });

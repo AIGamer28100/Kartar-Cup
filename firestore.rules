@@ -156,9 +156,25 @@ service cloud.firestore {
     // special `request.query.*` filter-inspection syntax is needed or used. This is the same
     // family of pattern as this file's existing `entries/{uid}` get/list split, applied to `read`
     // (get+list together) instead.
+    // A signed-in guest reserving a seat must increment bookedCount as part of the SAME
+    // transaction that creates their booking (see createReservation in src/lib/bookings.ts).
+    // This path is deliberately narrow: it may touch ONLY bookedCount (+updatedAt), the new
+    // value must be a strictly-larger int, and it can never push bookedCount past capacity —
+    // so real capacity is enforced here by rules, not just trusted from the client.
+    function capacityBump() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return signedIn()
+        && before.salesOpen == true
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+        && after.bookedCount is int
+        && after.bookedCount > before.bookedCount
+        && after.bookedCount <= before.capacity;
+    }
     match /bookingEvents/{eventId} {
       allow read: if resource.data.salesOpen == true || isHost();
-      allow create, update: if isHost() && validBookingEvent(eventId);
+      allow create: if isHost() && validBookingEvent(eventId);
+      allow update: if (isHost() && validBookingEvent(eventId)) || capacityBump();
       allow delete: if isHost();
     }
 
