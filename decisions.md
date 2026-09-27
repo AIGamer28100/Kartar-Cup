@@ -13,3 +13,9 @@
 
 ## Deferred / future scope
 - Android app for community members only (user, 2026-09-27): discuss and scope later, not started.
+
+## PRD (2026-09-27, two docs added by user)
+Decision: Vision doc, not a rewrite. Keep the current Vite+React+Firebase serverless build and all 28 rules/decisions made today. Adopt two PRD ideas now: OpenF1 as the live-data source (not FastF1 - FastF1 has no live capability, confirmed by earlier research; OpenF1 does), and Tier-1 manual-UPI-with-UTR-verification as the real next step beyond R23's mock-pay (not built this session). Rejected for now: Next.js/Cloud Functions replatform, 1/3-distance dynamic lock (keep R13's time-based lock), Electric Emerald/Midnight Void/Inter palette (keep R26/R27's real-brand-derived palette), multi-role system (keep R10/R18's single-host model).
+
+## Session-end demo priority (2026-09-27, ~19:18 IST)
+User needs a deployed, demo-safe production build by end of this session to pitch the company for a deal. Cut for this session: booking QR/scanner/payment, big-screen podium, calendar validation script, guest history/stats, Android app. In scope: verify build, deploy to production kartar-cup, add host doc, set a live active event.
