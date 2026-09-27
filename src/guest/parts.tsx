@@ -34,7 +34,7 @@ export function Reveal({
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[1400px] flex-col px-6 pb-10 pt-10 md:px-10 md:py-14 lg:px-16">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-10 md:px-10 md:py-14 lg:px-16">
       {children}
     </main>
   );
@@ -45,9 +45,9 @@ export const H1 = 'text-[clamp(2.25rem,4.5vw,4.5rem)] font-semibold leading-[1.0
 /** Split composition: stacked on phones, two columns from md. Left = readout, right = active step. */
 export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {
   return (
-    <div className="grid flex-1 content-start gap-10 md:grid-cols-2 md:content-center md:gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-24">
+    <div className="grid flex-1 content-start gap-10 md:grid-cols-2 md:content-center md:items-start md:gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-24">
       <div className="flex min-w-0 flex-col">{left}</div>
-      <div className="flex min-w-0 flex-col md:justify-center">{right}</div>
+      <div className="flex min-w-0 flex-col">{right}</div>
     </div>
   );
 }

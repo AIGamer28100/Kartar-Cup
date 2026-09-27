@@ -13,7 +13,7 @@ function TrackLine() {
   const d =
     'M14 92 C14 60 40 52 62 58 C86 64 96 40 122 34 C152 27 176 44 172 70 C168 92 190 104 214 94 C240 84 244 52 226 36 C212 24 196 14 176 14';
   return (
-    <svg viewBox="0 0 260 120" className="h-auto w-full" fill="none" aria-hidden="true" focusable="false">
+    <svg viewBox="4 4 250 110" className="h-auto w-full" fill="none" aria-hidden="true" focusable="false">
       <path d={d} stroke="var(--color-raised)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
       <motion.path
         d={d}
@@ -96,7 +96,7 @@ export default function Hero({
       }
       right={
         <>
-          <div className="mb-10 hidden md:block">
+          <div className="mb-8 hidden rounded-none border-y border-line py-8 md:block">
             <TrackLine />
           </div>
           {children}

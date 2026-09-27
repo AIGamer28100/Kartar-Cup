@@ -295,7 +295,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
+        <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
           <Button disabled={busyAny} onClick={() => void save(false)}>
             <FloppyDisk size={20} weight="regular" /> {busy === 'save' ? 'Saving...' : 'Save event'}
           </Button>

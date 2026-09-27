@@ -245,7 +245,7 @@ function EventFlow({
       return (
         <Shell>
           <Hero config={event} status={scheduled ? 'scheduled' : 'open'}>
-            <Reveal index={3} className="pt-2 md:max-w-md">
+            <Reveal index={3} className="pt-2">
               <Button className="w-full md:min-h-14" onClick={() => setStarted(true)}>
                 Get on the grid
                 <ArrowRight size={20} weight="regular" aria-hidden="true" />
@@ -277,7 +277,7 @@ function EventFlow({
     return (
       <Shell>
         <Hero config={event} status="scheduled">
-        <Reveal index={3} className="md:max-w-md">
+        <Reveal index={3}>
           <p role="status" className="mb-3 text-sm text-muted">
             You are on the grid, {accountName(s.user)}. The quiz unlocks by itself when picks open.
           </p>

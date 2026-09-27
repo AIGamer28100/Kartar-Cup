@@ -19,6 +19,18 @@
   }
 }
 
+/* Large displays: scale the rem base so the capped composition grows instead of floating lost. */
+@media (min-width: 1800px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+@media (min-width: 2400px) {
+  html {
+    font-size: 150%;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
