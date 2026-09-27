@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Link } from 'react-router';
-import { Check, Gauge, Images, SignIn, SignOut, TicketIcon, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Link, useNavigate } from 'react-router';
+import { Check, Gauge, Images, SignIn, SignOut, TicketIcon, User, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { isInAppBrowser } from '../lib/inAppBrowser';
@@ -56,10 +56,13 @@ function LogoMark() {
 
 /** Header sign-in: a real, working "Continue with Google" entry point on every page (not just the
  * hero), per R28 — still contextual/on-demand, never a page-wide gate. Same in-app-browser and
- * popup-error handling as the hero's own CTA, condensed for the header. */
+ * popup-error handling as the hero's own CTA, condensed for the header. This is the header's
+ * general button with no other task to continue, so a successful sign-in here lands on /profile
+ * (R31) — unlike the hero's quiz CTA or a booking checkout's sign-in, which stay in place (R28). */
 function HeaderSignIn() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const navigate = useNavigate();
   if (isInAppBrowser()) return null; // hero's full InAppPanel is the real entry point there
   return (
     <div className="flex items-center gap-2">
@@ -73,6 +76,7 @@ function HeaderSignIn() {
           setBusy(true);
           try {
             await signInGoogle();
+            navigate('/profile');
           } catch (e) {
             setErr(signInError(e));
           } finally {
@@ -112,6 +116,12 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
             <Link to="/host" className={linkCls}>
               <Gauge size={20} weight="regular" aria-hidden="true" />
               Host console
+            </Link>
+          )}
+          {!bare && user && (
+            <Link to="/profile" className={linkCls}>
+              <User size={20} weight="regular" aria-hidden="true" />
+              Profile
             </Link>
           )}
           {!bare && ready && (user ? (

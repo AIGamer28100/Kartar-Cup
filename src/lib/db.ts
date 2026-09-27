@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -11,8 +12,10 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { deriveStatus } from './eventStatus';
+import { scoreEntry } from './scoring';
 import { ALL_RACES, nextRace } from '../config/calendar';
 import { buildDefaultEvent } from '../config/event';
+import type { OwnEntryRow } from '../guest/profileModel';
 import type {
   Answers,
   Entry,
@@ -223,6 +226,37 @@ export function watchEntries(cb: (e: Entry[]) => void, onErr?: (e: Error) => voi
   );
 }
 
+/** Guest's own quiz history across ALL events (R15/R31: own uid only). `events/*` is publicly
+ * readable (list) so we can enumerate event ids, then `get` each `entries/{uid}` doc directly —
+ * a per-uid `get`, never a cross-user `list`, exactly what the entries rule allows a non-host to
+ * do. Score stays null until the host reveals the winner and publishes results for that event
+ * (results are only readable once `winnerRevealed`). */
+export async function listOwnEntries(uid: string): Promise<OwnEntryRow[]> {
+  const eventsSnap = await getDocs(collection(db, 'events'));
+  const rows = await Promise.all(
+    eventsSnap.docs.map(async (ed): Promise<OwnEntryRow | null> => {
+      const config = ed.data() as EventConfig;
+      const entrySnap = await getDoc(entryRef(ed.id, uid));
+      if (!entrySnap.exists()) return null;
+      const entry = entrySnap.data() as Entry;
+      let score: number | null = null;
+      if (config.winnerRevealed) {
+        const rs = await getDoc(resultsRef(ed.id));
+        if (rs.exists()) {
+          score = scoreEntry(entry.answers, (rs.data() as ResultsDoc).answers, config.questionIds).score;
+        }
+      }
+      return {
+        eventId: ed.id,
+        eventName: config.name,
+        submittedAtMs: entry.submittedAt.toMillis(),
+        score,
+      };
+    }),
+  );
+  return rows.filter((r): r is OwnEntryRow => r !== null);
+}
+
 export async function isHost(email: string): Promise<boolean> {
   const s = await getDoc(doc(db, 'hosts', email.toLowerCase()));
   return s.exists();
@@ -232,7 +266,7 @@ export async function isHost(email: string): Promise<boolean> {
 export async function initEvent(lightsOutIso: string): Promise<void> {
   if (await getActiveEventId()) return;
   const race = nextRace(new Date(), ALL_RACES) ?? ALL_RACES[0];
-  const base = buildDefaultEvent(race);
+  const { config: base } = await buildDefaultEvent(race);
   const nowMs = Date.now();
   const config: EventConfig = {
     ...base,
