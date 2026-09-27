@@ -21,14 +21,15 @@ export function useHostData(): HostData {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const fail = (err: Error) => setError(err.message);
     const u1 = watchEvent((e) => {
       setEvent(e);
       setReady((r) => ({ ...r, event: true }));
-    });
+    }, fail);
     const u2 = watchEntries((e) => {
       setEntries(e);
       setReady((r) => ({ ...r, entries: true }));
-    });
+    }, fail);
     const u3 = watchResults(setResultsDoc, (err) => setError(err.message));
     return () => {
       u1();

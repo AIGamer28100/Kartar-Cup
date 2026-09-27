@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Check, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Link } from 'react-router';
+import { Check, SignIn, SignOut, WhatsappLogo, X } from '@phosphor-icons/react';
+import { useAuth } from '../lib/auth';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
 import Divider from '../components/Divider';
@@ -32,9 +34,38 @@ export function Reveal({
   );
 }
 
-export function Shell({ children }: { children: ReactNode }) {
+const linkCls =
+  'inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
+/**
+ * Page shell. Unless `bare`, shows "Sign out" top right when signed in. `signIn` (hero only) adds a
+ * "Sign in" button that focuses the hero's Google CTA (id g-cta).
+ */
+export function Shell({ children, bare = false, signIn = false }: { children: ReactNode; bare?: boolean; signIn?: boolean }) {
+  const { ready, user } = useAuth();
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-10 md:px-10 md:py-14 lg:px-16">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6 lg:px-16">
+      <div className="mb-6 flex min-h-11 justify-end md:mb-2">
+        {!bare && ready && (user ? (
+          <Link to="/logout" className={linkCls}>
+            <SignOut size={20} weight="regular" aria-hidden="true" />
+            Sign out
+          </Link>
+        ) : signIn ? (
+          <button
+            type="button"
+            className={linkCls}
+            onClick={() => {
+              const cta = document.getElementById('g-cta');
+              cta?.scrollIntoView({ block: 'center' });
+              cta?.focus();
+            }}
+          >
+            <SignIn size={20} weight="regular" aria-hidden="true" />
+            Sign in
+          </button>
+        ) : null)}
+      </div>
       {children}
     </main>
   );

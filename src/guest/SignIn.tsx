@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { User } from 'firebase/auth';
-import { Copy, GoogleLogo } from '@phosphor-icons/react';
+import { ArrowRight, Copy } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Divider from '../components/Divider';
 import { isInAppBrowser } from '../lib/inAppBrowser';
@@ -71,12 +71,12 @@ function InAppPanel() {
   );
 }
 
-interface SignInProps {
+interface CtaProps {
   onGoogle: () => Promise<void>;
 }
 
-/** Signed-out screen: Google is the only way in. */
-export default function SignIn({ onGoogle }: SignInProps) {
+/** Hero CTA doubling as the Google sign-in (R14: Google is the only way in). Errors and the in-app-browser panel render inline. */
+export default function GoogleCta({ onGoogle }: CtaProps) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const inApp = isInAppBrowser();
@@ -94,32 +94,22 @@ export default function SignIn({ onGoogle }: SignInProps) {
   };
 
   return (
-    <Shell>
-      <Split
-        left={
-      <Reveal>
-        <Eyebrow>Driver briefing</Eyebrow>
-        <h1 className={`mt-3 ${H1}`}>Radio in with Google</h1>
-        <p className="mt-3 max-w-[40ch] text-muted md:text-lg">Your Google name goes on the board. Prizes need a name to read out.</p>
-      </Reveal>
-        }
-        right={
-      <Reveal index={1} className="flex max-w-md flex-col gap-4">
-        {inApp && <InAppPanel />}
-        {inApp && <Divider />}
-        <Button disabled={busy} onClick={() => void go()} className={focusCls}>
-          <GoogleLogo size={20} weight="regular" aria-hidden="true" />
-          {busy ? 'Opening Google...' : 'Continue with Google'}
-        </Button>
-        {err && (
-          <p role="alert" className="text-sm text-accent">
-            {err} <button type="button" onClick={() => void go()} className={`min-h-11 font-medium underline ${focusCls}`}>Retry</button>
-          </p>
-        )}
-      </Reveal>
-        }
-      />
-    </Shell>
+    <div className="flex flex-col gap-4">
+      <Button id="g-cta" disabled={busy} onClick={() => void go()} className="w-full md:min-h-14">
+        {busy ? 'Opening Google...' : 'Get on the grid'}
+        <ArrowRight size={20} weight="regular" aria-hidden="true" />
+      </Button>
+      {err && (
+        <p role="alert" className="text-sm text-accent">
+          {err}{' '}
+          <button type="button" onClick={() => void go()} className={`min-h-11 font-medium underline ${focusCls}`}>
+            Retry
+          </button>
+        </p>
+      )}
+      {inApp && <Divider />}
+      {inApp && <InAppPanel />}
+    </div>
   );
 }
 

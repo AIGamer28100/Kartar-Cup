@@ -16,7 +16,7 @@ async function serious(page: Page) {
 
 test('guest sign-in and quiz have no serious violations', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /get on the grid/i }).click();
+  await expect(page.getByRole('button', { name: /get on the grid/i })).toBeVisible();
   expect(await serious(page)).toEqual([]);
 
   await hostLogin(page, 'guest@example.com'); // emulator Google credential (R14)

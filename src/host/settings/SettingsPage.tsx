@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowSquareOut, FloppyDisk, Broadcast } from '@phosphor-icons/react';
 import Button from '../../components/Button';
-import Skeleton from '../../components/Skeleton';
+import { Link } from 'react-router';
+import FailurePage from '../../components/FailurePage';
+import Skeleton, { Busy } from '../../components/Skeleton';
+import { useTimedOut } from '../../lib/useTimedOut';
 import { ALL_RACES, nextRace, getRace } from '../../config/calendar';
 import { getActiveEventId, saveEventConfig, setActiveEvent, watchEventConfig } from '../../lib/db';
 import type { EventConfig } from '../../lib/types';
@@ -51,6 +54,7 @@ export default function SettingsPage() {
   const [touched, setTouched] = useState(false);
   const [pickErr, setPickErr] = useState<string | null>(null);
   const init = useRef(false);
+  const stuck = useTimedOut(!form && !loadErr);
 
   useEffect(() => {
     if (init.current) return;
@@ -119,32 +123,24 @@ export default function SettingsPage() {
   }
 
   const backLink = (
-    <a href="/host" className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
+    <Link to="/host" className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
       <ArrowLeft size={20} weight="regular" /> Race control
-    </a>
+    </Link>
   );
 
-  if (loadErr)
-    return (
-      <div className="py-8">
-        {backLink}
-        <p role="alert" className="mt-6 text-3xl text-accent">
-          Could not load the event.
-        </p>
-        <p className="mt-2 text-muted">{loadErr}</p>
-      </div>
-    );
+  if (loadErr || stuck)
+    return <FailurePage error={loadErr ?? 'The event did not load in time.'} />;
 
   if (!form || !comp)
     return (
-      <div className="py-8" aria-busy="true">
+      <Busy className="py-8">
         {backLink}
         <div className="mt-6 space-y-4">
           <Skeleton className="h-16" />
           <Skeleton className="h-16" />
           <Skeleton className="h-40" />
         </div>
-      </div>
+      </Busy>
     );
 
   const show = (k: keyof typeof errors) => (touched || form[k as keyof FormState] !== '' ? errors[k] : undefined);

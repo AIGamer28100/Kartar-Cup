@@ -13,6 +13,7 @@ export interface GuestSession {
   status: DerivedStatus | null;
   entry: Entry | null | undefined; // undefined = still loading
   pending: boolean;
+  loadError: Error | null;
   results: ResultsDoc | null;
   google: () => Promise<User>;
   signOut: () => Promise<void>;
@@ -26,6 +27,7 @@ export function useGuestSession(): GuestSession {
   const [event, setEvent] = useState<EventConfig | null | undefined>(undefined);
   const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
   const [pending, setPending] = useState(false);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [results, setResults] = useState<ResultsDoc | null>(null);
 
   useEffect(
@@ -37,7 +39,7 @@ export function useGuestSession(): GuestSession {
     [],
   );
 
-  useEffect(() => watchActiveEventId(setEventId, () => setEventId(null)), []);
+  useEffect(() => watchActiveEventId(setEventId, setLoadError), []);
 
   useEffect(() => {
     if (eventId === undefined) return;
@@ -46,7 +48,7 @@ export function useGuestSession(): GuestSession {
       return;
     }
     setEvent(undefined);
-    return watchEventConfig(eventId, setEvent, () => setEvent(null));
+    return watchEventConfig(eventId, setEvent, setLoadError);
   }, [eventId]);
 
   const status = useEventStatus(event);
@@ -90,5 +92,5 @@ export function useGuestSession(): GuestSession {
     [entry],
   );
 
-  return { authReady, user, event, status, entry, pending, results, google, signOut, submit };
+  return { authReady, user, event, status, entry, pending, loadError, results, google, signOut, submit };
 }

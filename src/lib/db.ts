@@ -35,7 +35,10 @@ const entryRef = (id: string, uid: string) => doc(db, 'events', id, 'entries', u
 export function watchActiveEventId(cb: (id: string | null) => void, onErr?: (e: Error) => void): Unsubscribe {
   return onSnapshot(
     activeRef(),
-    (s) => cb(s.exists() ? ((s.data() as { eventId?: string }).eventId ?? null) : null),
+    (s) => {
+      if (!s.exists() && s.metadata.fromCache) return; // offline + empty cache = unknown, not "no event"
+      cb(s.exists() ? ((s.data() as { eventId?: string }).eventId ?? null) : null);
+    },
     onErr,
   );
 }
@@ -45,7 +48,14 @@ export function watchEventConfig(
   cb: (c: EventConfig | null) => void,
   onErr?: (e: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(eventRef(id), (s) => cb(s.exists() ? (s.data() as EventConfig) : null), onErr);
+  return onSnapshot(
+    eventRef(id),
+    (s) => {
+      if (!s.exists() && s.metadata.fromCache) return; // offline + empty cache = unknown
+      cb(s.exists() ? (s.data() as EventConfig) : null);
+    },
+    onErr,
+  );
 }
 
 export async function getActiveEventId(): Promise<string | null> {
@@ -109,7 +119,7 @@ function toLegacy(c: EventConfig, nowMs: number): EventDoc {
   };
 }
 
-export function watchEvent(cb: (e: EventDoc | null) => void): Unsubscribe {
+export function watchEvent(cb: (e: EventDoc | null) => void, onErr?: (e: Error) => void): Unsubscribe {
   let cfg: EventConfig | null = null;
   let last: string | null = null;
   const emit = () => {
@@ -122,14 +132,19 @@ export function watchEvent(cb: (e: EventDoc | null) => void): Unsubscribe {
   const timer = setInterval(emit, 1000);
   const unsub = watchUnderActive(
     (id) =>
-      watchEventConfig(id, (c) => {
-        cfg = c;
-        emit();
-      }),
+      watchEventConfig(
+        id,
+        (c) => {
+          cfg = c;
+          emit();
+        },
+        onErr,
+      ),
     () => {
       cfg = null;
       emit();
     },
+    onErr,
   );
   return () => {
     clearInterval(timer);
@@ -195,13 +210,16 @@ export function watchResults(
   );
 }
 
-export function watchEntries(cb: (e: Entry[]) => void): Unsubscribe {
+export function watchEntries(cb: (e: Entry[]) => void, onErr?: (e: Error) => void): Unsubscribe {
   return watchUnderActive(
     (id) =>
-      onSnapshot(collection(db, 'events', id, 'entries'), (s) =>
-        cb(s.docs.map((d) => ({ ...d.data({ serverTimestamps: 'estimate' }), uid: d.id }) as Entry)),
+      onSnapshot(
+        collection(db, 'events', id, 'entries'),
+        (s) => cb(s.docs.map((d) => ({ ...d.data({ serverTimestamps: 'estimate' }), uid: d.id }) as Entry)),
+        onErr,
       ),
     () => cb([]),
+    onErr,
   );
 }
 

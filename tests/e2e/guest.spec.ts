@@ -27,8 +27,8 @@ async function serious(page: Page) {
 const PICKS = ['Williams', 'Norris', 'Stroll', 'Red Bull', 'Russell'];
 
 async function signIn(page: Page, _name?: string) {
-  await page.getByRole('button', { name: /get on the grid/i }).click();
-  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
+  // The hero CTA is the Google sign-in (popup); the emulator cannot pop Google, so sign in with the emulator credential.
+  await expect(page.getByRole('button', { name: /get on the grid/i })).toBeVisible();
   await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0); // R14: no typed-name path
   await hostLogin(page, 'guest@example.com'); // emulator Google credential
   await expect(page.getByText('Not you? Switch account')).toBeVisible();

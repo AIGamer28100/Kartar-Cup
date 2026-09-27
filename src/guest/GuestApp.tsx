@@ -1,28 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Countdown from '../components/Countdown';
 import Divider from '../components/Divider';
-import Skeleton from '../components/Skeleton';
+import FailurePage from '../components/FailurePage';
+import Skeleton, { Busy, PageSkeleton } from '../components/Skeleton';
 import StatusDot from '../components/StatusDot';
 import type { EventConfig } from '../lib/types';
 import { clearDraft, loadDraft, saveDraft, type Draft } from './draft';
 import Hero from './Hero';
 import { scoreOwn } from './model';
 import Quiz from './Quiz';
-import SignIn, { Profile, accountName } from './SignIn';
+import GoogleCta, { Profile, accountName } from './SignIn';
 import { CloseTimer, Eyebrow, H1, PicksList, Reveal, Shell, Split, TickStrip, WhatsAppCta } from './parts';
+import { useTimedOut } from '../lib/useTimedOut';
 import { useGuestSession, type GuestSession } from './useGuestSession';
 
 const CLOSED_MSG = 'Pit lane closed: your picks arrived after the window shut.';
 
 export default function GuestApp() {
   const s = useGuestSession();
-  // Lifted here so the loading skeleton (which unmounts EventFlow) cannot reset the sign-in flow.
-  const [started, setStarted] = useState(false);
+  // Lifted here so the loading skeleton (which unmounts EventFlow) cannot reset the profile step.
   const [confirmed, setConfirmed] = useState(false);
   const ev = s.event;
-  if (!s.authReady || ev === undefined || (s.user !== null && s.entry === undefined)) return <LoadingSkeleton />;
+  const loading = !s.authReady || ev === undefined || (s.user !== null && s.entry === undefined);
+  const stuck = useTimedOut(loading && !s.loadError);
+  if (s.loadError && ev === undefined) return <FailurePage error={s.loadError} />;
+  if (loading) return stuck ? <FailurePage error="Race control did not answer in time." /> : <PageSkeleton />;
   if (ev === null || ev.questions.length === 0 || !s.status) {
     return (
       <Shell>
@@ -34,16 +37,16 @@ export default function GuestApp() {
       </Shell>
     );
   }
-  return <EventFlow key={ev.id} s={s} event={ev} status={s.status} flow={{ started, setStarted, confirmed, setConfirmed }} />;
+  return <EventFlow key={ev.id} s={s} event={ev} status={s.status} flow={{ confirmed, setConfirmed }} />;
 }
 
 function EventFlow({
   s,
   event,
   status,
-  flow: { started, setStarted, confirmed, setConfirmed },
+  flow: { confirmed, setConfirmed },
 }: {
-  flow: { started: boolean; setStarted: (v: boolean) => void; confirmed: boolean; setConfirmed: (v: boolean) => void };
+  flow: { confirmed: boolean; setConfirmed: (v: boolean) => void };
   s: GuestSession;
   event: EventConfig;
   status: NonNullable<GuestSession['status']>;
@@ -121,10 +124,10 @@ function EventFlow({
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col gap-3" aria-busy="true">
+                  <Busy className="flex flex-col gap-3">
                     <Skeleton className="h-16 w-40" />
                     <Skeleton className="h-11 w-full" />
-                  </div>
+                  </Busy>
                 )}
               </Reveal>
               <Reveal index={3} className="mt-8">
@@ -241,21 +244,15 @@ function EventFlow({
   }
 
   if (!s.user) {
-    if (!started) {
-      return (
-        <Shell>
-          <Hero config={event} status={scheduled ? 'scheduled' : 'open'}>
-            <Reveal index={3} className="pt-2">
-              <Button className="w-full md:min-h-14" onClick={() => setStarted(true)}>
-                Get on the grid
-                <ArrowRight size={20} weight="regular" aria-hidden="true" />
-              </Button>
-            </Reveal>
-          </Hero>
-        </Shell>
-      );
-    }
-    return <SignIn onGoogle={async () => void (await s.google())} />;
+    return (
+      <Shell signIn>
+        <Hero config={event} status={scheduled ? 'scheduled' : 'open'}>
+          <Reveal index={3} className="pt-2">
+            <GoogleCta onGoogle={async () => void (await s.google())} />
+          </Reveal>
+        </Hero>
+      </Shell>
+    );
   }
   if (!s.entry && !confirmed) {
     return (
@@ -264,10 +261,7 @@ function EventFlow({
         phone={draft.phone}
         onPhone={(phone) => patch({ phone })}
         onContinue={() => setConfirmed(true)}
-        onSwitch={() => {
-          setStarted(true);
-          void s.signOut();
-        }}
+        onSwitch={() => void s.signOut()}
       />
     );
   }
@@ -303,19 +297,5 @@ function EventFlow({
       onSubmit={() => void submit()}
       onCancel={s.entry ? () => setEditing(false) : undefined}
     />
-  );
-}
-
-function LoadingSkeleton() {
-  return (
-    <Shell>
-      <div aria-busy="true" aria-label="Loading" className="flex flex-col gap-4">
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-14 w-64" />
-        <Skeleton className="h-6 w-56" />
-        <Skeleton className="mt-8 h-12 w-48" />
-        <Skeleton className="mt-auto h-12 w-full" />
-      </div>
-    </Shell>
   );
 }

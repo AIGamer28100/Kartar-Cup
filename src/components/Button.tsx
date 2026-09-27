@@ -12,6 +12,9 @@ const VARIANTS: Record<Variant, string> = {
   ghost: 'bg-transparent text-muted hover:text-ink',
 };
 
+export const buttonCls = (variant: Variant = 'primary', className = ''): string =>
+  `inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-[1rem] font-medium transition duration-150 active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${VARIANTS[variant]} ${className}`;
+
 export default function Button({
   variant = 'primary',
   className = '',
@@ -21,7 +24,7 @@ export default function Button({
   return (
     <button
       type={type}
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-[1rem] font-medium transition duration-150 active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
+      className={buttonCls(variant, className)}
       {...rest}
     />
   );

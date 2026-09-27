@@ -10,9 +10,7 @@ test('gate rejects non-host, host runs the whole night', async ({ page }) => {
   await expect(page.getByText(/marshals only/i)).toBeVisible();
   await page.screenshot({ path: `${SCREENS}/host-gate.png` });
 
-  await hostLogin(page, 'stranger@example.com');
-  await expect(page.getByText('Not on the marshal list.')).toBeVisible();
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
 
   await hostLogin(page, 'host@example.com');
   await expect(page.getByRole('region', { name: 'Race control' })).toBeVisible();

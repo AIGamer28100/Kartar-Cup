@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { DownloadSimple } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import Skeleton from '../components/Skeleton';
+import FailurePage from '../components/FailurePage';
+import { RowsSkeleton } from '../components/Skeleton';
+import { useTimedOut } from '../lib/useTimedOut';
 import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
 import { rankEntries, winner } from '../lib/scoring';
@@ -14,6 +16,7 @@ import { useHostData } from './useHostData';
 
 export default function HostConsole() {
   const { loading, error, event, entries, resultsDoc, results } = useHostData();
+  const stuck = useTimedOut(loading);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
   const overrideUid = localOverride !== undefined ? localOverride : (event?.tiebreakOverride ?? null);
 
@@ -47,14 +50,9 @@ export default function HostConsole() {
   }
 
   if (loading) {
-    return (
-      <div className="mt-8 space-y-4" aria-busy="true">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-16" />
-        <Skeleton className="h-16" />
-        <Skeleton className="h-16" />
-      </div>
-    );
+    // Never an endless skeleton: a load failure (e.g. permission-denied) or 12 s of silence shows the failure page.
+    if (error || stuck) return <FailurePage error={error ?? 'The entries feed did not answer in time.'} />;
+    return <RowsSkeleton />;
   }
 
   return (
