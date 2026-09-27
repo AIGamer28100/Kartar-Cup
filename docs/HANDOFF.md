@@ -1,4 +1,4 @@
-# Handoff — Kartar CUP (2026-09-28 00:42 IST, paused until next Friday)
+# Handoff — Kartar CUP (updated 2026-09-28 01:03 IST — usage climbing fast, pausing here)
 
 This is the end of the current session's weekly quota. Everything below is verified true at this
 moment, not assumed. Read rules.md (R1-R31) and decisions.md before doing anything — they are the
@@ -47,6 +47,32 @@ git merge worktree-build-v1
 - `scripts/validate-calendar.py` — an ABANDONED, incomplete FastF1-based calendar validation
   script from earlier in the day. Explicitly superseded by the OpenF1 approach (R30, see below).
   Safe to delete.
+
+## Since the last handoff entry (00:42), added and verified
+9. `/events` restructured into an asymmetric card grid (R32) — a featured "next race" card, then a
+   2-column grid grouped by month, each card showing that race's REAL circuit outline (the
+   validated geometry from earlier, e.g. Sepang/Marina Bay/COTA) with a CSS-only 3D tilt
+   presentation (perspective+rotateX+drop-shadow) — never fabricated elevation data. Verified by
+   me directly at 390/1366/1920, no overflow, no uniform 3-col grid.
+10. Home page's "What's on next" section rebuilt (also R32-adjacent): shows only the next race
+    (not 3), with an F1-broadcast-style digital countdown clock (styled after the TV convention,
+    deliberately NOT using the real sponsor's name/mark — same principle as not cloning Karter
+    Cup's logo) and a 5-light strip that lights up hour-by-hour through the final 5 hours before
+    lights-out, echoing F1's real start sequence. Layout: circuit visual 70% width on the right,
+    text 30% on the left desktop; visual-first stacking on mobile. Verified with real screenshots.
+11. Grid/Teams (R30) and Profile page (R31) fixes from earlier turn-limit cutoffs were reconciled
+    and verified for real (I ran a genuine live fetch against api.openf1.org myself — 20 real
+    drivers returned for a past race — and checked ProfilePage.tsx's actual R15-safe data access
+    pattern in the code, not just trusted the agent reports).
+
+**Blocked, not started: the booking UI (buyer purchase flow + host booking-event management).**
+Two real reasons, not just caution: (a) usage climbed from 42%→57% session / 77%→79% weekly in a
+few minutes of work — a real signal to stop opening new large scope; (b) nobody has ever given a
+confirmed venue/price list to build against — the only price data found is one unconfirmed example
+from research (Eshkol Event Space, ₹399/798/1596), and R26 says never build speculative content
+without confirmation. Next session should get real pricing from the user FIRST, then build both
+sides of booking together (they're tightly coupled: a guest can't buy a ticket for a booking event
+that no host UI has ever let anyone create).
 
 ## What got built this session (chronological, see rules.md for the "why" on each)
 1. Booking data model + Firestore rules + mock-pay flow (R23), rules-tested (B1).
