@@ -45,6 +45,15 @@
   }
 }
 
+/* R29: hide the scrollbar chrome on the horizontal-scroll gallery strip; native scroll-snap
+   still works with mouse wheel, trackpad and touch — this only hides the visual scrollbar. */
+.scroll-hide {
+  scrollbar-width: none;
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes breathe {
   0%,
   100% {

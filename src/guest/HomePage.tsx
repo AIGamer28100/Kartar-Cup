@@ -412,11 +412,11 @@ export default function HomePage() {
           onReveal={() => setQuizRevealed(true)}
         />
         <PlainDivider />
-        <PartnershipsSection />
-        <CheckerDivider />
         <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
-        <PlainDivider />
+        <CheckerDivider />
         <GallerySection />
+        <PlainDivider />
+        <PartnershipsSection />
         <CommunityFooter />
       </Shell>
     </>

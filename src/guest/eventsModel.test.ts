@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { RaceInfo } from '../config/calendar';
 import type { BookingEvent } from '../lib/types';
-import { ticketStatusFor, upcomingRaces } from './eventsModel';
+import { groupByMonth, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
 
-const race = (id: string, round: number, raceDate: string, status: RaceInfo['status'] = 'scheduled'): RaceInfo => ({
+const race = (
+  id: string,
+  round: number,
+  raceDate: string,
+  status: RaceInfo['status'] = 'scheduled',
+  season: RaceInfo['season'] = 2026,
+): RaceInfo => ({
   id,
-  season: 2026,
+  season,
   round,
   name: `Race ${round}`,
   shortName: `R${round}`,
@@ -40,6 +46,50 @@ describe('upcomingRaces', () => {
   it('returns an empty list when nothing is left on the calendar', () => {
     const races = [race('a', 1, '2026-01-01')];
     expect(upcomingRaces(new Date('2027-01-01T00:00:00Z'), races)).toEqual([]);
+  });
+
+  it('defaults to the next race\'s season, not a flat multi-season dump', () => {
+    const races = [
+      race('a', 1, '2026-02-01', 'scheduled', 2026),
+      race('b', 1, '2027-02-01', 'scheduled', 2027),
+    ];
+    const result = upcomingRaces(new Date('2026-01-01T00:00:00Z'), races);
+    expect(result.map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('returns a requested season explicitly, e.g. the next season on the selector', () => {
+    const races = [
+      race('a', 1, '2026-02-01', 'scheduled', 2026),
+      race('b', 1, '2027-02-01', 'scheduled', 2027),
+    ];
+    const result = upcomingRaces(new Date('2026-01-01T00:00:00Z'), races, 2027);
+    expect(result.map((r) => r.id)).toEqual(['b']);
+  });
+});
+
+describe('upcomingSeasons', () => {
+  it('lists only seasons that still have a race left, in order', () => {
+    const races = [
+      race('a', 1, '2026-02-01', 'scheduled', 2026),
+      race('b', 1, '2027-02-01', 'scheduled', 2027),
+    ];
+    expect(upcomingSeasons(new Date('2026-01-01T00:00:00Z'), races)).toEqual([2026, 2027]);
+  });
+
+  it('is empty once the whole calendar is behind us', () => {
+    const races = [race('a', 1, '2026-01-01', 'scheduled', 2026)];
+    expect(upcomingSeasons(new Date('2027-01-01T00:00:00Z'), races)).toEqual([]);
+  });
+});
+
+describe('groupByMonth', () => {
+  it('groups consecutive same-month races under one label', () => {
+    const races = [race('a', 1, '2026-10-04'), race('b', 2, '2026-10-18'), race('c', 3, '2026-11-01')];
+    const groups = groupByMonth(races);
+    expect(groups.map((g) => [g.label, g.races.map((r) => r.id)])).toEqual([
+      ['October 2026', ['a', 'b']],
+      ['November 2026', ['c']],
+    ]);
   });
 });
 

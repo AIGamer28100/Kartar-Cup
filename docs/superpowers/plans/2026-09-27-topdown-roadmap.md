@@ -23,6 +23,8 @@ Production is LIVE at https://kartar-cup.web.app (deployed 2026-09-27). Local em
 - Update this file's checklist as parts complete.
 
 ## Status
+- [x] W1. Home page scroll motion (R29) — inserted priority task, not part of the original 8-item
+  list below; numbering 1-8 is unaffected.
 - [x] 1. /events page
 - [ ] 2. Booking UI (B2)
 - [ ] 3. Host check-in scanner
