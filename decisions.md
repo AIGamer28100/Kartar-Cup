@@ -19,3 +19,6 @@ Decision: Vision doc, not a rewrite. Keep the current Vite+React+Firebase server
 
 ## Session-end demo priority (2026-09-27, ~19:18 IST)
 User needs a deployed, demo-safe production build by end of this session to pitch the company for a deal. Cut for this session: booking QR/scanner/payment, big-screen podium, calendar validation script, guest history/stats, Android app. In scope: verify build, deploy to production kartar-cup, add host doc, set a live active event.
+
+## Local dev server target (2026-09-27)
+`npm run dev` (plain `vite`, no mode flag) now connects to the REAL kartar-cup Firebase project via `.env.local` (gitignored, mirrors `.env.production.local`), not the emulator. Background agents continue verifying against the emulator (explicit VITE_USE_EMULATORS=true) so their throwaway test data never lands in the production database being demoed. `localhost` is already an authorized domain on kartar-cup, so Google sign-in works from the local server unmodified.
