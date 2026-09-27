@@ -19,6 +19,7 @@ import { Eyebrow, H1, Reveal, Shell, Split } from "./parts";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { useGuestSession } from "./useGuestSession";
+import { useCountdown } from "../lib/useCountdown";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -147,6 +148,64 @@ function AboutSection() {
   );
 }
 
+/** Five dots that light up red one per hour through the final 5 hours before lights out —
+ * echoes F1's real start-light sequence (5 lights build up, then go out together), repurposed
+ * here as an hour-by-hour countdown rather than the pre-race few seconds. Only rendered inside
+ * that final 5h window. CSS glow only, no new dependency. */
+function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
+  const lit = Math.min(5, Math.max(0, Math.ceil(5 - hoursRemaining)));
+  return (
+    <div className="mt-3 flex gap-2" role="img" aria-label={`${lit} of 5 hours down to lights out`}>
+      {Array.from({ length: 5 }, (_, i) => {
+        const on = i < lit;
+        return (
+          <span
+            key={i}
+            aria-hidden="true"
+            className={`h-3 w-3 rounded-full border transition-colors duration-500 ${
+              on
+                ? "border-accent bg-accent shadow-[0_0_10px_2px_var(--color-accent)]"
+                : "border-line bg-raised"
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** F1-broadcast-style digital countdown display: a dark segmented-numeral pill, the way a live
+ * session clock reads on TV (styled after that convention — never the sponsor's actual name or
+ * mark, per R27's same principle applied to a third party's trademark). Shows the 5-lights strip
+ * once inside the final 5 hours. */
+function CountdownReadout({ targetMs }: { targetMs: number }) {
+  const { days, hours, minutes, seconds, totalMs, done } = useCountdown(targetMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hoursRemaining = totalMs / 3_600_000;
+  return (
+    <div>
+      <div className="inline-flex items-center rounded-md border border-line bg-base px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <p className="font-mono text-3xl font-semibold tabular-nums tracking-wider text-ink">
+          {done ? (
+            "LIGHTS OUT"
+          ) : (
+            <>
+              {days > 0 && <span className="mr-2 text-lg align-middle">{days}d</span>}
+              {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+            </>
+          )}
+        </p>
+      </div>
+      {!done && hoursRemaining <= 5 && (
+        <FiveLightsStrip hoursRemaining={hoursRemaining} />
+      )}
+    </div>
+  );
+}
+
+/** R32 follow-up: only the NEXT event, with its real circuit visualization and a live countdown —
+ * the full schedule moved to its own page (/events), so this section stays a single, focused
+ * "what's on next" moment rather than a 3-up list. */
 function UpcomingEventsSection({
   event,
   status,
@@ -158,55 +217,59 @@ function UpcomingEventsSection({
   quizRevealed: boolean;
   onReveal: () => void;
 }) {
-  const upcoming = useMemo(() => {
-    const first = nextRace(new Date(), ALL_RACES);
-    if (!first) return [];
-    const sorted = [...ALL_RACES]
-      .filter((r) => r.status === "scheduled" && r.raceDate >= first.raceDate)
-      .sort((a, b) => a.raceDate.localeCompare(b.raceDate));
-    return sorted.slice(0, 3);
-  }, []);
+  const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
+  const track = next ? trackForRace(next.id) : null;
+  const targetMs = next ? Date.parse(`${next.raceDate}T13:00:00Z`) : 0;
 
   return (
     <div id="events">
-      <SectionHeading eyebrow="Upcoming">What&rsquo;s on</SectionHeading>
-      <Reveal index={1} className="mt-6">
-        <p className="max-w-[48ch] text-muted">
-          Watch-party nights, timed to the race calendar. Booking is coming soon
-          — for now this is the schedule, not a ticket.
-        </p>
-      </Reveal>
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {upcoming.map((r, i) => {
-          const t = istReadout(Date.parse(`${r.raceDate}T13:00:00Z`));
-          return (
-            <Reveal key={r.id} index={2 + i}>
-              <div className="rounded-lg border border-line bg-raised p-4">
-                <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                  Round {String(r.round).padStart(2, "0")}
-                </p>
-                <p className="mt-2 text-lg font-medium text-ink">{r.name}</p>
-                <p className="mt-1 text-sm text-muted">
-                  {t.day} {t.month} · watch-party night
-                </p>
+      <SectionHeading eyebrow="Upcoming">What&rsquo;s on next</SectionHeading>
+      {next ? (
+        <div className="mt-8 flex flex-col gap-10 lg:grid lg:grid-cols-[3fr_7fr] lg:items-center lg:gap-16">
+          {track && (
+            <Reveal className="lg:order-2">
+              <div className="rounded-none border-y border-line py-8">
+                <TrackMap track={track} animate className="mx-auto max-w-xl lg:max-w-none" />
               </div>
             </Reveal>
-          );
-        })}
-      </div>
-      {upcoming.length === 0 && (
-        <Reveal index={2} className="mt-6">
+          )}
+          <div className="lg:order-1">
+            <Reveal index={1}>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                Round {String(next.round).padStart(2, "0")} · watch-party
+                night
+              </p>
+              <p className="mt-2 text-2xl font-medium text-ink">
+                {next.name}
+              </p>
+              <p className="mt-1 text-muted">
+                {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
+                {next.locality}, {next.country}
+              </p>
+            </Reveal>
+            <Reveal index={2} className="mt-6">
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                Lights out in
+              </p>
+              <div className="mt-1">
+                <CountdownReadout targetMs={targetMs} />
+              </div>
+            </Reveal>
+            <Reveal index={3} className="mt-6">
+              <Link to="/events" className={linkCls}>
+                See the full calendar
+                <ArrowRight size={18} weight="regular" aria-hidden="true" />
+              </Link>
+            </Reveal>
+          </div>
+        </div>
+      ) : (
+        <Reveal index={1} className="mt-6">
           <p className="text-muted">
             No races left on the calendar — check back for the next season.
           </p>
         </Reveal>
       )}
-      <Reveal index={3} className="mt-6">
-        <Link to="/events" className={linkCls}>
-          See the full calendar
-          <ArrowRight size={18} weight="regular" aria-hidden="true" />
-        </Link>
-      </Reveal>
       {!quizRevealed && (
         <div className="mt-8">
           <QuizBanner event={event} status={status} onReveal={onReveal} />
