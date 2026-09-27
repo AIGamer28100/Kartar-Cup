@@ -72,7 +72,7 @@ export default function SettingsPage() {
         const existing = activeId ? await readEvent(activeId) : null;
         const f = existing
           ? configToForm(existing)
-          : raceToForm(nextRace(new Date(), ALL_RACES) ?? ALL_RACES[0]);
+          : await raceToForm(nextRace(new Date(), ALL_RACES) ?? ALL_RACES[0]);
         setForm(f);
         setSaved(existing ? snap(f) : '');
       } catch (e) {
@@ -95,13 +95,13 @@ export default function SettingsPage() {
     setBanner(null);
     try {
       if (id === CUSTOM) {
-        setForm(customForm());
+        setForm(await customForm());
         return;
       }
       const race = getRace(id);
       if (!race) return;
       const existing = await readEvent(race.id);
-      setForm(existing ? configToForm(existing) : raceToForm(race));
+      setForm(existing ? configToForm(existing) : await raceToForm(race));
       if (existing) setSaved(snap(configToForm(existing)));
     } catch (e) {
       setPickErr(e instanceof Error ? e.message : 'Could not load that race.');

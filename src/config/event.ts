@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import type { RaceInfo } from './calendar/types';
-import type { EventConfig, Option, Question } from '../lib/types';
+import type { DriverCfg, EventConfig, Option, Question, TeamCfg } from '../lib/types';
+import { fetchLineupForRace } from '../lib/openf1';
 
 export const LIGHTS_OUT_UTC = '2026-09-26T11:00:00Z';
 export const WHATSAPP_COMMUNITY_URL = '';
@@ -64,34 +65,77 @@ export const DEFAULT_RACE_DURATION_MIN = 90;
 // RaceInfo carries a date only; hosts adjust the start time on the settings page.
 export const DEFAULT_RACE_START_UTC_TIME = '13:00:00';
 
-export function buildDefaultEvent(race: RaceInfo, durationMin = DEFAULT_RACE_DURATION_MIN): EventConfig {
-  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
-  const closesMs = startMs + Math.round(0.9 * durationMin * 60_000);
-  const now = Timestamp.now();
+/** Static fallback grid: today's hand-written 2026-era template, used when OpenF1 has no data. */
+function staticGrid(): { teams: TeamCfg[]; drivers: DriverCfg[] } {
   return {
-    id: race.id,
-    raceId: race.id,
-    name: race.name,
-    subtitle: EVENT_SUBTITLE,
-    circuit: race.circuit,
-    themeId: race.themeId,
-    raceStartUtc: Timestamp.fromMillis(startMs),
-    raceDurationMin: durationMin,
-    opensAt: Timestamp.fromMillis(startMs),
-    closesAt: Timestamp.fromMillis(closesMs),
-    override: 'none',
-    whatsappUrl: WHATSAPP_COMMUNITY_URL,
     teams: TEAMS.map((t) => ({ id: t.id, label: t.label })),
     drivers: DRIVERS.map((d, i) => {
       const teamLabel = (d.sub ?? '').split(' · ')[0];
       return { id: d.id, label: d.label, teamId: TEAMS.find((t) => t.label === teamLabel)?.id ?? '', grid: i + 1 };
     }),
-    questions: QUESTIONS.map((q) => ({ ...q })),
-    questionIds: QUESTIONS.map((q) => q.id),
-    winnerRevealed: false,
-    tiebreakOverride: null,
-    createdAt: now,
-    updatedAt: now,
+  };
+}
+
+/** Result of trying to source a race's grid from OpenF1, for the settings page banner. */
+export type GridStatus =
+  | { kind: 'fetched'; fetchedAtMs: number }
+  | { kind: 'no-data' }
+  | { kind: 'error'; reason: string }
+  | { kind: 'saved' };
+
+/**
+ * Fetches the real driver/team lineup for a race from OpenF1 (R30). Falls back to the
+ * static template grid — labeled 'provisional' by the caller — when OpenF1 has no data yet
+ * (expected for races that have not been run) or the fetch fails.
+ */
+export async function fetchLiveGrid(race: RaceInfo): Promise<{ teams: TeamCfg[]; drivers: DriverCfg[]; gridStatus: GridStatus }> {
+  if (race.id === 'custom') return { ...staticGrid(), gridStatus: { kind: 'no-data' } };
+  const lineup = await fetchLineupForRace(race.season, race);
+  if (lineup.ok) {
+    return {
+      teams: lineup.teams.map((t) => ({ id: t.id, label: t.label })),
+      drivers: lineup.drivers,
+      gridStatus: { kind: 'fetched', fetchedAtMs: Date.now() },
+    };
+  }
+  const gridStatus: GridStatus = lineup.reason.includes('no entry list') || lineup.reason.includes('no OpenF1 session')
+    ? { kind: 'no-data' }
+    : { kind: 'error', reason: lineup.reason };
+  return { ...staticGrid(), gridStatus };
+}
+
+export async function buildDefaultEvent(
+  race: RaceInfo,
+  durationMin = DEFAULT_RACE_DURATION_MIN,
+): Promise<{ config: EventConfig; gridStatus: GridStatus }> {
+  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
+  const closesMs = startMs + Math.round(0.9 * durationMin * 60_000);
+  const now = Timestamp.now();
+  const { teams, drivers, gridStatus } = await fetchLiveGrid(race);
+  return {
+    config: {
+      id: race.id,
+      raceId: race.id,
+      name: race.name,
+      subtitle: EVENT_SUBTITLE,
+      circuit: race.circuit,
+      themeId: race.themeId,
+      raceStartUtc: Timestamp.fromMillis(startMs),
+      raceDurationMin: durationMin,
+      opensAt: Timestamp.fromMillis(startMs),
+      closesAt: Timestamp.fromMillis(closesMs),
+      override: 'none',
+      whatsappUrl: WHATSAPP_COMMUNITY_URL,
+      teams,
+      drivers,
+      questions: QUESTIONS.map((q) => ({ ...q })),
+      questionIds: QUESTIONS.map((q) => q.id),
+      winnerRevealed: false,
+      tiebreakOverride: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+    gridStatus,
   };
 }
 

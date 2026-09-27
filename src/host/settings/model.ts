@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import { buildDefaultEvent } from '../../config/event';
+import { buildDefaultEvent, type GridStatus } from '../../config/event';
 import { ALL_RACES, type RaceInfo } from '../../config/calendar';
 import type { DriverCfg, EventConfig, Override, QuestionCfg, TeamCfg } from '../../lib/types';
 import { fromLocalInput, toLocalInput } from './time';
@@ -29,11 +29,12 @@ export interface FormState {
   drivers: Omit<DriverCfg, 'grid'>[];
   questions: QuestionCfg[];
   qCounter: number; // highest question number ever issued
+  gridStatus: GridStatus; // R30: provenance of teams/drivers, for the settings banner (not persisted)
 }
 
 const qNum = (id: string) => Number(/^q(\d+)$/.exec(id)?.[1] ?? 0);
 
-export function configToForm(c: EventConfig): FormState {
+export function configToForm(c: EventConfig, gridStatus: GridStatus = { kind: 'saved' }): FormState {
   const startMs = c.raceStartUtc.toMillis();
   const defClose = startMs + Math.round(0.9 * c.raceDurationMin * 60_000);
   return {
@@ -56,13 +57,17 @@ export function configToForm(c: EventConfig): FormState {
     drivers: [...c.drivers].sort((a, b) => a.grid - b.grid).map(({ id, label, teamId }) => ({ id, label, teamId })),
     questions: c.questions.map((q) => ({ ...q })),
     qCounter: Math.max(c.nextQuestionSeq ?? 1, 1 + Math.max(0, ...c.questions.map((q) => qNum(q.id)))) - 1,
+    gridStatus,
   };
 }
 
-export const raceToForm = (race: RaceInfo): FormState => configToForm(buildDefaultEvent(race));
+export async function raceToForm(race: RaceInfo): Promise<FormState> {
+  const { config, gridStatus } = await buildDefaultEvent(race);
+  return configToForm(config, gridStatus);
+}
 
-export function customForm(): FormState {
-  const base = configToForm(buildDefaultEvent(ALL_RACES[0]));
+export async function customForm(): Promise<FormState> {
+  const base = await raceToForm(ALL_RACES[0]);
   return {
     ...base,
     id: `custom-${Date.now().toString(36)}`,
@@ -70,6 +75,7 @@ export function customForm(): FormState {
     themeId: ALL_RACES[0].themeId,
     name: '',
     circuit: '',
+    gridStatus: { kind: 'no-data' },
   };
 }
 
