@@ -6,7 +6,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import RequireHost from './pages/RequireHost';
 import FailurePage from './components/FailurePage';
 
-const GuestApp = lazy(() => import('./guest/GuestApp'));
+const HomePage = lazy(() => import('./guest/HomePage'));
 const HostApp = lazy(() => import('./host/HostApp'));
 
 export default function App() {
@@ -14,7 +14,7 @@ export default function App() {
     <div className="min-h-[100dvh] bg-base text-ink">
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
-          <Route path="/" element={<GuestApp />} />
+          <Route path="/" element={<HomePage />} />
           <Route
             path="/host/*"
             element={

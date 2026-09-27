@@ -9,3 +9,36 @@
   --font-sans: "Geist Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 }
+
+/*
+ * R26: a single secondary "brand gradient" accent — a light nod to the real Karter Cup
+ * palette (black base, checkered ring, red-to-orange gradient accent), not a palette swap.
+ * Starts at the existing --color-accent hue and warms toward orange so it reads as a natural
+ * extension, not a new colour system. Used sparingly: a couple of accent surfaces + one divider.
+ */
+:root {
+  --gradient-brand: linear-gradient(135deg, hsl(356 72% 52%), hsl(24 90% 55%));
+}
+
+.bg-gradient-brand {
+  background-image: var(--gradient-brand);
+}
+
+.text-gradient-brand {
+  background-image: var(--gradient-brand);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Subtle checkered-motif divider strip. Sparing use only (1-2 spots): under the hero, or as a
+   section divider. Static tile, no motion — respects prefers-reduced-motion trivially. */
+.divider-checker {
+  height: 0.5rem;
+  background-image:
+    repeating-linear-gradient(45deg, var(--color-line) 0, var(--color-line) 0.5rem, transparent 0.5rem, transparent 1rem),
+    var(--gradient-brand);
+  background-size: 1rem 1rem, 100% 100%;
+  background-blend-mode: overlay;
+  opacity: 0.85;
+}
