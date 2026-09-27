@@ -17,6 +17,19 @@ export function upcomingRaces(now: Date, races: RaceInfo[], season?: 2026 | 2027
     .sort((a, b) => a.raceDate.localeCompare(b.raceDate));
 }
 
+/** The most recent SCHEDULED race before the next one, by date — used for the small "Previous"
+ * card ahead of the featured "Next" card. Cancelled-by-host races (e.g. Baku) are skipped, same
+ * rule as `upcomingRaces`, since they were never a real watch-party night; returns null when
+ * there genuinely isn't one in our data (e.g. right now, before any 2026 round we cover has run). */
+export function previousRace(now: Date, races: RaceInfo[]): RaceInfo | null {
+  const next = nextRace(now, races);
+  if (!next) return null;
+  const before = races
+    .filter((r) => r.status === 'scheduled' && r.raceDate < next.raceDate)
+    .sort((a, b) => b.raceDate.localeCompare(a.raceDate));
+  return before[0] ?? null;
+}
+
 /** Distinct seasons that still have at least one upcoming race, in order — drives the season
  * selector on the events page. */
 export function upcomingSeasons(now: Date, races: RaceInfo[]): (2026 | 2027)[] {

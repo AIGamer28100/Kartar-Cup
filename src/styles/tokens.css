@@ -70,13 +70,18 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* Leftover bug: the hover rules used to jump to the pre-fix rotateX(28deg), reintroducing the
+     exact overflow the base-rotation reduction (28deg->18deg, 32deg->20deg) was meant to fix.
+     Under reduced motion the tilt should just hold still at its own base angle, never escalate. */
   .track-tilt,
-  .track-tilt-featured {
+  .group:hover .track-tilt {
     transition: none;
+    transform: rotateX(18deg) rotateZ(-1deg);
   }
-  .group:hover .track-tilt,
+  .track-tilt-featured,
   .group:hover .track-tilt-featured {
-    transform: rotateX(28deg) rotateZ(-2deg);
+    transition: none;
+    transform: rotateX(20deg) rotateZ(-2deg);
   }
 }
 

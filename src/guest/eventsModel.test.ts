@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RaceInfo } from '../config/calendar';
 import type { BookingEvent } from '../lib/types';
-import { groupByMonth, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
+import { groupByMonth, previousRace, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
 
 const race = (
   id: string,
@@ -64,6 +64,32 @@ describe('upcomingRaces', () => {
     ];
     const result = upcomingRaces(new Date('2026-01-01T00:00:00Z'), races, 2027);
     expect(result.map((r) => r.id)).toEqual(['b']);
+  });
+});
+
+describe('previousRace', () => {
+  it('returns the most recent scheduled race before the next one', () => {
+    const races = [
+      race('r14', 14, '2026-09-13'),
+      race('r15', 15, '2026-09-26', 'cancelled-by-host'),
+      race('r16', 16, '2026-10-04'),
+      race('r17', 17, '2026-10-11'),
+    ];
+    expect(previousRace(new Date('2026-09-27T00:00:00Z'), races)?.id).toBe('r14');
+  });
+
+  it('skips cancelled-by-host races, same rule as upcomingRaces', () => {
+    const races = [
+      race('r14', 14, '2026-09-01'),
+      race('r15', 15, '2026-09-26', 'cancelled-by-host'),
+      race('r16', 16, '2026-10-04'),
+    ];
+    expect(previousRace(new Date('2026-09-27T00:00:00Z'), races)?.id).toBe('r14');
+  });
+
+  it('returns null when there is no earlier scheduled race in the data', () => {
+    const races = [race('r16', 16, '2026-10-04')];
+    expect(previousRace(new Date('2026-09-27T00:00:00Z'), races)).toBeNull();
   });
 });
 

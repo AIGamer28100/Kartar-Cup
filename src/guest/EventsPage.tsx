@@ -11,7 +11,7 @@ import { watchActiveEventId, watchEventConfig } from '../lib/db';
 import { useEventStatus } from '../lib/eventStatus';
 import { watchBookingEvents } from '../lib/bookings';
 import type { BookingEvent, EventConfig } from '../lib/types';
-import { groupByMonth, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
+import { groupByMonth, previousRace, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
 import { quizGateVariant } from './quizGate';
 import { Eyebrow, H1, Reveal, Shell } from './parts';
 
@@ -103,8 +103,15 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
     <div
       className={`track-tilt-stage flex items-center justify-center overflow-hidden ${featured ? 'h-64 sm:h-80' : 'h-40 sm:h-48'}`}
     >
-      <div className={`w-3/5 ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
-        <TrackMap raceId={race.id} title={`${race.name} circuit layout`} />
+      <div className={`h-full max-h-full w-3/5 ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
+        {/* max-h-full caps the SVG's own aspect-ratio-driven height to the stage's fixed
+           height (h-auto alone lets an unusually tall/narrow circuit exceed the box) — this
+           is the real fix for cards overflowing their boundaries, independent of the 3D tilt. */}
+        <TrackMap
+          raceId={race.id}
+          title={`${race.name} circuit layout`}
+          className="max-h-full"
+        />
       </div>
     </div>
   );
@@ -204,7 +211,9 @@ export default function EventsPage() {
     () => (activeSeason ? upcomingRaces(now, ALL_RACES, activeSeason) : []),
     [now, activeSeason],
   );
-  const groups = useMemo(() => groupByMonth(races), [races]);
+  const previous = useMemo(() => previousRace(now, ALL_RACES), [now]);
+  const featuredRace = races[0] ?? null;
+  const groups = useMemo(() => groupByMonth(races.slice(1)), [races]);
   const quizVisible = quizGateVariant(quizStatus) !== 'none';
 
   return (
@@ -260,8 +269,40 @@ export default function EventsPage() {
               Couldn&rsquo;t load ticket status — showing the schedule only.
             </p>
           )}
+          {/* F1.com-inspired featured row: Previous (small) + Next (large), 5% outer padding,
+             ~2.5% gap between, previous ~15% / next ~65% of the row (the rest is breathing room,
+             not a hard third card). Stacks to a single column below lg. */}
+          {featuredRace && (
+            <div className="flex flex-col gap-6 px-0 lg:flex-row lg:gap-[2.5%] lg:px-[5%]">
+              {previous && (
+                <div className="lg:basis-[15%]">
+                  <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
+                    Previous
+                  </p>
+                  <RaceCard
+                    race={previous}
+                    index={0}
+                    ticket={ticketStatusFor(previous.id, bookingEvents ?? [])}
+                    quizNote={false}
+                  />
+                </div>
+              )}
+              <div className="lg:basis-[65%]">
+                <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
+                  Next
+                </p>
+                <RaceCard
+                  race={featuredRace}
+                  index={1}
+                  ticket={ticketStatusFor(featuredRace.id, bookingEvents ?? [])}
+                  quizNote={quizVisible && quizRaceId === featuredRace.id}
+                  featured
+                />
+              </div>
+            </div>
+          )}
           {groups.map((group, gi) => (
-            <section key={group.label} aria-label={group.label} className={gi > 0 ? 'mt-12' : ''}>
+            <section key={group.label} aria-label={group.label} className="mt-12">
               <p className="font-mono text-xs uppercase tracking-widest text-muted">{group.label}</p>
               <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {group.races.map((race, i) => (
@@ -271,7 +312,6 @@ export default function EventsPage() {
                     index={gi * 3 + i}
                     ticket={ticketStatusFor(race.id, bookingEvents ?? [])}
                     quizNote={quizVisible && quizRaceId === race.id}
-                    featured={gi === 0 && i === 0}
                   />
                 ))}
               </div>
