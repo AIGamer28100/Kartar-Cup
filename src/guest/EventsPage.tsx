@@ -70,29 +70,30 @@ function useActiveQuizRace(): { raceId: string | null; status: ReturnType<typeof
 
 function CardSkeleton({ featured = false }: { featured?: boolean }) {
   return (
-    <div className={`rounded-lg border border-line bg-raised p-6 ${featured ? 'sm:col-span-2' : ''}`}>
-      <Skeleton className={`w-full rounded-md ${featured ? 'h-64' : 'h-40'}`} />
-      <Skeleton className="mt-5 h-3 w-32" />
-      <Skeleton className="mt-3 h-6 w-64" />
-      <Skeleton className="mt-2 h-4 w-48" />
+    <div
+      className={`grid grid-cols-[2fr_1fr] items-center gap-4 rounded-lg border border-line bg-raised p-5 ${featured ? 'sm:col-span-2 sm:grid-cols-[2fr_1fr] sm:gap-6 sm:p-6' : ''}`}
+    >
+      <div>
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="mt-3 h-6 w-full max-w-64" />
+        <Skeleton className="mt-2 h-4 w-48" />
+      </div>
+      <Skeleton className="aspect-square w-full rounded-md" />
     </div>
   );
 }
 
 /** The circuit visual: the race's REAL validated 2D outline (TrackMap) given a CSS-only
- * perspective/tilt presentation for depth — no fabricated elevation data (R17/R32). Races with
- * no track coverage (`trackForRace` -> null) get a graceful text-only placeholder instead of a
- * broken/blank card. */
+ * perspective/tilt presentation for depth — no fabricated elevation data (R17/R32). Square box
+ * (aspect-square), sized by its grid column rather than a fixed height, per the user's explicit
+ * "tracks are to be contained in square boxes" request. Races with no track coverage
+ * (`trackForRace` -> null) get a graceful text-only placeholder instead of a broken/blank card. */
 function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }) {
   const track = trackForRace(race.id);
   if (!track) {
     return (
-      <div
-        className={`flex items-center justify-center rounded-md border border-dashed border-line bg-base ${
-          featured ? 'h-64' : 'h-40'
-        }`}
-      >
-        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+      <div className="flex aspect-square items-center justify-center rounded-md border border-dashed border-line bg-base p-3 text-center">
+        <p className="flex flex-col items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
           <FlagCheckered size={16} weight="regular" aria-hidden="true" />
           Circuit layout coming soon
         </p>
@@ -100,9 +101,7 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
     );
   }
   return (
-    <div
-      className={`track-tilt-stage flex items-center justify-center overflow-hidden ${featured ? 'h-64 sm:h-80' : 'h-40 sm:h-48'}`}
-    >
+    <div className="track-tilt-stage flex aspect-square items-center justify-center overflow-hidden">
       <div className={`h-full max-h-full w-3/5 ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
         {/* max-h-full caps the SVG's own aspect-ratio-driven height to the stage's fixed
            height (h-auto alone lets an unusually tall/narrow circuit exceed the box) — this
@@ -155,11 +154,11 @@ function RaceCard({
         featured ? 'sm:col-span-2' : ''
       }`}
     >
-      <div className={featured ? 'sm:grid sm:grid-cols-[3fr_2fr] sm:items-center sm:gap-6' : ''}>
-        <div className={`border-b border-line p-4 ${featured ? 'sm:border-b-0 sm:border-r sm:p-6' : ''}`}>
-          <CircuitVisual race={race} featured={featured} />
-        </div>
-        <div className={`p-5 ${featured ? 'sm:p-6' : ''}`}>
+      {/* Info on the left, square circuit box on the right, for every card size (was up/down
+         for compact cards before — now consistent with the featured layout, per the user's
+         explicit request). */}
+      <div className={`grid grid-cols-[2fr_1fr] items-center gap-4 p-5 ${featured ? 'sm:grid-cols-[3fr_2fr] sm:gap-6 sm:p-6' : ''}`}>
+        <div>
           <p className="font-mono text-xs uppercase tracking-widest text-muted">
             Round {String(race.round).padStart(2, '0')} · {range}
             {featured && ' · next up'}
@@ -181,6 +180,7 @@ function RaceCard({
             <TicketReadout ticket={ticket} />
           </div>
         </div>
+        <CircuitVisual race={race} featured={featured} />
       </div>
     </Reveal>
   );
