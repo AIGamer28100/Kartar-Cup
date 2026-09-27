@@ -91,3 +91,70 @@ export interface Question {
   kind: 'team' | 'driver';
   hint?: string;
 }
+
+/* ---------- booking/ticketing (R23) ---------- */
+
+export interface Venue {
+  id: string;
+  name: string;
+  city: string;
+  mapUrl?: string;
+  capacityDefault?: number;
+}
+export interface PriceTier {
+  id: string;
+  label: string;
+  priceInr: number;
+  perTicketDiscountPct?: number;
+}
+export type DiscountKind = 'percent' | 'flat' | 'group' | 'earlybird';
+export interface Discount {
+  id: string;
+  code?: string;
+  label: string;
+  kind: DiscountKind;
+  value: number;
+  minQty?: number;
+  validFromUtc?: Timestamp;
+  validToUtc?: Timestamp;
+  maxRedemptions?: number;
+  redeemed?: number;
+  active: boolean;
+}
+/** A ticketed watch party. Own collection `bookingEvents/{id}`, separate from the quiz `events/{id}`;
+ * may optionally reference a calendar race via raceId but is not required to. */
+export interface BookingEvent {
+  id: string;
+  raceId?: string;
+  title: string;
+  venue: Venue;
+  dateUtc: string;
+  tiers: PriceTier[];
+  discounts: Discount[];
+  capacity: number;
+  bookedCount: number;
+  salesOpen: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+export type BookingStatus = 'reserved' | 'paid_mock' | 'checked_in' | 'cancelled';
+/** qrToken == booking id; contains NO PII (R23). */
+export interface Booking {
+  id: string;
+  bookingEventId: string;
+  buyerUid: string;
+  buyerName: string;
+  buyerEmail: string;
+  tierId: string;
+  qty: number;
+  unitPriceInr: number;
+  discountCode?: string;
+  discountAmountInr: number;
+  totalInr: number;
+  status: BookingStatus;
+  qrToken: string;
+  createdAt: Timestamp;
+  paidAt?: Timestamp;
+  checkedInAt?: Timestamp;
+  checkedInBy?: string;
+}
