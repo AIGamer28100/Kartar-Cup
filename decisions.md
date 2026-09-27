@@ -10,3 +10,6 @@
 | Theme | Dark + Baku red fallback; swappable tokens | Guessing Karter Cup colours (couldn't verify; Instagram not scrapeable) |
 | Search result "Kartar Cup" | Ignored Indonesian Karang Taruna tournaments | Using them as brand reference (wrong org) |
 | Build priority (2026-09-27) | 1) Home page (H1, in flight): community/brand page, quiz demoted. 2) `/events` page: full upcoming-events listing. 3) Booking page: buyer flow off `/events`, using the existing B1 data/rules layer. Host scanner, big-screen podium, calendar validation, guest history/stats all come after | User: "priority, home page, then events page which takes to booking page" | Home page's own Upcoming Events section stays a short teaser linking to `/events`, not a full listing built twice |
+
+## Deferred / future scope
+- Android app for community members only (user, 2026-09-27): discuss and scope later, not started.
