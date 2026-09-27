@@ -22,14 +22,24 @@ Production is LIVE at https://kartar-cup.web.app (deployed 2026-09-27). Local em
 - On a genuine blocker (failing test I can't quickly root-cause, a real ambiguous product decision, a destructive/outward-facing action) — stop and report to the user rather than guess silently.
 - Update this file's checklist as parts complete.
 
-## Status
+## Status (last updated 2026-09-28 00:40 IST — session paused until next Friday, see docs/HANDOFF.md)
 - [x] W1. Home page scroll motion (R29) — inserted priority task, not part of the original 8-item
   list below; numbering 1-8 is unaffected.
 - [x] 1. /events page
-- [ ] 2. Booking UI (B2)
-- [ ] 3. Host check-in scanner
-- [ ] 4. OpenF1 live data / RaceFact normalization
-- [ ] 5. Big-screen podium
-- [ ] 6. Guest personal history/stats
-- [ ] 7. Lightweight audit log + idempotency review
-- [ ] 8. Calendar validation cleanup (supersede FastF1 script)
+- [ ] 2. Booking UI (B2) — NOT STARTED. Data layer + rules already built/tested (src/lib/bookings.ts).
+- [ ] 3. Host check-in scanner — NOT STARTED. Depends on #2 existing bookings to scan.
+- [x] 4. OpenF1 live data — DONE for Grid/Teams (R30, src/lib/openf1.ts), verified against the real
+  live API (not just mocked). RaceFact-style normalization for scoring/DNF/fastest-lap (the
+  wider PRD idea) is NOT done — only grid/teams was in scope this session.
+- [ ] 5. Big-screen podium — NOT STARTED.
+- [x] 6. Guest personal history/stats — DONE as /profile (R31), own-data-only verified against R15.
+- [ ] 7. Lightweight audit log + idempotency review — NOT STARTED.
+- [ ] 8. Calendar validation cleanup — NOT DONE. scripts/validate-calendar.py is still an abandoned,
+  untracked, unfinished FastF1-based script. Safe to delete; OpenF1 (#4) is the live approach now.
+
+## Also done this session, outside the numbered list
+- R23-R31 logged and built: booking data model + mock pay + rules (B1), Google-only sign-in
+  hardening, home page rebuilt as a community/brand page with the quiz demoted to a minor
+  event-only banner, real Karter Cup brand facts from Instagram, header logo placeholder +
+  working sign-in on every page, /gallery split out of the home page, production deploy to
+  https://kartar-cup.web.app.
