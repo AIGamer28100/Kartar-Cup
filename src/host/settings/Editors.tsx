@@ -24,7 +24,7 @@ export function TeamsEditor({ form, errors, patch }: { form: FormState; errors: 
   }
   return (
     <Section title="Teams" intro="Team answers use these. A team in use by a driver cannot be removed.">
-      <ul className="space-y-3">
+      <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
         {form.teams.map((t, i) => (
           <li key={t.id} className="flex items-end gap-2">
             <Field id={`team-${t.id}`} label={`Team ${i + 1}`} className="flex-1">
@@ -65,13 +65,22 @@ export function TeamsEditor({ form, errors, patch }: { form: FormState; errors: 
 export function GridEditor({ form, errors, patch }: { form: FormState; errors: Errors; patch: Patch }) {
   return (
     <Section title="Starting grid" intro="Grid positions follow the row order. Use the arrows to reorder.">
+      <div
+        aria-hidden="true"
+        className="hidden grid-cols-[3rem_1fr_1fr_6rem] gap-x-4 border-t border-line pb-2 pt-3 text-sm font-medium text-muted md:grid"
+      >
+        <span>Pos</span>
+        <span>Driver</span>
+        <span>Team</span>
+        <span />
+      </div>
       <ol className="divide-y divide-line border-y border-line">
         {form.drivers.map((d, i) => (
-          <li key={d.id} className="grid grid-cols-[2.5rem_1fr_auto] items-end gap-x-3 gap-y-2 py-3 md:grid-cols-[3rem_1fr_1fr_auto]">
-            <span className="pb-3 font-mono text-muted" aria-label={`Grid position ${i + 1}`}>
+          <li key={d.id} className="grid grid-cols-[2.5rem_1fr_auto] items-end gap-x-3 gap-y-2 py-3 md:grid-cols-[3rem_1fr_1fr_6rem] md:items-center md:gap-x-4">
+            <span className="pb-3 font-mono text-muted md:pb-0" aria-label={`Grid position ${i + 1}`}>
               P{i + 1}
             </span>
-            <Field id={`drv-${d.id}`} label="Driver">
+            <Field id={`drv-${d.id}`} label="Driver" hideLabelMd>
               <input
                 id={`drv-${d.id}`}
                 className={inputCls}
@@ -82,7 +91,7 @@ export function GridEditor({ form, errors, patch }: { form: FormState; errors: E
                 }
               />
             </Field>
-            <Field id={`drv-team-${d.id}`} label="Team" className="col-span-2 col-start-2 row-start-2 md:col-span-1 md:col-start-3 md:row-start-1">
+            <Field id={`drv-team-${d.id}`} label="Team" hideLabelMd className="col-span-2 col-start-2 row-start-2 md:col-span-1 md:col-start-3 md:row-start-1">
               <select
                 id={`drv-team-${d.id}`}
                 className={inputCls}

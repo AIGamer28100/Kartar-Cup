@@ -17,8 +17,10 @@ export function Field({
   hint,
   children,
   className = '',
+  hideLabelMd = false,
 }: {
   id: string;
+  hideLabelMd?: boolean;
   label: string;
   error?: string;
   hint?: string;
@@ -27,7 +29,7 @@ export function Field({
 }) {
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-muted">
+      <label htmlFor={id} className={`mb-1.5 block text-sm font-medium text-muted ${hideLabelMd ? 'md:sr-only' : ''}`}>
         {label}
       </label>
       {children}
@@ -41,6 +43,8 @@ export function Field({
   );
 }
 
+export const sectionId = (t: string) => `sec-${t.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
 export function Section({
   title,
   intro,
@@ -51,7 +55,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section aria-label={title} className="border-b border-line py-8">
+    <section id={sectionId(title)} aria-label={title} className="scroll-mt-6 border-b border-line py-8">
       <h2 className="text-xl font-semibold md:text-2xl">{title}</h2>
       {intro && <p className="mt-1 max-w-2xl text-muted">{intro}</p>}
       <div className="mt-6">{children}</div>

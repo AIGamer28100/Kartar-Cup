@@ -59,7 +59,7 @@ export default function RevealWinner({
           <motion.div
             role="dialog"
             aria-label="Winner"
-            className="fixed inset-0 z-50 grid place-items-center bg-base p-6 md:p-16"
+            className="fixed inset-0 z-50 grid place-items-center bg-base p-6 md:p-16 lg:p-24"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

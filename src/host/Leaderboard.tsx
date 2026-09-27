@@ -39,10 +39,10 @@ export default function Leaderboard({
           const chosen = overrideUid === r.uid;
           const inner = (
             <>
-              <span className="w-10 shrink-0 text-left font-mono text-2xl tabular-nums text-muted md:w-16 md:text-4xl">
+              <span className="text-left font-mono text-2xl tabular-nums text-muted md:text-4xl 2xl:text-5xl">
                 {r.rank}
               </span>
-              <span className="min-w-0 flex-1 truncate text-left text-[2rem] font-semibold leading-tight md:text-5xl">
+              <span className="min-w-0 truncate text-left text-[1.625rem] font-semibold leading-tight md:text-5xl 2xl:text-6xl">
                 {r.name}
                 {chosen && (
                   <span className="ml-3 align-middle text-sm font-normal uppercase tracking-widest text-accent">
@@ -51,7 +51,7 @@ export default function Leaderboard({
                 )}
               </span>
               <span
-                className="hidden shrink-0 gap-1 sm:flex"
+                className="hidden gap-1.5 sm:flex"
                 role="img"
                 aria-label={QUESTIONS.map(
                   (_q, i) => `${i + 1} ${r.ticks[QUESTION_IDS[i]] ? 'right' : 'wrong'}`,
@@ -73,12 +73,13 @@ export default function Leaderboard({
                   </span>
                 ))}
               </span>
-              <span className="w-14 shrink-0 text-right font-mono text-4xl tabular-nums md:w-24 md:text-6xl">
+              <span className="text-right font-mono text-4xl tabular-nums md:text-6xl 2xl:text-7xl">
                 {r.score}
               </span>
             </>
           );
-          const rowCls = 'flex w-full items-center gap-3 py-4 md:gap-6 md:py-5';
+          const rowCls =
+            'grid w-full grid-cols-[2rem_minmax(0,1fr)_3rem] items-center gap-x-3 py-4 sm:grid-cols-[3rem_minmax(0,1fr)_auto_4.5rem] md:grid-cols-[4rem_minmax(0,1fr)_auto_6rem] md:gap-x-6 md:py-5 2xl:grid-cols-[6rem_minmax(0,1fr)_auto_8rem] 2xl:py-6';
           return (
             <motion.li key={r.uid} layout transition={spring}>
               {tiedTop ? (

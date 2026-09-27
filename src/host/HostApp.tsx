@@ -55,7 +55,7 @@ export default function HostApp() {
   }
 
   return (
-    <main className="mx-auto min-h-[100dvh] max-w-7xl bg-base px-5 py-8 text-ink md:px-10">
+    <main className="mx-auto min-h-[100dvh] max-w-[1400px] bg-base px-6 py-8 text-ink md:px-10 lg:px-16">
       <header className="flex items-center justify-between gap-4 border-b border-line pb-4">
         <h1 className="text-2xl font-semibold md:text-4xl">
           {SITE_TITLE} <span className="text-muted">pit wall</span>
@@ -77,7 +77,7 @@ export default function HostApp() {
 
       {gate.s === 'signedOut' && (
         <div className="py-16">
-          <p className="max-w-xl text-3xl">Marshals only. Show your credentials at the gate.</p>
+          <p className="max-w-2xl text-[clamp(1.75rem,3.5vw,3rem)] leading-tight">Marshals only. Show your credentials at the gate.</p>
           <Button className="mt-8" onClick={signIn}>
             <GoogleLogo size={20} weight="regular" /> Sign in with Google
           </Button>
