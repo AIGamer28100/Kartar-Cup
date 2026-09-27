@@ -9,7 +9,7 @@ export function HostFrame({ children, signedIn }: { children: ReactNode; signedI
   return (
     <main className="mx-auto min-h-[100dvh] max-w-[87.5rem] bg-base px-6 py-8 text-ink md:px-10 lg:px-16">
       <header className="flex items-center justify-between gap-4 border-b border-line pb-4">
-        <h1 className="text-2xl font-semibold md:text-4xl">
+        <h1 className="text-xl font-semibold md:text-3xl">
           {SITE_TITLE} <span className="text-muted">pit wall</span>
         </h1>
         {signedIn && (

@@ -178,7 +178,7 @@ function Step({
   return (
     <>
       <div className="min-w-0">
-        <h1 className="text-[clamp(1.875rem,3vw,3rem)] font-semibold leading-[1.08] tracking-tight">{q.prompt}</h1>
+        <h1 className="text-[clamp(1.625rem,2.5vw,2.5rem)] font-semibold leading-[1.08] tracking-tight">{q.prompt}</h1>
         {q.hint && <p className="mt-3 max-w-[40ch] text-muted md:text-lg">{q.hint}</p>}
         <Rail config={config} answers={answers} step={qi} onStep={onStep} />
       </div>

@@ -6,7 +6,8 @@ import { QUESTIONS } from '../config/event';
 import { DEFAULT_QUESTION_IDS as QUESTION_IDS } from '../lib/types';
 import type { RankedRow } from '../lib/types';
 
-const spring = { type: 'spring', stiffness: 380, damping: 34 } as const;
+// Host tools stay low-motion (R20): a quick linear reorder, no spring bounce.
+const reorder = { duration: 0.18, ease: 'easeOut' } as const;
 
 export default function Leaderboard({
   rows,
@@ -24,7 +25,7 @@ export default function Leaderboard({
   if (rows.length === 0) {
     return (
       <section aria-label="Leaderboard" className="py-16">
-        <p className="text-3xl text-muted">No picks yet, the grid is quiet.</p>
+        <p className="text-2xl text-muted">No picks yet, the grid is quiet.</p>
       </section>
     );
   }
@@ -32,17 +33,17 @@ export default function Leaderboard({
 
   return (
     <section aria-label="Leaderboard" className="py-8">
-      <h2 className="text-3xl font-semibold">Leaderboard</h2>
+      <h2 className="text-2xl font-semibold">Leaderboard</h2>
       <ol className="mt-4 divide-y divide-line">
         {rows.map((r) => {
           const tiedTop = canPick && r.tiedOnScore && r.score === top;
           const chosen = overrideUid === r.uid;
           const inner = (
             <>
-              <span className="text-left font-mono text-2xl tabular-nums text-muted md:text-4xl 2xl:text-5xl">
+              <span className="text-left font-mono text-xl tabular-nums text-muted md:text-3xl 2xl:text-4xl">
                 {r.rank}
               </span>
-              <span className="min-w-0 truncate text-left text-[1.625rem] font-semibold leading-tight md:text-5xl 2xl:text-6xl">
+              <span className="min-w-0 truncate text-left text-[1.375rem] font-semibold leading-tight md:text-4xl 2xl:text-5xl">
                 {r.name}
                 {chosen && (
                   <span className="ml-3 align-middle text-sm font-normal uppercase tracking-widest text-accent">
@@ -73,7 +74,7 @@ export default function Leaderboard({
                   </span>
                 ))}
               </span>
-              <span className="text-right font-mono text-4xl tabular-nums md:text-6xl 2xl:text-7xl">
+              <span className="text-right font-mono text-3xl tabular-nums md:text-5xl 2xl:text-6xl">
                 {r.score}
               </span>
             </>
@@ -81,7 +82,7 @@ export default function Leaderboard({
           const rowCls =
             'grid w-full grid-cols-[2rem_minmax(0,1fr)_3rem] items-center gap-x-3 py-4 sm:grid-cols-[3rem_minmax(0,1fr)_auto_4.5rem] md:grid-cols-[4rem_minmax(0,1fr)_auto_6rem] md:gap-x-6 md:py-5 2xl:grid-cols-[6rem_minmax(0,1fr)_auto_8rem] 2xl:py-6';
           return (
-            <motion.li key={r.uid} layout transition={spring}>
+            <motion.li key={r.uid} layout transition={reorder}>
               {tiedTop ? (
                 <button
                   type="button"

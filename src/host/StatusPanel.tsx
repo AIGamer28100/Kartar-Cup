@@ -41,7 +41,7 @@ export default function StatusPanel({ event, count }: { event: EventDoc | null; 
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
           <p className="text-sm uppercase tracking-widest text-muted">Grid entries</p>
-          <p className="font-mono text-7xl tabular-nums leading-none md:text-8xl" aria-live="polite">
+          <p className="font-mono text-5xl tabular-nums leading-none md:text-6xl" aria-live="polite">
             {count}
           </p>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import Button from '../components/Button';
 import Countdown from '../components/Countdown';
 import Divider from '../components/Divider';
@@ -11,7 +12,7 @@ import Hero from './Hero';
 import { scoreOwn } from './model';
 import Quiz from './Quiz';
 import GoogleCta, { Profile, accountName } from './SignIn';
-import { CloseTimer, Eyebrow, H1, PicksList, Reveal, Shell, Split, TickStrip, WhatsAppCta } from './parts';
+import { CloseTimer, Eyebrow, H1, PicksList, Reveal, SPRING, Shell, Split, TickStrip, WhatsAppCta } from './parts';
 import { useTimedOut } from '../lib/useTimedOut';
 import { useGuestSession, type GuestSession } from './useGuestSession';
 
@@ -57,6 +58,7 @@ function EventFlow({
   const [error, setError] = useState('');
   const seeded = useRef(false);
   const wa = event.whatsappUrl;
+  const reduce = useReducedMotion();
 
   const patch = (p: Partial<Draft>) =>
     setDraft((d) => {
@@ -115,10 +117,15 @@ function EventFlow({
               <Reveal index={1}>
                 {sc ? (
                   <>
-                    <p className="font-mono text-[clamp(5rem,14vw,12rem)] font-semibold tabular-nums leading-none">
+                    <motion.p
+                      initial={reduce ? false : { opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={SPRING}
+                      className="font-mono text-[clamp(4rem,11vw,9.5rem)] font-semibold tabular-nums leading-none"
+                    >
                       {sc.score}
                       <span className="text-[0.4em] text-muted"> / {event.questions.length}</span>
-                    </p>
+                    </motion.p>
                     <div className="mt-8">
                       <TickStrip config={event} ticks={sc.ticks} />
                     </div>

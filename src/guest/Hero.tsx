@@ -25,6 +25,24 @@ function TrackLine() {
         animate={{ pathLength: 1, opacity: 1 }}
         transition={{ duration: reduce ? 0 : 2.4, ease: 'easeInOut', delay: 0.3 }}
       />
+      {/* A light travelling along the drawn line, opacity/stroke only. Skipped under reduced motion. */}
+      {!reduce && (
+        <motion.path
+          d={d}
+          stroke="var(--color-accent)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="18 420"
+          opacity={0.85}
+          initial={{ pathLength: 0, strokeDashoffset: 0 }}
+          animate={{ pathLength: 1, strokeDashoffset: [0, -438] }}
+          transition={{
+            pathLength: { duration: 2.4, ease: 'easeInOut', delay: 0.3 },
+            strokeDashoffset: { duration: 3.2, ease: 'linear', repeat: Infinity, delay: 2.7 },
+          }}
+        />
+      )}
     </svg>
   );
 }
@@ -38,7 +56,7 @@ function Readout({ config }: { config: EventConfig }) {
         {race ? `Round ${String(race.round).padStart(2, '0')}` : 'Race weekend'}
         {config.circuit ? ` / ${config.circuit}` : ''}
       </p>
-      <p className="mt-2 font-mono text-7xl font-medium leading-[0.9] md:text-[clamp(4rem,8vw,7.5rem)] tabular-nums tracking-tighter">
+      <p className="mt-2 font-mono text-6xl font-medium leading-[0.9] md:text-[clamp(3.25rem,6.5vw,6rem)] tabular-nums tracking-tighter">
         {t.day}
         <span className="text-muted"> {t.month}</span>
       </p>
@@ -80,7 +98,7 @@ export default function Hero({
         {scheduled ? (
           <>
             <p className="text-sm text-muted">Picks open in</p>
-            <Countdown target={config.opensAt.toMillis()} className="block text-5xl font-medium md:text-[clamp(3rem,5vw,4.5rem)]" />
+            <Countdown target={config.opensAt.toMillis()} className="block text-4xl font-medium md:text-[clamp(2.5rem,4vw,3.75rem)]" />
           </>
         ) : (
           <CloseTimer closesAt={config.closesAt.toMillis()} />

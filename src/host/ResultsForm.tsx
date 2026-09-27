@@ -46,7 +46,7 @@ export default function ResultsForm({
 
   return (
     <section aria-label="Results" className="border-b border-line py-8">
-      <h2 className="text-3xl font-semibold">Race results</h2>
+      <h2 className="text-2xl font-semibold">Race results</h2>
       <p className="mt-1 text-muted">
         Tick every accepted answer. Leave a question empty to void it, nobody scores on it.
       </p>

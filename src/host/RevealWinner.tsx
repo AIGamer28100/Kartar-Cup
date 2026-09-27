@@ -5,7 +5,8 @@ import Button from '../components/Button';
 import { revealWinner } from '../lib/db';
 import type { RankedRow } from '../lib/types';
 
-const spring = { type: 'spring', stiffness: 220, damping: 22 } as const;
+// Host tools stay low-motion (R20): quick opacity/transform fade, no spring bounce.
+const fast = { duration: 0.18, ease: 'easeOut' } as const;
 
 export default function RevealWinner({
   winner,
@@ -35,9 +36,9 @@ export default function RevealWinner({
   }
 
   const item = (delay: number) => ({
-    initial: reduce ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.94 },
-    animate: { opacity: 1, y: 0, scale: 1 },
-    transition: reduce ? { duration: 0.01 } : { ...spring, delay },
+    initial: reduce ? { opacity: 0 } : { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: reduce ? { duration: 0.01 } : { ...fast, delay: delay * 0.08 },
   });
 
   return (
@@ -73,13 +74,13 @@ export default function RevealWinner({
               </motion.p>
               <motion.p
                 {...item(0.5)}
-                className="mt-6 break-words text-[clamp(3rem,12vw,10rem)] font-semibold leading-none"
+                className="mt-6 break-words text-[clamp(2.5rem,9vw,8rem)] font-semibold leading-none"
               >
                 {winner.name}
               </motion.p>
               <motion.p
                 {...item(1)}
-                className="mt-6 font-mono text-6xl tabular-nums text-accent md:text-8xl"
+                className="mt-6 font-mono text-5xl tabular-nums text-accent md:text-6xl"
               >
                 {winner.score} / 5
               </motion.p>

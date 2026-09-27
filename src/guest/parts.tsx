@@ -77,7 +77,7 @@ export function Shell({ children, bare = false, signIn = false }: { children: Re
   );
 }
 
-export const H1 = 'text-[clamp(2.25rem,4.5vw,4.5rem)] font-semibold leading-[1.02] tracking-tight';
+export const H1 = 'text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-[1.02] tracking-tight';
 
 /** Split composition: stacked on phones, two columns from md. Left = readout, right = active step. */
 export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {
@@ -143,11 +143,15 @@ export function PicksList({ config, answers }: { config: EventConfig; answers: P
 }
 
 export function TickStrip({ config, ticks }: { config: EventConfig; ticks: Record<string, boolean> }) {
+  const reduce = useReducedMotion();
   return (
     <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Correct answers">
       {config.questions.map((q, i) => (
-        <li
+        <motion.li
           key={q.id}
+          initial={reduce ? false : { opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ ...SPRING, delay: reduce ? 0 : 0.4 + i * 0.08 }}
           className={`flex size-11 items-center justify-center rounded-lg border font-mono text-sm ${
             ticks[q.id] ? 'border-accent bg-accent text-accent-ink' : 'border-line text-muted'
           }`}
@@ -160,7 +164,7 @@ export function TickStrip({ config, ticks }: { config: EventConfig; ticks: Recor
           ) : (
             <X size={20} weight="regular" aria-hidden="true" />
           )}
-        </li>
+        </motion.li>
       ))}
     </ul>
   );
