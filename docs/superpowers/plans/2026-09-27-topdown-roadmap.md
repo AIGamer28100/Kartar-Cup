@@ -23,7 +23,7 @@ Production is LIVE at https://kartar-cup.web.app (deployed 2026-09-27). Local em
 - Update this file's checklist as parts complete.
 
 ## Status
-- [ ] 1. /events page
+- [x] 1. /events page
 - [ ] 2. Booking UI (B2)
 - [ ] 3. Host check-in scanner
 - [ ] 4. OpenF1 live data / RaceFact normalization

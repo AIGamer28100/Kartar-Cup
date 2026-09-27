@@ -26,17 +26,18 @@ const bookingsCol = () => collection(db, 'bookings');
 /* ---------- booking events ---------- */
 
 /** Public: only sales-open booking events (host sees all via watchBookingEvent by id, or a
- * host-only listing screen can be added on top of this in B2). */
+ * host-only listing screen can be added on top of this in B2). The `where` filter is required,
+ * not cosmetic — Firestore rules only allow this list query when it is provably constrained to
+ * salesOpen == true (see firestore.rules `bookingEvents` read rule and
+ * tests/rules/bookings.rules.test.ts); an unfiltered collection listen is rejected. */
 export function watchBookingEvents(
   cb: (events: BookingEvent[]) => void,
   onErr?: (e: Error) => void,
 ): Unsubscribe {
+  const q = query(bookingEventsCol(), where('salesOpen', '==', true));
   return onSnapshot(
-    bookingEventsCol(),
-    (s) => {
-      const all = s.docs.map((d) => ({ ...d.data(), id: d.id }) as BookingEvent);
-      cb(all.filter((e) => e.salesOpen));
-    },
+    q,
+    (s) => cb(s.docs.map((d) => ({ ...d.data(), id: d.id }) as BookingEvent)),
     onErr,
   );
 }

@@ -7,6 +7,7 @@ import RequireHost from './pages/RequireHost';
 import FailurePage from './components/FailurePage';
 
 const HomePage = lazy(() => import('./guest/HomePage'));
+const EventsPage = lazy(() => import('./guest/EventsPage'));
 const HostApp = lazy(() => import('./host/HostApp'));
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/events" element={<EventsPage />} />
           <Route
             path="/host/*"
             element={

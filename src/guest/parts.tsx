@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
-import { Check, Gauge, SignIn, SignOut, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Check, Gauge, SignIn, SignOut, TicketIcon, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
@@ -46,6 +46,12 @@ export function Shell({ children, bare = false, signIn = false }: { children: Re
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6 lg:px-16">
       <div className="mb-6 flex min-h-11 items-center justify-end gap-4 md:mb-2">
+        {!bare && (
+          <Link to="/events" className={linkCls}>
+            <TicketIcon size={20} weight="regular" aria-hidden="true" />
+            Events
+          </Link>
+        )}
         {!bare && user && isHost === true && (
           <Link to="/host" className={linkCls}>
             <Gauge size={20} weight="regular" aria-hidden="true" />
