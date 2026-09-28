@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RaceInfo } from '../config/calendar';
 import type { BookingEvent } from '../lib/types';
-import { groupByMonth, previousRace, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
+import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
 
 const race = (
   id: string,
@@ -64,6 +64,28 @@ describe('upcomingRaces', () => {
     ];
     const result = upcomingRaces(new Date('2026-01-01T00:00:00Z'), races, 2027);
     expect(result.map((r) => r.id)).toEqual(['b']);
+  });
+});
+
+describe('timelineEntries', () => {
+  it('marks the first entry with no gap', () => {
+    const races = [race('r1', 1, '2027-03-14')];
+    expect(timelineEntries(races)[0]).toMatchObject({ gapDays: null, longBreak: false, breakLabel: null });
+  });
+
+  it('does not flag a normal week-apart gap as a long break', () => {
+    const races = [race('r1', 1, '2027-03-14'), race('r2', 2, '2027-03-21')];
+    expect(timelineEntries(races)[1]).toMatchObject({ gapDays: 7, longBreak: false, breakLabel: null });
+  });
+
+  it('flags a gap over a week and labels it in days under 2 weeks', () => {
+    const races = [race('r1', 1, '2027-03-14'), race('r2', 2, '2027-03-25')];
+    expect(timelineEntries(races)[1]).toMatchObject({ gapDays: 11, longBreak: true, breakLabel: '11 day break' });
+  });
+
+  it('labels a gap of 2+ weeks in weeks', () => {
+    const races = [race('r1', 1, '2027-03-14'), race('r2', 2, '2027-04-11')];
+    expect(timelineEntries(races)[1]).toMatchObject({ gapDays: 28, longBreak: true, breakLabel: '4 week break' });
   });
 });
 

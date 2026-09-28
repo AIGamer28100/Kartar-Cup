@@ -11,7 +11,7 @@ import { watchActiveEventId, watchEventConfig } from '../lib/db';
 import { useEventStatus } from '../lib/eventStatus';
 import { watchBookingEvents } from '../lib/bookings';
 import type { BookingEvent, EventConfig } from '../lib/types';
-import { groupByMonth, previousRace, ticketStatusFor, upcomingRaces, upcomingSeasons } from './eventsModel';
+import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
 import { quizGateVariant } from './quizGate';
 import { Eyebrow, H1, Reveal, Shell } from './parts';
 
@@ -130,6 +130,69 @@ function TicketReadout({ ticket }: { ticket: { available: boolean; bookingEventI
   );
 }
 
+/** R33: for a full season a long way out (2027), a vertical timeline reads better than track
+ * cards — no circuit art needed to show WHEN a race is, and a calendar gap is a real, useful
+ * thing to see at a glance. Most rounds run about a week apart; a gap over a week gets a dashed
+ * connector and its own "N week break" label, computed directly from each race's real raceDate,
+ * never fabricated. */
+function SeasonTimeline({
+  entries,
+  quizRaceId,
+  quizVisible,
+  bookingEvents,
+}: {
+  entries: ReturnType<typeof timelineEntries>;
+  quizRaceId: string | null;
+  quizVisible: boolean;
+  bookingEvents: BookingEvent[];
+}) {
+  return (
+    <ol className="mt-4">
+      {entries.map(({ race, gapDays, longBreak, breakLabel }, i) => {
+        const { range } = raceDateReadout(race);
+        const ticket = ticketStatusFor(race.id, bookingEvents);
+        return (
+          <li key={race.id}>
+            {i > 0 && (
+              <div className="flex items-center gap-3 py-1 pl-[7px]" aria-hidden={!longBreak}>
+                <div
+                  className={`h-8 w-px ${longBreak ? 'border-l-2 border-dashed border-line' : 'bg-line'}`}
+                />
+                {longBreak && (
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                    {breakLabel} · {gapDays} days since {entries[i - 1].race.locality}
+                  </p>
+                )}
+              </div>
+            )}
+            <Reveal index={i} className="flex gap-4">
+              <span
+                aria-hidden="true"
+                className="mt-1.5 h-[15px] w-[15px] shrink-0 rounded-full border-2 border-accent bg-base"
+              />
+              <div className="min-w-0 pb-2">
+                <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                  Round {String(race.round).padStart(2, '0')} · {range}
+                </p>
+                <p className="mt-1 font-medium text-ink">{race.name}</p>
+                <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
+                {quizVisible && quizRaceId === race.id && (
+                  <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
+                    Predictions open at lights-out
+                  </p>
+                )}
+                <div className="mt-2">
+                  <TicketReadout ticket={ticket} />
+                </div>
+              </div>
+            </Reveal>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /** One race card. `featured` renders the next-up race large with a bigger circuit visual and a
  * two-column internal layout on wider screens (mirrors HomePage's UpcomingEventsSection); all
  * other races render as the compact card used in the surrounding grid. */
@@ -214,7 +277,11 @@ export default function EventsPage() {
   const previous = useMemo(() => previousRace(now, ALL_RACES), [now]);
   const featuredRace = races[0] ?? null;
   const groups = useMemo(() => groupByMonth(races.slice(1)), [races]);
+  const entries = useMemo(() => timelineEntries(races), [races]);
   const quizVisible = quizGateVariant(quizStatus) !== 'none';
+  // R33: a full season a year out reads better as a timeline (when it is, how far apart) than
+  // as track-layout cards — the card grid stays for the current/imminent season (2026).
+  const showTimeline = activeSeason === 2027;
 
   return (
     <Shell>
@@ -252,16 +319,44 @@ export default function EventsPage() {
       <Divider className="mt-8" />
 
       {bookingEvents === undefined && !loadError ? (
-        <Busy className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <CardSkeleton featured />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </Busy>
+        showTimeline ? (
+          <Busy className="mt-8 flex flex-col gap-6">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="mt-2 h-5 w-64" />
+                </div>
+              </div>
+            ))}
+          </Busy>
+        ) : (
+          <Busy className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <CardSkeleton featured />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </Busy>
+        )
       ) : races.length === 0 ? (
         <Reveal className="py-10">
           <p className="text-muted">No races left on the calendar — check back for the next season.</p>
         </Reveal>
+      ) : showTimeline ? (
+        <div className="mt-8">
+          {loadError && (
+            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
+              Couldn&rsquo;t load ticket status — showing the schedule only.
+            </p>
+          )}
+          <SeasonTimeline
+            entries={entries}
+            quizRaceId={quizRaceId}
+            quizVisible={quizVisible}
+            bookingEvents={bookingEvents ?? []}
+          />
+        </div>
       ) : (
         <div className="mt-8">
           {loadError && (

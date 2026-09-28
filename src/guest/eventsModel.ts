@@ -17,6 +17,40 @@ export function upcomingRaces(now: Date, races: RaceInfo[], season?: 2026 | 2027
     .sort((a, b) => a.raceDate.localeCompare(b.raceDate));
 }
 
+export interface TimelineEntry {
+  race: RaceInfo;
+  /** Days since the previous race in the list; null for the first entry. */
+  gapDays: number | null;
+  /** True when the gap is more than a week — most F1 rounds run back-to-back or one week apart,
+   * so anything longer is a genuine calendar break worth calling out (R33). */
+  longBreak: boolean;
+  /** Human label for a long break, e.g. "2 week break" / "11 day break"; null otherwise. */
+  breakLabel: string | null;
+}
+
+/** Turns an already season-scoped, date-sorted race list into timeline entries with the gap
+ * before each race — used to render R33's dotted-line calendar (most races are ~1 week apart;
+ * a gap over 7 days gets a dashed connector and its own break-length label, never fabricated,
+ * computed directly from each race's real raceDate). */
+export function timelineEntries(races: RaceInfo[]): TimelineEntry[] {
+  const MS_PER_DAY = 86_400_000;
+  return races.map((race, i) => {
+    if (i === 0) return { race, gapDays: null, longBreak: false, breakLabel: null };
+    const prev = races[i - 1];
+    const gapDays = Math.round(
+      (Date.parse(`${race.raceDate}T00:00:00Z`) - Date.parse(`${prev.raceDate}T00:00:00Z`)) / MS_PER_DAY,
+    );
+    const longBreak = gapDays > 7;
+    const weeks = Math.floor(gapDays / 7);
+    const breakLabel = !longBreak
+      ? null
+      : weeks >= 2
+        ? `${weeks} week break`
+        : `${gapDays} day break`;
+    return { race, gapDays, longBreak, breakLabel };
+  });
+}
+
 /** The most recent SCHEDULED race before the next one, by date — used for the small "Previous"
  * card ahead of the featured "Next" card. Cancelled-by-host races (e.g. Baku) are skipped, same
  * rule as `upcomingRaces`, since they were never a real watch-party night; returns null when
