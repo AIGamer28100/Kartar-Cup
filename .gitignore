@@ -150,3 +150,6 @@ firestore-debug.log
 .env*.local
 scripts/.venv
 scripts/.cache
+docs/
+.agents/
+.claude/

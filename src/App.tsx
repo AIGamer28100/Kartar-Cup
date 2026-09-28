@@ -11,6 +11,7 @@ const EventsPage = lazy(() => import('./guest/EventsPage'));
 const GalleryPage = lazy(() => import('./guest/GalleryPage'));
 const ProfilePage = lazy(() => import('./guest/ProfilePage'));
 const HostApp = lazy(() => import('./host/HostApp'));
+const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
 
 export default function App() {
   return (
@@ -21,6 +22,14 @@ export default function App() {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route
+            path="/host/screen"
+            element={
+              <RequireHost>
+                <ScreenApp />
+              </RequireHost>
+            }
+          />
           <Route
             path="/host/*"
             element={

@@ -9,6 +9,7 @@ import { toCsv } from '../lib/csv';
 import { rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
 import Leaderboard from './Leaderboard';
+import PodiumController from './screen/PodiumController';
 import ResultsForm from './ResultsForm';
 import RevealWinner from './RevealWinner';
 import StatusPanel from './StatusPanel';
@@ -75,6 +76,7 @@ export default function HostConsole() {
         revealed={event?.winnerRevealed ?? false}
       />
       <ResultsForm resultsDoc={resultsDoc} results={results} />
+      <PodiumController />
       <div className="py-8">
         <Button variant="secondary" disabled={entries.length === 0} onClick={exportCsv}>
           <DownloadSimple size={20} weight="regular" /> Export entries CSV
