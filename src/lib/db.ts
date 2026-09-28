@@ -26,12 +26,15 @@ import type {
   Provider,
   Results,
   ResultsDoc,
+  ScreenMode,
+  ScreenState,
 } from './types';
 
 const activeRef = () => doc(db, 'settings', 'active');
 const eventRef = (id: string) => doc(db, 'events', id);
 const resultsRef = (id: string) => doc(db, 'events', id, 'results', 'answers');
 const entryRef = (id: string, uid: string) => doc(db, 'events', id, 'entries', uid);
+const screenStateRef = (id: string) => doc(db, 'events', id, 'screen', 'state');
 
 /* ---------- multi-event API ---------- */
 
@@ -176,6 +179,7 @@ export interface SubmitEntryInput {
   name: string;
   email: string;
   phone?: string;
+  photoURL?: string;
   provider: Provider;
   answers: Answers;
 }
@@ -188,9 +192,10 @@ async function requireActive(): Promise<string> {
 
 export async function submitEntry(input: SubmitEntryInput, isFirst: boolean): Promise<void> {
   const id = await requireActive();
-  const { uid, name, email, phone, provider, answers } = input;
+  const { uid, name, email, phone, photoURL, provider, answers } = input;
   const data: Record<string, unknown> = { uid, name, email, provider, answers };
   if (phone !== undefined) data.phone = phone;
+  if (photoURL !== undefined) data.photoURL = photoURL;
   if (isFirst) {
     await setDoc(entryRef(id, uid), {
       ...data,
@@ -301,4 +306,45 @@ export async function saveResults(r: Results, source: string): Promise<void> {
 export async function revealWinner(overrideUid: string | null): Promise<void> {
   const id = await requireActive();
   await updateDoc(eventRef(id), { winnerRevealed: true, tiebreakOverride: overrideUid });
+}
+
+/* ---------- big-screen podium reveal (PD1), host-only per R15 ---------- */
+
+/** Watches events/{eventId}/screen/state; sealed defaults (lobby, stage 0) if the doc doesn't
+ * exist yet, so a fresh event never crashes the big screen before the host has touched it. */
+export function watchScreenState(
+  eventId: string,
+  cb: (s: ScreenState) => void,
+  onErr?: (e: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    screenStateRef(eventId),
+    (s) => {
+      if (!s.exists() && s.metadata.fromCache) return;
+      cb(
+        s.exists()
+          ? (s.data() as ScreenState)
+          : { mode: 'lobby', stage: 0, overrideUid: null, updatedAt: Timestamp.now() },
+      );
+    },
+    onErr,
+  );
+}
+
+/** Partial patch merged onto the existing doc (or seeded with sealed defaults if this is the
+ * very first write) — callers (PodiumController) always know the current full state from
+ * watchScreenState and pass whichever fields changed. */
+export async function setScreenState(
+  eventId: string,
+  patch: Partial<Pick<ScreenState, 'mode' | 'stage' | 'overrideUid'>>,
+): Promise<void> {
+  const s = await getDoc(screenStateRef(eventId));
+  const base: Pick<ScreenState, 'mode' | 'stage' | 'overrideUid'> = s.exists()
+    ? (s.data() as ScreenState)
+    : { mode: 'lobby' as ScreenMode, stage: 0, overrideUid: null };
+  await setDoc(
+    screenStateRef(eventId),
+    { ...base, ...patch, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }

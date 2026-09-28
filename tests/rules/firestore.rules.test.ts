@@ -339,3 +339,41 @@ describe('14 delete', () => {
     await assertFails(deleteDoc(doc(guest(), E + 'g1')));
   });
 });
+describe('15 entry photoURL (PD1)', () => {
+  it('accepted when it is a real Google-hosted avatar URL', async () => {
+    await assertSucceeds(
+      setDoc(doc(guest(), E + 'g1'), entry('g1', { photoURL: 'https://lh3.googleusercontent.com/a/abc123' })),
+    );
+  });
+  it('rejected when it is some other URL', async () => {
+    await assertFails(
+      setDoc(doc(guest(), E + 'g1'), entry('g1', { photoURL: 'https://evil.com/avatar.png' })),
+    );
+  });
+  it('entries without photoURL still work (optional)', async () => {
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+});
+describe('16 screen/state (PD1, R15 host-only)', () => {
+  const S = 'events/' + EID + '/screen/state';
+  const screenDoc = () => ({ mode: 'podium', stage: 1, overrideUid: null, updatedAt: Timestamp.now() });
+  it('host can read and write', async () => {
+    await assertSucceeds(setDoc(doc(host(), S), screenDoc()));
+    await assertSucceeds(getDoc(doc(host(), S)));
+  });
+  it('signed-in guest denied read and write', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), S), screenDoc());
+    });
+    await assertFails(getDoc(doc(guest(), S)));
+    await assertFails(setDoc(doc(guest(), S), screenDoc()));
+  });
+  it('signed-out denied read and write', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), S), screenDoc());
+    });
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(anon, S)));
+    await assertFails(setDoc(doc(anon, S), screenDoc()));
+  });
+});

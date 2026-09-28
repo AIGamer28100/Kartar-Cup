@@ -22,6 +22,7 @@ export interface Entry {
   name: string;
   email?: string;
   phone?: string;
+  photoURL?: string;
   provider: Provider;
   answers: Answers;
   submittedAt: Timestamp;
@@ -30,8 +31,19 @@ export interface Entry {
 export interface ScorableEntry {
   uid: string;
   name: string;
+  photoURL?: string;
   answers: Answers;
   submittedAtMs: number;
+}
+
+/* ---------- big-screen podium reveal (PD1) ---------- */
+
+export type ScreenMode = 'lobby' | 'standings' | 'podium';
+export interface ScreenState {
+  mode: ScreenMode;
+  stage: 0 | 1 | 2 | 3;
+  overrideUid: string | null;
+  updatedAt: Timestamp;
 }
 export interface RankedRow extends ScorableEntry {
   score: number;

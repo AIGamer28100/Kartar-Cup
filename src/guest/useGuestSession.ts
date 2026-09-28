@@ -77,12 +77,17 @@ export function useGuestSession(): GuestSession {
     async (a: { name: string; phone?: string; answers: PickMap }) => {
       const u = auth.currentUser;
       if (!u || u.isAnonymous || !u.email) throw new Error('not signed in');
+      const photoURL =
+        u.photoURL && /^https:\/\/lh[0-9]\.googleusercontent\.com\/.*/.test(u.photoURL)
+          ? u.photoURL
+          : undefined;
       await submitEntry(
         {
           uid: u.uid,
           name: a.name,
           email: u.email,
           ...(a.phone ? { phone: a.phone } : {}),
+          ...(photoURL ? { photoURL } : {}),
           provider: 'google',
           answers: a.answers as unknown as Answers,
         },
