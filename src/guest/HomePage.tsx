@@ -197,95 +197,63 @@ function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
   );
 }
 
-const CLOCK_TICKS = Array.from({ length: 12 }, (_, i) => i);
-
-/** Wall-clock-style countdown: a genuine round dial (tick marks, a sweeping second hand) with the
- * D:HH:MM:SS countdown as digital numerals at its centre — F1.com's own site has no clock widget
- * to copy (checked directly; their broadcast overlay is TV-only and Rolex-branded, so not reused
- * here per R27's principle), so this combines a real analog wall-clock face with the digital
- * readout the countdown actually needs to show days remaining. */
-function WallClock({ targetMs, size = 176 }: { targetMs: number; size?: number }) {
-  const { days, hours, minutes, seconds, done } = useCountdown(targetMs);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const secondHandDeg = seconds * 6;
+/** One segment of the countdown: a large mono numeral over a small uppercase label, the same
+ * "timing-tower" numeral language already used elsewhere on the site (leaderboard, host console)
+ * — chosen deliberately over an analog dial (tried twice, never read as premium here) because a
+ * multi-day countdown is fundamentally a digital-display problem, not a clock-face one. */
+function TimeSegment({ value, label }: { value: string; label: string }) {
   return (
-    <div
-      className="relative shrink-0 rounded-full p-[6%]"
-      style={{
-        width: size,
-        height: size,
-        // Metal bezel: a subtle conic sweep (never a flat ring) plus an inset highlight along the
-        // top edge, the way a real watch case catches light. Neutral tones only, no new hue.
-        background:
-          "conic-gradient(from 220deg, var(--color-line), var(--color-raised) 35%, var(--color-line) 55%, var(--color-raised) 80%, var(--color-line))",
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 2px rgba(0,0,0,0.5), 0 24px 48px -24px rgba(0,0,0,0.7)",
-      }}
-      role="img"
-      aria-label={done ? "Lights out" : `${days} days ${pad(hours)}:${pad(minutes)}:${pad(seconds)} to lights out`}
-    >
-      <div
-        className="relative h-full w-full rounded-full"
-        style={{
-          // The face itself: a faint radial gradient for depth, darker than the bezel so the
-          // bezel reads as a raised ring around it.
-          background:
-            "radial-gradient(circle at 35% 30%, var(--color-raised), var(--color-base) 70%)",
-          boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55)",
-        }}
-      >
-        {CLOCK_TICKS.map((i) => (
-          <span
-            key={i}
-            aria-hidden="true"
-            className={`absolute left-1/2 top-1/2 origin-bottom rounded-full ${i % 3 === 0 ? "h-[11%] w-[2.5px] bg-ink/70" : "h-[6%] w-px bg-line"}`}
-            style={{ transform: `rotate(${i * 30}deg) translateX(-50%)`, transformOrigin: "50% 0" }}
-          />
-        ))}
-        {!done && (
-          <span
-            aria-hidden="true"
-            className="absolute left-1/2 top-1/2 h-[40%] w-[1.5px] origin-bottom rounded-full bg-accent shadow-[0_0_8px_1.5px_var(--color-accent)] motion-reduce:hidden"
-            style={{ transform: `translateX(-50%) rotate(${secondHandDeg}deg)`, transformOrigin: "50% 0" }}
-          />
-        )}
-        <span
-          aria-hidden="true"
-          className="absolute left-1/2 top-1/2 h-[7%] w-[7%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_4px_rgba(0,0,0,0.6)]"
-        />
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
-          {done ? (
-            <p className="font-mono text-sm font-semibold uppercase tracking-wider text-ink">
-              Lights out
-            </p>
-          ) : (
-            <>
-            {days > 0 && (
-              <p className="font-mono text-[0.65rem] uppercase tracking-widest text-muted">
-                {days}d
-              </p>
-            )}
-            <p className="font-mono text-lg font-semibold tabular-nums tracking-tight text-ink">
-              {pad(hours)}:{pad(minutes)}:{pad(seconds)}
-            </p>
-          </>
-        )}
-        </div>
-      </div>
+    <div className="flex flex-col items-center px-6 first:pl-0 last:pr-0 sm:px-8">
+      <p className="font-mono text-3xl font-semibold tabular-nums leading-none text-ink sm:text-4xl">
+        {value}
+      </p>
+      <p className="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-muted">
+        {label}
+      </p>
     </div>
   );
 }
 
-/** Wall-clock + 5-lights, sized to sit alongside the hero at reduced scale so the combined row
- * matches the hero's own height (R32 follow-up: "height matching the hero section"). */
+/** Segmented digital countdown — DAYS/HRS/MIN/SEC cells divided by thin lines, no card box
+ * (design skill: no box unless elevation earns it). One accent used sparingly: the seconds
+ * cell's numeral breathes red on each tick, echoing a live telemetry readout rather than a
+ * static number. */
 function CountdownReadout({ targetMs }: { targetMs: number }) {
-  const { totalMs, done } = useCountdown(targetMs);
-  const hoursRemaining = totalMs / 3_600_000;
+  const { days, hours, minutes, seconds, done } = useCountdown(targetMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hoursRemaining = (targetMs - Date.now()) / 3_600_000;
+
+  if (done) {
+    return (
+      <p className="font-mono text-2xl font-semibold uppercase tracking-wider text-ink">
+        Lights out
+      </p>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-4">
-      <WallClock targetMs={targetMs} size={112} />
-      {!done && hoursRemaining <= 5 && (
-        <FiveLightsStrip hoursRemaining={hoursRemaining} />
+    <div>
+      <div
+        className="inline-flex divide-x divide-line border-y border-line py-3"
+        role="img"
+        aria-label={`${days} days ${pad(hours)}:${pad(minutes)}:${pad(seconds)} to lights out`}
+      >
+        {days > 0 && <TimeSegment value={String(days)} label="Days" />}
+        <TimeSegment value={pad(hours)} label="Hrs" />
+        <TimeSegment value={pad(minutes)} label="Min" />
+        <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
+          <p className="font-mono text-3xl font-semibold tabular-nums leading-none text-accent sm:text-4xl motion-safe:animate-pulse motion-reduce:animate-none">
+            {pad(seconds)}
+          </p>
+          <p className="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-muted">
+            Sec
+          </p>
+        </div>
+      </div>
+      {hoursRemaining <= 5 && (
+        <div className="mt-4">
+          <FiveLightsStrip hoursRemaining={hoursRemaining} />
+        </div>
       )}
     </div>
   );
