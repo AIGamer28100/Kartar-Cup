@@ -12,7 +12,7 @@ import type { Booking, BookingEvent } from '../lib/types';
 import { accountName } from './SignIn';
 import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
-import { Eyebrow, H1, Reveal, Shell } from './parts';
+import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
 function Avatar({ photoUrl, name, email }: { photoUrl?: string | null; name: string; email?: string | null }) {
   const [broken, setBroken] = useState(false);
@@ -185,7 +185,7 @@ export default function ProfilePage() {
     <Shell>
       <Reveal>
         <Eyebrow>Your account</Eyebrow>
-        <h1 className={`mt-3 ${H1}`}>Profile</h1>
+        <h1 className={`mt-3 ${PageTitle}`}>Profile</h1>
       </Reveal>
 
       <Reveal index={1} className="mt-8 flex flex-wrap items-center gap-5">

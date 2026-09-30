@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import type { EventConfig } from '../lib/types';
 import type { PickMap } from './draft';
 import { optionLabel, optionsFor } from './model';
-import { CloseTimer, Eyebrow, H1, PicksList, SPRING, Shell } from './parts';
+import { CloseTimer, Eyebrow, H2, PageTitle, PicksList, SPRING, Shell } from './parts';
 
 interface Props {
   config: EventConfig;
@@ -77,8 +77,8 @@ export default function Quiz({
           {review ? (
             <>
               <div className="min-w-0">
-                <h1 className={H1}>Ready to commit?</h1>
-                <p className="mt-3 max-w-[40ch] text-muted md:text-lg">Use back to change a pick. Picks close when the pit lane does.</p>
+                <h1 className={PageTitle}>Ready to commit?</h1>
+                <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">Use back to change a pick. Picks close when the pit lane does.</p>
                 <Rail config={config} answers={answers} step={step} onStep={onStep} />
               </div>
               <div className="flex min-w-0 flex-col lg:max-w-xl">
@@ -178,8 +178,8 @@ function Step({
   return (
     <>
       <div className="min-w-0">
-        <h1 className="text-[clamp(1.625rem,2.5vw,2.5rem)] font-semibold leading-[1.08] tracking-tight">{q.prompt}</h1>
-        {q.hint && <p className="mt-3 max-w-[40ch] text-muted md:text-lg">{q.hint}</p>}
+        <h1 className={H2}>{q.prompt}</h1>
+        {q.hint && <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">{q.hint}</p>}
         <Rail config={config} answers={answers} step={qi} onStep={onStep} />
       </div>
       <div className="flex min-w-0 flex-col">

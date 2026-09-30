@@ -4,7 +4,7 @@ import { ArrowRight, Copy } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Divider from '../components/Divider';
 import { isInAppBrowser } from '../lib/inAppBrowser';
-import { Eyebrow, H1, Reveal, Shell, Split } from './parts';
+import { Eyebrow, PageTitle, Reveal, Shell, Split } from './parts';
 
 export const PHONE_RE = /^[0-9+ ]{7,16}$/;
 
@@ -137,7 +137,7 @@ export function Profile({ user, phone, onPhone, onContinue, onSwitch }: ProfileP
         left={
       <Reveal>
         <Eyebrow>Driver briefing</Eyebrow>
-        <h1 className={`mt-3 ${H1}`}>You are on the radio</h1>
+        <h1 className={`mt-3 ${PageTitle}`}>You are on the radio</h1>
       <div className="mt-8">
         <p className="text-sm text-muted">Signed in as</p>
         <p className="mt-1 text-xl font-semibold">{accountName(user)}</p>

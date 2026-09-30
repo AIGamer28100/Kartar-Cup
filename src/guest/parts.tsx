@@ -38,7 +38,7 @@ export function Reveal({
 }
 
 const linkCls =
-  'inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 /** Small text wordmark used as the header's logo placeholder — R27: no real Karter Cup artwork
  * is in this repo, only a plain dot+text mark in the site's own established style. Links home. */
@@ -46,7 +46,7 @@ function LogoMark() {
   return (
     <Link
       to="/"
-      className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
       Kartar CUP
@@ -139,7 +139,12 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
   );
 }
 
-export const H1 = 'text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-[1.02] tracking-tight';
+/** Only for the home page's single true hero `<h1>The Karter Cup</h1>`. */
+export const H1 = 'text-hero font-semibold text-balance';
+/** Section headings within a page (e.g. the home page's SectionHeading). */
+export const H2 = 'text-h2 font-semibold text-balance';
+/** The top-of-page title on every other page/view (Events, Gallery, Profile, the quiz flow, etc). */
+export const PageTitle = 'text-h2 font-semibold text-balance';
 
 /** Split composition: stacked on phones, two columns from md. Left = readout, right = active step. */
 export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {

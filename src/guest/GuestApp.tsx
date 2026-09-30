@@ -12,7 +12,7 @@ import Hero from './Hero';
 import { scoreOwn } from './model';
 import Quiz from './Quiz';
 import GoogleCta, { Profile, accountName } from './SignIn';
-import { CloseTimer, Eyebrow, H1, PicksList, Reveal, SPRING, Shell, Split, TickStrip, WhatsAppCta } from './parts';
+import { CloseTimer, Eyebrow, PageTitle, PicksList, Reveal, SPRING, Shell, Split, TickStrip, WhatsAppCta } from './parts';
 import { useTimedOut } from '../lib/useTimedOut';
 import { useGuestSession, type GuestSession } from './useGuestSession';
 
@@ -32,8 +32,8 @@ export default function GuestApp() {
       <Shell>
         <Split left={<Reveal>
           <Eyebrow>Kartar CUP</Eyebrow>
-          <h1 className={`mt-3 ${H1}`}>Grid not open yet</h1>
-          <p className="mt-3 text-muted">Race control has not set up this event. Check back in a few minutes.</p>
+          <h1 className={`mt-3 ${PageTitle}`}>Grid not open yet</h1>
+          <p className="mt-3 text-pretty text-muted">Race control has not set up this event. Check back in a few minutes.</p>
         </Reveal>} />
       </Shell>
     );
@@ -87,8 +87,8 @@ function EventFlow({
         <Shell>
           <Split left={<Reveal>
             <Eyebrow>Chequered flag</Eyebrow>
-            <h1 className={`mt-3 ${H1}`}>Results are in</h1>
-            <p className="mt-3 text-muted">You did not enter this round. Catch the leaderboard on the big screen.</p>
+            <h1 className={`mt-3 ${PageTitle}`}>Results are in</h1>
+            <p className="mt-3 text-pretty text-muted">You did not enter this round. Catch the leaderboard on the big screen.</p>
           </Reveal>} right={<Reveal index={1}>
             <WhatsAppCta url={wa} />
           </Reveal>} />
@@ -103,7 +103,7 @@ function EventFlow({
             <>
               <Reveal>
                 <Eyebrow>Chequered flag</Eyebrow>
-                <h1 className={`mt-3 ${H1}`}>{s.entry.name}, your result</h1>
+                <h1 className={`mt-3 ${PageTitle}`}>{s.entry.name}, your result</h1>
               </Reveal>
               <Divider className="my-8" />
               <Reveal index={2}>
@@ -157,8 +157,8 @@ function EventFlow({
                 <StatusDot status="locked" />
                 <Eyebrow>{event.name}</Eyebrow>
               </div>
-              <h1 className={`mt-3 ${H1}`}>Pit lane closed</h1>
-              <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
+              <h1 className={`mt-3 ${PageTitle}`}>Pit lane closed</h1>
+              <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">
                 {entryAnswers
                   ? 'Nobody touches the wheel now. Here is what you called.'
                   : 'You did not radio in any picks, so there is nothing to show. Watch the race and heckle accordingly.'}
@@ -216,10 +216,10 @@ function EventFlow({
                 <CloseTimer closesAt={event.closesAt.toMillis()} className="mt-3" />
               </Reveal>
               <Reveal index={1} className="mt-8">
-                <h1 className={H1} role="status">
+                <h1 className={PageTitle} role="status">
                   {ok ? 'Picks locked in' : 'Transmitting to race control'}
                 </h1>
-                <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
+                <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">
                   {ok
                     ? 'Copy that, ' + s.entry.name + '. Change your mind while the pit lane is open if you must.'
                     : 'Hold the line while the signal gets through.'}

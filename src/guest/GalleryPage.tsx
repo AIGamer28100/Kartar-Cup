@@ -1,6 +1,6 @@
 import Divider from '../components/Divider';
 import { GALLERY_PLACEHOLDERS, gallerySrc } from './galleryData';
-import { Eyebrow, H1, Reveal, Shell } from './parts';
+import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
 /** Public /gallery — moved out of the home page (R29 follow-up) so the past-events strip gets its
  * own page, mirroring /events. Same horizontal-scroll pattern as the home page's gallery section:
@@ -12,7 +12,7 @@ export default function GalleryPage() {
       <div className="max-w-[52ch]">
         <Reveal>
           <Eyebrow>Past events</Eyebrow>
-          <h1 className={`mt-3 ${H1}`}>Gallery</h1>
+          <h1 className={`mt-3 ${PageTitle}`}>Gallery</h1>
           <p className="mt-4 text-muted md:text-lg">
             Placeholder images for now — real event photos from The Karter Cup and The Karter Club
             will be swapped in here once they&rsquo;re supplied.

@@ -15,7 +15,7 @@ import { ALL_RACES, nextRace } from "../config/calendar";
 import { trackForRace } from "../config/tracks";
 import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
 import { istReadout, safeWhatsappUrl } from "./model";
-import { Eyebrow, H1, Reveal, Shell } from "./parts";
+import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { useGuestSession } from "./useGuestSession";
@@ -41,7 +41,7 @@ function SectionHeading({
   return (
     <Reveal>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className={`mt-2 ${H1}`}>{children}</h2>
+      <h2 className={`mt-3 ${H2}`}>{children}</h2>
     </Reveal>
   );
 }
@@ -52,14 +52,14 @@ function SectionHeading({
 function CheckerDivider() {
   return (
     <div
-      className="divider-checker my-14 w-full rounded-full"
+      className="divider-checker my-16 w-full rounded-full md:my-24 lg:my-28"
       aria-hidden="true"
     />
   );
 }
 
 function PlainDivider() {
-  return <Divider className="my-14" />;
+  return <Divider className="my-16 md:my-24 lg:my-28" />;
 }
 
 /** Merged hero + "what's on next", per the user's explicit layout: hero text at 30-40% width,
@@ -81,12 +81,12 @@ function HeroAndNextRace() {
   const trackOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[35fr_65fr] lg:items-stretch lg:gap-14">
+    <div className="grid gap-10 lg:grid-cols-[44fr_56fr] lg:items-center lg:gap-14">
       <div className="flex flex-col justify-center">
         <Reveal>
           <Eyebrow>Chennai &amp; Coimbatore · motorsport community</Eyebrow>
           <h1 className={`mt-4 ${H1}`}>The Karter Cup</h1>
-          <p className="mt-4 max-w-[36ch] text-muted md:text-lg">
+          <p className="mt-6 max-w-[40ch] text-lead text-pretty text-muted md:mt-8">
             A leisure go-karting league and F1-style motorsport community —
             karting days, sim racing and watch parties, run by people who
             actually turn up.
@@ -113,7 +113,7 @@ function HeroAndNextRace() {
                 Round {String(next.round).padStart(2, "0")} · watch-party
                 night
               </p>
-              <p className="mt-1 text-xl font-medium text-ink lg:text-2xl">
+              <p className="mt-1 text-h3 text-balance font-medium text-ink">
                 {next.name}
               </p>
               <p className="mt-1 text-sm text-muted lg:text-base">
@@ -154,13 +154,13 @@ function AboutSection() {
         Karting, sim racing, watch parties
       </SectionHeading>
       <Reveal index={1} className="mt-6 grid gap-6 md:grid-cols-2">
-        <p className="max-w-[42ch] text-muted md:text-lg">
+        <p className="max-w-[42ch] text-base leading-relaxed text-pretty text-muted md:text-lg">
           The Karter Cup is a Chennai-founded, F1-style leisure go-karting
           league and motorsport community — and a small community-led company
           exploring how to run more of it: karting days, sim racing, and F1
           watch parties.
         </p>
-        <p className="max-w-[42ch] text-muted md:text-lg">
+        <p className="max-w-[42ch] text-base leading-relaxed text-pretty text-muted md:text-lg">
           It runs across two cities: karting events at{" "}
           <strong className="text-ink">ECR Speedway</strong> in Chennai and{" "}
           <strong className="text-ink">Prime Kart Zone</strong> in Coimbatore,
@@ -204,10 +204,10 @@ function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
 function TimeSegment({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-center px-6 first:pl-0 last:pr-0 sm:px-8">
-      <p className="font-mono text-3xl font-semibold tabular-nums leading-none text-ink sm:text-4xl">
+      <p className="font-mono text-stat font-semibold tabular-nums text-ink">
         {value}
       </p>
-      <p className="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-muted">
+      <p className="mt-2 font-mono text-label uppercase text-muted">
         {label}
       </p>
     </div>
@@ -225,7 +225,7 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
 
   if (done) {
     return (
-      <p className="font-mono text-2xl font-semibold uppercase tracking-wider text-ink">
+      <p className="font-mono text-h3 font-semibold uppercase text-ink text-balance">
         Lights out
       </p>
     );
@@ -242,10 +242,10 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
         <TimeSegment value={pad(hours)} label="Hrs" />
         <TimeSegment value={pad(minutes)} label="Min" />
         <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
-          <p className="font-mono text-3xl font-semibold tabular-nums leading-none text-accent sm:text-4xl motion-safe:animate-pulse motion-reduce:animate-none">
+          <p className="font-mono text-stat font-semibold tabular-nums text-accent motion-safe:animate-pulse motion-reduce:animate-none">
             {pad(seconds)}
           </p>
-          <p className="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-muted">
+          <p className="mt-2 font-mono text-label uppercase text-muted">
             Sec
           </p>
         </div>
@@ -303,7 +303,7 @@ function PartnershipsSection() {
         ))}
       </Reveal>
       <Reveal index={2} className="mt-4">
-        <p className="text-sm text-muted">
+        <p className="text-base leading-relaxed text-pretty text-muted md:text-lg">
           Also exploring a sim-racing collaboration with racesims.in —
           exploratory only, not a confirmed partnership.
         </p>
@@ -397,7 +397,7 @@ function GallerySection() {
 
 function CommunityFooter() {
   return (
-    <footer className="mt-16 border-t border-line pt-8 text-sm text-muted">
+    <footer className="mt-24 border-t border-line pt-8 text-sm text-muted md:mt-32">
       <p>The Karter Cup · Chennai &amp; Coimbatore</p>
       <div className="mt-3 flex flex-wrap gap-4">
         <a

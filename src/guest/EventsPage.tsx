@@ -13,7 +13,7 @@ import { watchBookingEvents } from '../lib/bookings';
 import type { BookingEvent, EventConfig } from '../lib/types';
 import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
 import { quizGateVariant } from './quizGate';
-import { Eyebrow, H1, Reveal, Shell } from './parts';
+import { Eyebrow, H2, PageTitle, Reveal, Shell } from './parts';
 
 /** Weekend date range ("02–04 Oct 2026") plus the watch-party's own local/IST start (13:00 UTC
  * default unless a host has overridden it for the live event — this calendar-only view always
@@ -71,7 +71,7 @@ function useActiveQuizRace(): { raceId: string | null; status: ReturnType<typeof
 function CardSkeleton({ featured = false }: { featured?: boolean }) {
   return (
     <div
-      className={`grid grid-cols-[2fr_1fr] items-center gap-4 rounded-lg border border-line bg-raised p-5 ${featured ? 'sm:col-span-2 sm:grid-cols-[2fr_1fr] sm:gap-6 sm:p-6' : ''}`}
+      className={`grid grid-cols-[2fr_1fr] items-start gap-4 rounded-lg border border-line bg-raised p-5 ${featured ? 'sm:col-span-2 sm:grid-cols-[2fr_1fr] sm:gap-6 sm:p-6' : ''}`}
     >
       <div>
         <Skeleton className="h-3 w-32" />
@@ -220,13 +220,13 @@ function RaceCard({
       {/* Info on the left, square circuit box on the right, for every card size (was up/down
          for compact cards before — now consistent with the featured layout, per the user's
          explicit request). */}
-      <div className={`grid grid-cols-[2fr_1fr] items-center gap-4 p-5 ${featured ? 'sm:grid-cols-[3fr_2fr] sm:gap-6 sm:p-6' : ''}`}>
+      <div className={`grid grid-cols-[2fr_1fr] items-start gap-4 p-5 ${featured ? 'sm:grid-cols-[3fr_2fr] sm:gap-6 sm:p-6' : ''}`}>
         <div>
           <p className="font-mono text-xs uppercase tracking-widest text-muted">
             Round {String(race.round).padStart(2, '0')} · {range}
             {featured && ' · next up'}
           </p>
-          <p className={`mt-2 font-medium text-ink ${featured ? 'text-2xl' : 'text-lg'}`}>{race.name}</p>
+          <h3 className={`mt-2 text-pretty text-ink ${featured ? H2 : 'text-h3 font-medium'}`}>{race.name}</h3>
           <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             <CalendarBlank size={16} weight="regular" aria-hidden="true" />
@@ -288,8 +288,8 @@ export default function EventsPage() {
       <div className="max-w-[52ch]">
         <Reveal>
           <Eyebrow>Calendar</Eyebrow>
-          <h1 className={`mt-3 ${H1}`}>Events</h1>
-          <p className="mt-4 text-muted md:text-lg">
+          <h1 className={`mt-3 ${PageTitle}`}>Events</h1>
+          <p className="mt-6 text-base leading-relaxed text-pretty text-muted md:mt-8 md:text-lg">
             The remaining {activeSeason ?? ''} season, round by round. The Karter Cup doesn&rsquo;t
             run the Grand Prix itself — we host watch parties for it, with tickets going live race
             by race.
@@ -368,7 +368,7 @@ export default function EventsPage() {
              ~2.5% gap between, previous ~15% / next ~65% of the row (the rest is breathing room,
              not a hard third card). Stacks to a single column below lg. */}
           {featuredRace && (
-            <div className="flex flex-col gap-6 px-0 lg:flex-row lg:gap-[2.5%] lg:px-[5%]">
+            <div className="flex flex-col gap-6 px-0 lg:flex-row lg:gap-[2.5%]">
               {previous && (
                 <div className="lg:basis-[15%]">
                   <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">

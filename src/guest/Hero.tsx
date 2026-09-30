@@ -5,7 +5,7 @@ import { getRace } from '../config/calendar';
 import type { EventConfig } from '../lib/types';
 import { istReadout } from './model';
 import type { ReactNode } from 'react';
-import { CloseTimer, Eyebrow, H1, Reveal, Split } from './parts';
+import { CloseTimer, Eyebrow, PageTitle, Reveal, Split } from './parts';
 
 /** Decorative track outline. The accent stroke draws itself (stroke only; static under reduced motion). */
 function TrackLine() {
@@ -56,7 +56,7 @@ function Readout({ config }: { config: EventConfig }) {
         {race ? `Round ${String(race.round).padStart(2, '0')}` : 'Race weekend'}
         {config.circuit ? ` / ${config.circuit}` : ''}
       </p>
-      <p className="mt-2 font-mono text-6xl font-medium leading-[0.9] md:text-[clamp(3.25rem,6.5vw,6rem)] tabular-nums tracking-tighter">
+      <p className="mt-2 font-mono text-stat font-medium tabular-nums tracking-tighter">
         {t.day}
         <span className="text-muted"> {t.month}</span>
       </p>
@@ -87,7 +87,7 @@ export default function Hero({
           <StatusDot status={scheduled ? 'locked' : 'open'} />
           <Eyebrow>{config.subtitle}</Eyebrow>
         </div>
-        <h1 className={`mt-6 ${H1}`}>{config.name}</h1>
+        <h1 className={`mt-6 ${PageTitle}`}>{config.name}</h1>
         <p className="mt-4 max-w-[34ch] text-lg text-muted md:text-xl">
           {scheduled
             ? 'Picks open at lights-out. Get your name on the grid now and radio your calls the second the lights go.'
@@ -98,7 +98,7 @@ export default function Hero({
         {scheduled ? (
           <>
             <p className="text-sm text-muted">Picks open in</p>
-            <Countdown target={config.opensAt.toMillis()} className="block text-4xl font-medium md:text-[clamp(2.5rem,4vw,3.75rem)]" />
+            <Countdown target={config.opensAt.toMillis()} className="block text-stat font-medium" />
           </>
         ) : (
           <CloseTimer closesAt={config.closesAt.toMillis()} />
