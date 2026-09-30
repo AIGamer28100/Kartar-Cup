@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router';
 import { HostFrame } from '../pages/HostFrame';
+import BookingsAdmin from './bookings/BookingsAdmin';
 import HostConsole from './HostConsole';
 import SettingsPage from './settings/SettingsPage';
 
@@ -17,10 +18,14 @@ export default function HostApp() {
         <NavLink to="/host/settings" className={tabCls}>
           Settings
         </NavLink>
+        <NavLink to="/host/bookings" className={tabCls}>
+          Bookings
+        </NavLink>
       </nav>
       <Routes>
         <Route index element={<HostConsole />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="bookings" element={<BookingsAdmin />} />
         <Route path="*" element={<Navigate to="/host" replace />} />
       </Routes>
     </HostFrame>

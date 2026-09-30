@@ -42,6 +42,19 @@ export function watchBookingEvents(
   );
 }
 
+/** Host only: unfiltered listen over all booking events (open and closed). Allowed by firestore.rules
+ * because `allow read: if resource.data.salesOpen == true || isHost();` passes every doc for a host. */
+export function watchAllBookingEvents(
+  cb: (events: BookingEvent[]) => void,
+  onErr?: (e: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    bookingEventsCol(),
+    (s) => cb(s.docs.map((d) => ({ ...d.data(), id: d.id }) as BookingEvent)),
+    onErr,
+  );
+}
+
 export function watchBookingEvent(
   id: string,
   cb: (e: BookingEvent | null) => void,
