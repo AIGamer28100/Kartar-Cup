@@ -5,7 +5,8 @@ every explicit constraint the user has given, near-verbatim.
 
 ## What's live right now
 - **Production**: https://kartar-cup.web.app — includes the big-screen podium reveal (PD1,
-  `/host/screen`), deployed and bundle-hash-verified (`index-CF753jsD.js` matches local build).
+  `/host/screen`) and the typography/spacing pass below, deployed and bundle-hash-verified
+  (`index-BPjl4iXp.js` matches local build).
 - **Firebase project**: `kartar-cup`. **IMPORTANT**: always pass `--project kartar-cup` explicitly
   on every `firebase` CLI command — see the incident note below, the default-resolution path is
   not safe to trust on this machine.
@@ -47,15 +48,36 @@ cd /home/hari/kartar-cup && git merge worktree-build-v1
 # or: gh pr create (from the worktree, against main)
 ```
 
-## TOP PRIORITY for next session (carried over, still not acted on)
+## DONE this session — typography/spacing pass (was TOP PRIORITY, carried over multiple sessions)
 User's own words: "font, spacing and text placement are not the best... this is so bad right now."
-Explicitly asked to check MULTIPLE real design/content sources (other F1/motorsport sites,
-ticketing/event sites) before touching typography again, and to actually use the installed
-third-party design skills (Leonxlnx/taste-skill pack — gpt-taste, high-end-visual-design,
-industrial-brutalist-ui, minimalist-ui, stitch-design-taste, redesign-existing-projects, etc. —
-see `.agents/skills/`, `.claude/`, still uncommitted/unreviewed) rather than leaving them unused.
-This has now carried across multiple sessions without being started — should be genuinely first
-next session, before any new feature work.
+Asked to check MULTIPLE real design/content sources before touching typography again, and to
+actually use the installed `redesign-existing-projects` skill rather than leaving it unused.
+- Ran `redesign-existing-projects` skill's audit checklist, then dispatched a fable-model design
+  agent to measure the live site's computed styles against 5 real reference sites (Vercel, Formula
+  E/motorsport, TeamSport/leisure-karting, Luma/event-ticketing, F1 Academy) at 1440px.
+- Root cause found: no shared type-scale — every heading hand-rolled its own `text-[clamp(...)]`,
+  so the hero `<h1>` and every section `<h2>` were literally both 56px, no visual hierarchy.
+- Added a 6-step type-scale to `tokens.css` (hero/h2/h3/lead/stat/label), split `parts.tsx`'s
+  single `H1` export into `H1`/`H2`/`PageTitle` by semantic role, applied across all guest pages.
+  Net effect is SMALLER text overall (every section heading 56px→42px, respecting R21's "too big"
+  feedback) except the single home hero, which grows to ~76px to actually read as a hero — this
+  specific tension was flagged and the user explicitly confirmed "yes, proceed" before it was built.
+- Also fixed: `/events` card misalignment (`items-center`→`items-start`, removed an off-grid
+  `lg:px-[5%]` on the featured card), header logo/nav wrapping on mobile, unified countdown/stat
+  numeral sizing, `text-balance`/`text-pretty` on headings and body copy.
+- **Caught and fixed my own regression before shipping**: the implementer agent's `lg:min-h-[min(
+  72dvh,44rem)]` on the hero grid (meant to give it "presence") instead created a large dead-space
+  void between the hero and the first section divider at 1440/1920px — found via actual screenshot
+  review (not trusted from the agent's self-report), fixed by dropping the artificial min-height
+  and letting the hero size to its own (now appropriately larger) content.
+- Verified via real Playwright screenshots at 390/1440/1920px for Home and Events (the two highest-
+  traffic, highest-risk pages); Quiz/GuestApp/GalleryPage/ProfilePage/SignIn got simpler, lower-risk
+  swaps (a single heading-class change each) verified via build+133 tests only, not re-screenshotted
+  — worth a quick visual sanity check on Quiz specifically next session if it hasn't been demoed.
+- Did NOT touch `src/host/**` (host-only screens) — audit explicitly deprioritized these as a later
+  pass. Did NOT touch the third-party skill pack review (`.agents/skills/`, `.claude/`,
+  `skills-lock.json` — still sitting there uncommitted, still not reviewed for the other ~11 skills
+  beyond the one duplicate found earlier) — that's a separate, still-open task.
 
 ## What shipped this session (PD1 — big-screen podium reveal, R34)
 - `src/host/screen/`: `ScreenApp` (mode router), `LobbyScreen` (QR-to-join via the `qrcode` pkg,
