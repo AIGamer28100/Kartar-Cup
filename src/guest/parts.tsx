@@ -107,7 +107,7 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
             </Link>
           )}
           {!bare && (
-            <Link to="/gallery" className={`hidden sm:inline-flex ${linkCls}`}>
+            <Link to="/gallery" className={`${linkCls} max-sm:hidden!`}>
               <Images size={20} weight="regular" aria-hidden="true" />
               Gallery
             </Link>
