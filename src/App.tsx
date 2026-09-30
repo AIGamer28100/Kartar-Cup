@@ -8,6 +8,7 @@ import FailurePage from './components/FailurePage';
 
 const HomePage = lazy(() => import('./guest/HomePage'));
 const EventsPage = lazy(() => import('./guest/EventsPage'));
+const BookingCheckout = lazy(() => import('./guest/BookingCheckout'));
 const GalleryPage = lazy(() => import('./guest/GalleryPage'));
 const ProfilePage = lazy(() => import('./guest/ProfilePage'));
 const HostApp = lazy(() => import('./host/HostApp'));
@@ -20,6 +21,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/events/:bookingEventId" element={<BookingCheckout />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route
