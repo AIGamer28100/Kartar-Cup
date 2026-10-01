@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarBlank, FlagCheckered, TicketIcon } from '@phosphor-icons/react';
 import Divider from '../components/Divider';
 import Skeleton, { Busy } from '../components/Skeleton';
 import TrackMap from '../components/TrackMap';
 import { ALL_RACES, type RaceInfo } from '../config/calendar';
-import { DEFAULT_RACE_START_UTC_TIME } from '../config/event';
 import { trackForRace } from '../config/tracks';
 import { watchActiveEventId, watchEventConfig } from '../lib/db';
 import { useEventStatus } from '../lib/eventStatus';
 import { watchBookingEvents } from '../lib/bookings';
+import { nextSession, raceStartFor, type SessionTime } from '../lib/f1api';
+import { useSchedule } from '../lib/useSchedule';
 import type { BookingEvent, EventConfig } from '../lib/types';
 import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
 import { quizGateVariant } from './quizGate';
@@ -18,14 +20,18 @@ import { Eyebrow, H2, PageTitle, Reveal, Shell } from './parts';
 /** Weekend date range ("02–04 Oct 2026") plus the watch-party's own local/IST start (13:00 UTC
  * default unless a host has overridden it for the live event — this calendar-only view always
  * uses the default). */
-function raceDateReadout(race: RaceInfo): { range: string; local: string; ist: string } {
+type Schedule = Map<number, SessionTime[]> | null;
+/** The season's real session times, provided once by EventsPage so every card reads the same data. */
+const ScheduleContext = createContext<Schedule>(null);
+
+function raceDateReadout(race: RaceInfo, schedule: Schedule): { range: string; local: string; ist: string; exact: boolean } {
   const start = new Date(`${race.weekendStart}T00:00:00Z`);
   const end = new Date(`${race.weekendEnd}T00:00:00Z`);
   const day = (d: Date) => new Intl.DateTimeFormat('en-GB', { day: '2-digit', timeZone: 'UTC' }).format(d);
   const dayMonYr = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(end);
   const range = race.weekendStart === race.weekendEnd ? dayMonYr : `${day(start)}–${dayMonYr}`;
 
-  const ms = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
+  const { ms, exact } = raceStartFor(race, schedule);
   const d = new Date(ms);
   const local = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
   const ist = new Intl.DateTimeFormat('en-GB', {
@@ -36,7 +42,7 @@ function raceDateReadout(race: RaceInfo): { range: string; local: string; ist: s
     minute: '2-digit',
     hour12: false,
   }).format(d);
-  return { range, local, ist };
+  return { range, local, ist, exact };
 }
 
 /** Real circuit name via src/config/tracks where coverage exists; falls back to the calendar's
@@ -146,10 +152,11 @@ function SeasonTimeline({
   quizVisible: boolean;
   bookingEvents: BookingEvent[];
 }) {
+  const schedule = useContext(ScheduleContext);
   return (
     <ol className="mt-4">
       {entries.map(({ race, gapDays, longBreak, breakLabel }, i) => {
-        const { range } = raceDateReadout(race);
+        const { range } = raceDateReadout(race, schedule);
         const ticket = ticketStatusFor(race.id, bookingEvents);
         return (
           <li key={race.id}>
@@ -193,6 +200,52 @@ function SeasonTimeline({
   );
 }
 
+const dayFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+
+/** The real running order of the race weekend (official schedule, shown in IST). Rows rise in one
+ * after another as the card scrolls into view; sessions already run are dimmed and the next one
+ * gets a pulsing marker. Transform/opacity only, and plain static rows under reduced motion. */
+function WeekendSchedule({ sessions }: { sessions: SessionTime[] }) {
+  const reduce = useReducedMotion();
+  const upcoming = nextSession(sessions, Date.now());
+  return (
+    <div className="border-t border-line px-5 py-5 sm:px-6">
+      <p className="font-mono text-xs uppercase tracking-widest text-muted">Race weekend · IST</p>
+      <ol className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {sessions.map((s, i) => {
+          const done = s.startMs < Date.now() && s !== upcoming;
+          const isRace = s.key === 'race';
+          return (
+            <motion.li
+              key={s.key}
+              initial={reduce ? false : { opacity: 0, y: 16 }}
+              whileInView={{ opacity: done ? 0.5 : 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px 0px' }}
+              transition={{ type: 'spring', stiffness: 220, damping: 24, delay: reduce ? 0 : i * 0.08 }}
+              className={`relative rounded-lg border px-3 py-3 ${
+                isRace ? 'border-accent bg-base' : 'border-line bg-base/40'
+              }`}
+            >
+              <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                {s === upcoming && (
+                  <span className="relative flex size-2 shrink-0" aria-hidden="true">
+                    <span className="absolute inline-flex size-full rounded-full bg-accent opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                  </span>
+                )}
+                {s.label}
+              </p>
+              <p className="mt-1 font-mono text-xs tabular-nums text-muted">{dayFmt.format(s.startMs)}</p>
+              <p className="font-mono text-sm tabular-nums text-ink">{timeFmt.format(s.startMs)}</p>
+            </motion.li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /** One race card. `featured` renders the next-up race large with a bigger circuit visual and a
  * two-column internal layout on wider screens (mirrors HomePage's UpcomingEventsSection); all
  * other races render as the compact card used in the surrounding grid. */
@@ -209,7 +262,9 @@ function RaceCard({
   quizNote: boolean;
   featured?: boolean;
 }) {
-  const { range, local, ist } = raceDateReadout(race);
+  const schedule = useContext(ScheduleContext);
+  const { range, local, ist, exact } = raceDateReadout(race, schedule);
+  const sessions = featured ? schedule?.get(race.round) : undefined;
   return (
     <Reveal
       index={index}
@@ -230,9 +285,11 @@ function RaceCard({
           <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             <CalendarBlank size={16} weight="regular" aria-hidden="true" />
-            <span>watch party {local} local</span>
+            <span>lights out {local} local</span>
             <span aria-hidden="true">·</span>
-            <span>{ist} IST</span>
+            <span>
+              {ist} IST{exact ? '' : ' (est.)'}
+            </span>
           </p>
           {quizNote && (
             <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
@@ -245,6 +302,7 @@ function RaceCard({
         </div>
         <CircuitVisual race={race} featured={featured} />
       </div>
+      {sessions && sessions.length > 0 && <WeekendSchedule sessions={sessions} />}
     </Reveal>
   );
 }
@@ -275,6 +333,7 @@ export default function EventsPage() {
     [now, activeSeason],
   );
   const previous = useMemo(() => previousRace(now, ALL_RACES), [now]);
+  const { schedule } = useSchedule(activeSeason);
   const featuredRace = races[0] ?? null;
   const groups = useMemo(() => groupByMonth(races.slice(1)), [races]);
   const entries = useMemo(() => timelineEntries(races), [races]);
@@ -284,6 +343,7 @@ export default function EventsPage() {
   const showTimeline = activeSeason === 2027;
 
   return (
+    <ScheduleContext.Provider value={schedule}>
     <Shell>
       <div className="max-w-[52ch]">
         <Reveal>
@@ -415,5 +475,6 @@ export default function EventsPage() {
         </div>
       )}
     </Shell>
+    </ScheduleContext.Provider>
   );
 }

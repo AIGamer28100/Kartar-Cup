@@ -9,17 +9,20 @@ import {
   WhatsappLogo,
 } from "@phosphor-icons/react";
 import Divider from "../components/Divider";
-import { PageSkeleton } from "../components/Skeleton";
+import Skeleton, { PageSkeleton } from "../components/Skeleton";
 import TrackMap from "../components/TrackMap";
 import { ALL_RACES, nextRace } from "../config/calendar";
 import { trackForRace } from "../config/tracks";
 import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
 import { istReadout, safeWhatsappUrl } from "./model";
 import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
+import ChampionshipSection from "./Championship";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { useGuestSession } from "./useGuestSession";
 import { useCountdown } from "../lib/useCountdown";
+import { nextSession, raceStartFor } from "../lib/f1api";
+import { useSchedule } from "../lib/useSchedule";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -70,7 +73,9 @@ function PlainDivider() {
 function HeroAndNextRace() {
   const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
   const track = next ? trackForRace(next.id) : null;
-  const targetMs = next ? Date.parse(`${next.raceDate}T13:00:00Z`) : 0;
+  const { schedule, settled } = useSchedule(next?.season);
+  const targetMs = next ? raceStartFor(next, schedule).ms : 0;
+  const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
   const desktopMotion = useDesktopMotion();
   const { scrollYProgress } = useScroll({
@@ -120,13 +125,27 @@ function HeroAndNextRace() {
                 {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
                 {next.locality}, {next.country}
               </p>
+              {upNext && upNext.key !== "race" && (
+                <p className="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+                  <span className="relative flex size-2" aria-hidden="true">
+                    <span className="absolute inline-flex size-full rounded-full bg-accent opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                  </span>
+                  Next on track: {upNext.label} · {istReadout(upNext.startMs).day}{" "}
+                  {istReadout(upNext.startMs).month} {istReadout(upNext.startMs).time} IST
+                </p>
+              )}
             </Reveal>
             <Reveal index={2} className="mt-5">
               <p className="font-mono text-xs uppercase tracking-widest text-muted">
                 Lights out in
               </p>
               <div className="mt-2">
-                <CountdownReadout targetMs={targetMs} />
+                {settled ? (
+                  <CountdownReadout targetMs={targetMs} />
+                ) : (
+                  <Skeleton className="h-16 w-72 max-w-full" />
+                )}
               </div>
             </Reveal>
           </div>
@@ -460,6 +479,8 @@ export default function HomePage() {
         </div>
         <CheckerDivider />
         <AboutSection />
+        <PlainDivider />
+        <ChampionshipSection season={nextRace(new Date(), ALL_RACES)?.season ?? 2026} />
         <PlainDivider />
         <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
         <CheckerDivider />

@@ -6,6 +6,7 @@ import { createBookingEvent, updateBookingEvent, watchAllBookingEvents } from '.
 import type { BookingEvent } from '../../lib/types';
 import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
+import { useSchedule } from '../../lib/useSchedule';
 import { DiscountsEditor, TiersEditor } from './Editors';
 import {
   blankForm,
@@ -42,6 +43,8 @@ export default function BookingsAdmin() {
 
   const errors = useMemo(() => (form ? validate(form) : {}), [form]);
   const dirty = form ? snap(form) !== saved : false;
+  const { schedule } = useSchedule(2026);
+  const { schedule: schedule27 } = useSchedule(2027);
   const raceOptions = useMemo(() => upcomingRaceOptions(new Date(), 5, form?.raceId || undefined), [form?.raceId]);
 
   function openNew() {
@@ -129,7 +132,7 @@ export default function BookingsAdmin() {
                 onChange={(e) => {
                   const id = e.target.value;
                   const race = raceOptions.find((r) => r.id === id);
-                  patch(() => ({ raceId: id, ...(race ? { dateUtc: raceDefaultDateUtc(race) } : {}) }));
+                  patch(() => ({ raceId: id, ...(race ? { dateUtc: raceDefaultDateUtc(race, race.season === 2027 ? schedule27 : schedule) } : {}) }));
                 }}
               >
                 <option value="">Not linked to a calendar race</option>

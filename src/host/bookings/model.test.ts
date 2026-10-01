@@ -133,5 +133,12 @@ describe('bookings model', () => {
       const startMs = Date.parse(`${race.raceDate}T13:00:00Z`);
       expect(fromLocalInput(result)).toBe(startMs - 30 * 60_000);
     });
+
+    it('uses the real lights-out from the schedule when it has the round', () => {
+      const race = upcomingRaceOptions(new Date('2026-09-27T00:00:00Z'), 1)[0];
+      const real = Date.parse('2026-10-04T07:00:00Z');
+      const schedule = new Map([[race.round, [{ key: 'race' as const, label: 'Race', startMs: real }]]]);
+      expect(fromLocalInput(raceDefaultDateUtc(race, schedule))).toBe(real - 30 * 60_000);
+    });
   });
 });

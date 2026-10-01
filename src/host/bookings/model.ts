@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 import type { NewBookingEvent } from '../../lib/bookings';
 import type { BookingEvent, Discount, DiscountKind, PriceTier, Venue } from '../../lib/types';
 import { ALL_RACES, type RaceInfo } from '../../config/calendar';
-import { DEFAULT_RACE_START_UTC_TIME } from '../../config/event';
+import { raceStartFor, type SessionTime } from '../../lib/f1api';
 import { fromLocalInput, toLocalInput } from '../settings/time';
 
 export const MAX_TIERS = 10;
@@ -140,12 +140,11 @@ export function upcomingRaceOptions(now: Date = new Date(), limit = 5, extraId?:
   return upcoming;
 }
 
-/** Race start (same DEFAULT_RACE_START_UTC_TIME convention the quiz's buildDefaultEvent uses)
- * minus a 30-minute doors-open buffer, as a datetime-local string for the dateUtc field — so
- * picking a race pulls its real time in rather than leaving the host to guess it. */
-export function raceDefaultDateUtc(race: RaceInfo): string {
-  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
-  return toLocalInput(startMs - 30 * 60_000);
+/** Race lights-out minus a 30-minute doors-open buffer, as a datetime-local string for the
+ * dateUtc field. Uses the official session schedule when it has the round (race times differ by
+ * circuit), else the flat fallback — so picking a race pulls its real time in. */
+export function raceDefaultDateUtc(race: RaceInfo, schedule?: Map<number, SessionTime[]> | null): string {
+  return toLocalInput(raceStartFor(race, schedule).ms - 30 * 60_000);
 }
 
 export type Errors = Partial<

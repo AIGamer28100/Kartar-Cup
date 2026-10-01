@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import type { RaceInfo } from './calendar/types';
 import type { DriverCfg, EventConfig, Option, Question, TeamCfg } from '../lib/types';
+import { fetchSchedule, raceStartFor } from '../lib/f1api';
 import { fetchLineupForRace } from '../lib/openf1';
 
 export const LIGHTS_OUT_UTC = '2026-09-26T11:00:00Z';
@@ -108,7 +109,10 @@ export async function buildDefaultEvent(
   race: RaceInfo,
   durationMin = DEFAULT_RACE_DURATION_MIN,
 ): Promise<{ config: EventConfig; gridStatus: GridStatus }> {
-  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
+  // Real lights-out from the official schedule when available (race times differ by circuit);
+  // the flat default only when the API has nothing for this round.
+  const schedule = await fetchSchedule(race.season);
+  const startMs = raceStartFor(race, schedule).ms;
   const closesMs = startMs + Math.round(0.9 * durationMin * 60_000);
   const now = Timestamp.now();
   const { teams, drivers, gridStatus } = await fetchLiveGrid(race);
