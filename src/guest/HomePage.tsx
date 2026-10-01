@@ -384,7 +384,7 @@ function GallerySection() {
       <Reveal index={2} className="mt-5">
         <Link
           to="/gallery"
-          className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="-mx-2 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-medium text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Images size={20} weight="regular" aria-hidden="true" />
           See the full gallery

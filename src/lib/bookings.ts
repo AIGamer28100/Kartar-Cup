@@ -150,6 +150,20 @@ export async function markPaidMock(bookingId: string): Promise<void> {
   await updateDoc(bookingRef(bookingId), { status: 'paid_mock', paidAt: serverTimestamp() });
 }
 
+/** One booking by id. Rules only let the buyer (or a host) read it, so a guest asking for anyone
+ * else's booking gets a permission error, never the data (R15). `null` = does not exist. */
+export function watchBooking(
+  id: string,
+  cb: (b: Booking | null) => void,
+  onErr?: (e: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    bookingRef(id),
+    (s) => cb(s.exists() ? ({ ...s.data(), id: s.id } as Booking) : null),
+    onErr,
+  );
+}
+
 /** Guest: own bookings only (R15). */
 export function watchOwnBookings(uid: string, cb: (b: Booking[]) => void, onErr?: (e: Error) => void): Unsubscribe {
   const q = query(bookingsCol(), where('buyerUid', '==', uid));

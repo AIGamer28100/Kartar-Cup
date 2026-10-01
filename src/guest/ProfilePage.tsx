@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
-import { QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
+import { ArrowRight, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
 import { Link } from 'react-router';
 import Divider from '../components/Divider';
 import Skeleton, { Busy, PageSkeleton } from '../components/Skeleton';
@@ -106,7 +106,11 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
   return (
     <Reveal index={index}>
       {index > 0 && <Divider />}
-      <div className="flex flex-wrap items-start justify-between gap-4 py-4">
+      <Link
+        to={`/tickets/${booking.id}`}
+        aria-label={`Open ticket for ${ev?.title ?? 'watch party'}`}
+        className="group -mx-3 flex flex-wrap items-start justify-between gap-4 rounded-lg px-3 py-4 transition hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
         <div>
           <p className="font-medium text-ink">
             {ev === undefined ? <Skeleton className="h-5 w-40" /> : ev?.title ?? 'Watch party'}
@@ -116,13 +120,19 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
           </p>
           <p className="mt-1 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
             <QrCode size={16} weight="regular" aria-hidden="true" />
-            <span className="select-all">{booking.id}</span>
+            <span>{booking.id}</span>
           </p>
         </div>
-        <p className="shrink-0 font-mono text-xs uppercase tracking-widest text-muted">
-          {bookingStatusLabel(booking.status)}
-        </p>
-      </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <p className="font-mono text-xs uppercase tracking-widest text-muted">
+            {bookingStatusLabel(booking.status)}
+          </p>
+          <p className="inline-flex items-center gap-1 text-sm font-medium text-accent">
+            Show ticket
+            <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition group-hover:translate-x-0.5" />
+          </p>
+        </div>
+      </Link>
     </Reveal>
   );
 }
@@ -194,7 +204,7 @@ export default function ProfilePage() {
           <p className="truncate text-lg font-medium text-ink">{name}</p>
           {user.email && <p className="truncate font-mono text-sm text-muted">{user.email}</p>}
         </div>
-        <Link to="/logout" className="ml-auto inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <Link to="/logout" className="-mr-2 ml-auto inline-flex min-h-11 items-center gap-2 px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           <SignOut size={20} weight="regular" aria-hidden="true" />
           Sign out
         </Link>

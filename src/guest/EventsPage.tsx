@@ -120,7 +120,7 @@ function TicketReadout({ ticket }: { ticket: { available: boolean; bookingEventI
   return ticket.available && ticket.bookingEventId ? (
     <Link
       to={`/events/${ticket.bookingEventId}`}
-      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition after:absolute after:inset-0 after:content-[''] hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <TicketIcon size={18} weight="regular" aria-hidden="true" />
       Tickets available
@@ -165,7 +165,7 @@ function SeasonTimeline({
                 )}
               </div>
             )}
-            <Reveal index={i} className="flex gap-4">
+            <Reveal index={i} className="relative flex gap-4">
               <span
                 aria-hidden="true"
                 className="mt-1.5 h-[15px] w-[15px] shrink-0 rounded-full border-2 border-accent bg-base"
@@ -213,9 +213,9 @@ function RaceCard({
   return (
     <Reveal
       index={index}
-      className={`group overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-muted ${
-        featured ? 'sm:col-span-2' : ''
-      }`}
+      className={`group relative overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-muted ${
+        ticket.available ? 'cursor-pointer hover:border-accent' : ''
+      } ${featured ? 'sm:col-span-2' : ''}`}
     >
       {/* Info on the left, square circuit box on the right, for every card size (was up/down
          for compact cards before — now consistent with the featured layout, per the user's

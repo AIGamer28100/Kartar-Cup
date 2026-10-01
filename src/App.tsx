@@ -11,6 +11,7 @@ const EventsPage = lazy(() => import('./guest/EventsPage'));
 const BookingCheckout = lazy(() => import('./guest/BookingCheckout'));
 const GalleryPage = lazy(() => import('./guest/GalleryPage'));
 const ProfilePage = lazy(() => import('./guest/ProfilePage'));
+const TicketPage = lazy(() => import('./guest/TicketView'));
 const HostApp = lazy(() => import('./host/HostApp'));
 const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/events/:bookingEventId" element={<BookingCheckout />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/tickets/:bookingId" element={<TicketPage />} />
           <Route
             path="/host/screen"
             element={

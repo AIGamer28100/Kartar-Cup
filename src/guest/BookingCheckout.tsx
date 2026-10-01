@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import QRCode from 'qrcode';
-import { QrCode, TicketIcon } from '@phosphor-icons/react';
+import { TicketIcon } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import Divider from '../components/Divider';
-import Skeleton, { PageSkeleton } from '../components/Skeleton';
+import { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { applyDiscount, createReservation, markPaidMock, watchBookingEvent } from '../lib/bookings';
 import { toMapEmbedUrl } from '../lib/mapEmbed';
 import type { BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
+import { TicketQr } from './TicketView';
 import { formatInr } from './profileModel';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
@@ -50,7 +50,7 @@ function VenueMap({ mapUrl }: { mapUrl?: string }) {
       href={mapUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex min-h-11 items-center text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+      className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
     >
       Open in Google Maps
     </a>
@@ -66,7 +66,7 @@ function ClosedNotice() {
         <p className="mt-4 max-w-[34ch] text-muted">This watch party isn&rsquo;t taking bookings right now.</p>
         <Link
           to="/events"
-          className="mt-6 inline-flex min-h-11 items-center text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+          className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
         >
           Back to events
         </Link>
@@ -83,18 +83,6 @@ interface Reservation {
 }
 
 function SuccessView({ event, reservation }: { event: BookingEvent; reservation: Reservation }) {
-  const [qr, setQr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(reservation.bookingId, { margin: 1, width: 480, color: { dark: '#111', light: '#fff' } })
-      .then((url) => !cancelled && setQr(url))
-      .catch(() => !cancelled && setQr(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [reservation.bookingId]);
-
   return (
     <Shell>
       <Reveal>
@@ -104,23 +92,21 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
           {reservation.tierLabel} · Qty {reservation.qty} · {formatInr(reservation.totalInr)}
         </p>
       </Reveal>
-      <Reveal index={1} className="mt-8 flex flex-col items-center gap-4 text-center">
-        {qr ? (
-          <img src={qr} alt="Ticket QR code" className="size-60 rounded-lg border border-line bg-white p-2" />
-        ) : (
-          <Skeleton className="size-60 rounded-lg" />
-        )}
-        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
-          <QrCode size={16} weight="regular" aria-hidden="true" />
-          <span className="select-all">{reservation.bookingId}</span>
-        </p>
+      <Reveal index={1} className="mt-8">
+        <TicketQr bookingId={reservation.bookingId} />
       </Reveal>
-      <Reveal index={2} className="mt-8">
+      <Reveal index={2} className="mt-8 flex flex-wrap gap-3">
+        <Link
+          to={`/tickets/${reservation.bookingId}`}
+          className="inline-flex min-h-12 items-center rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
+        >
+          Open ticket page
+        </Link>
         <Link
           to="/profile"
-          className="inline-flex min-h-11 items-center text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+          className="inline-flex min-h-12 items-center rounded-lg px-4 text-[1rem] font-medium text-muted transition hover:text-ink"
         >
-          View in your bookings
+          Your bookings
         </Link>
       </Reveal>
     </Shell>

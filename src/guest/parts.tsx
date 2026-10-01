@@ -38,7 +38,7 @@ export function Reveal({
 }
 
 const linkCls =
-  'inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  '-mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 /** Small text wordmark used as the header's logo placeholder — R27: no real Karter Cup artwork
  * is in this repo, only a plain dot+text mark in the site's own established style. Links home. */
@@ -46,7 +46,7 @@ function LogoMark() {
   return (
     <Link
       to="/"
-      className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="-mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
       Kartar CUP
