@@ -78,6 +78,22 @@ stub/placeholder data now rather than wait for real venue/pricing:
   correctly computed to ₹899), sold-out/sales-closed guards, sign-in gate, map embed, mobile —
   via real Playwright screenshots, not the implementer agents' own reports.
 
+## Later on 2026-10-01 (all deployed, bundle `index-se0e6PdZ.js`, HEAD 515536a)
+- **Check-in scanner** (`/host/checkin`): jsqr camera decode + manual fallback, all 4 booking states.
+- **Booking race picker (R36)**: Race id is now a dropdown of the next 5 upcoming races; picking one
+  fills Date & time (race start − 30 min). Root cause of "my event doesn't show up to book":
+  `ticketStatusFor()` matches `raceId` to a calendar race id EXACTLY, free text never matched.
+  Also needs "Open for sales" ticked or guests never see it.
+- **Grid/Teams read-only from OpenF1 (R37)**: editors removed; status banner + Refresh button.
+- **`text-base` colour trap**: this project has `--color-base`, so `md:text-base`/`lg:text-base`
+  resolves to the BACKGROUND colour and the text vanishes at that width. Use `text-[1rem]`.
+  (Had hidden the home-page race location line on desktop in production.)
+- **Known stale tests**: `tests/e2e/guest.spec.ts` (3 tests) and `a11y.spec.ts` (1) fail on the
+  pre-R37 baseline too — they still expect the old quiz-first home page; R25 moved the quiz behind
+  a "Predict now" banner. Not a regression; needs rewriting. host/settings e2e: 6/6 pass.
+- Still the user's: restore `recovery-companion-hack` Firestore rules via Console history; merge
+  `worktree-build-v1` to main (I never do this); real venue/pricing data entry.
+
 ## NOT built — rest of the roadmap (docs/superpowers/plans/2026-09-27-topdown-roadmap.md)
 1. **Host check-in scanner** (`/host/checkin`) — NOW UNBLOCKED (real bookings exist to scan as of
    B2). This is the natural next task.
