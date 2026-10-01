@@ -16,7 +16,7 @@ import StatusPanel from './StatusPanel';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
-  const { loading, error, event, entries, resultsDoc, results } = useHostData();
+  const { loading, error, event, config, entries, resultsDoc, results } = useHostData();
   const stuck = useTimedOut(loading);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
   const overrideUid = localOverride !== undefined ? localOverride : (event?.tiebreakOverride ?? null);
@@ -75,7 +75,7 @@ export default function HostConsole() {
         overrideUid={overrideUid}
         revealed={event?.winnerRevealed ?? false}
       />
-      <ResultsForm resultsDoc={resultsDoc} results={results} />
+      <ResultsForm config={config} resultsDoc={resultsDoc} results={results} />
       <PodiumController />
       <div className="py-8">
         <Button variant="secondary" disabled={entries.length === 0} onClick={exportCsv}>

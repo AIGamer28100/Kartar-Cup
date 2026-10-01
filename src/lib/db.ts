@@ -125,6 +125,14 @@ function toLegacy(c: EventConfig, nowMs: number): EventDoc {
   };
 }
 
+/** The live event's full config (questions, teams, drivers), or null when no event is live. */
+export function watchActiveEventConfig(
+  cb: (c: EventConfig | null) => void,
+  onErr?: (e: Error) => void,
+): Unsubscribe {
+  return watchUnderActive((id) => watchEventConfig(id, cb, onErr), () => cb(null), onErr);
+}
+
 export function watchEvent(cb: (e: EventDoc | null) => void, onErr?: (e: Error) => void): Unsubscribe {
   let cfg: EventConfig | null = null;
   let last: string | null = null;

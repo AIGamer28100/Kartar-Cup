@@ -1,21 +1,38 @@
-import { useEffect, useState } from 'react';
-import { FloppyDisk } from '@phosphor-icons/react';
+import { useEffect, useMemo, useState } from 'react';
+import { CloudArrowDown, FloppyDisk } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { QUESTIONS, optionsFor } from '../config/event';
+import { getRace } from '../config/calendar';
 import { saveResults } from '../lib/db';
-import type { Results, ResultsDoc } from '../lib/types';
+import { fetchRaceFactsForRace, mapFactsToQuestions } from '../lib/raceResults';
+import type { EventConfig, QuestionCfg, Results, ResultsDoc } from '../lib/types';
+
+interface Opt {
+  id: string;
+  label: string;
+}
+
+/** Answer choices come from the live event's own lineup (not a static template), so the ids the
+ * host ticks are exactly the ids guests picked from. */
+function optionsFor(config: EventConfig, q: QuestionCfg): Opt[] {
+  if (q.kind === 'team') return config.teams.map((t) => ({ id: t.id, label: t.label }));
+  return [...config.drivers].sort((a, b) => a.grid - b.grid).map((d) => ({ id: d.id, label: d.label }));
+}
 
 export default function ResultsForm({
+  config,
   resultsDoc,
   results,
 }: {
+  config: EventConfig | null;
   resultsDoc: ResultsDoc | null;
   results: Results;
 }) {
   const [draft, setDraft] = useState<Results>(results);
   const [source, setSource] = useState(resultsDoc?.source ?? '');
   const [busy, setBusy] = useState(false);
+  const [pulling, setPulling] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [notes, setNotes] = useState<string[]>([]);
 
   const savedKey = JSON.stringify(results) + (resultsDoc?.source ?? '');
   useEffect(() => {
@@ -24,11 +41,13 @@ export default function ResultsForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedKey]);
 
+  const race = useMemo(() => (config ? getRace(config.raceId) : undefined), [config]);
+
   function toggle(q: string, id: string) {
-    setDraft((d) => ({
-      ...d,
-      [q]: d[q].includes(id) ? d[q].filter((x) => x !== id) : [...d[q], id],
-    }));
+    setDraft((d) => {
+      const cur = d[q] ?? [];
+      return { ...d, [q]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
+    });
   }
 
   async function save() {
@@ -44,16 +63,71 @@ export default function ResultsForm({
     }
   }
 
+  async function pull() {
+    if (!config || !race) return;
+    setPulling(true);
+    setMsg(null);
+    setNotes([]);
+    try {
+      const res = await fetchRaceFactsForRace(race.season, race);
+      if (!res.ok) {
+        setMsg({ ok: false, text: res.reason });
+        return;
+      }
+      const mapped = mapFactsToQuestions(res.facts, config.questions, {
+        team: new Set(config.teams.map((t) => t.id)),
+        driver: new Set(config.drivers.map((d) => d.id)),
+      });
+      setDraft((d) => ({ ...d, ...mapped.answers }));
+      setSource(`OpenF1 race session ${res.sessionKey}, pulled ${new Date().toLocaleString('en-GB')}`);
+      setNotes([...res.facts.notes, ...mapped.skipped]);
+      setMsg({
+        ok: true,
+        text: `Filled ${mapped.filled.length} of ${config.questions.length} questions from OpenF1. Check them, then save.`,
+      });
+    } finally {
+      setPulling(false);
+    }
+  }
+
+  if (!config) {
+    return (
+      <section aria-label="Results" className="border-b border-line py-8">
+        <h2 className="text-2xl font-semibold">Race results</h2>
+        <p className="mt-1 text-muted">No event is live. Set one live in Settings to enter results.</p>
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Results" className="border-b border-line py-8">
       <h2 className="text-2xl font-semibold">Race results</h2>
       <p className="mt-1 text-muted">
         Tick every accepted answer. Leave a question empty to void it, nobody scores on it.
       </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button variant="secondary" disabled={!race || pulling} onClick={() => void pull()}>
+          <CloudArrowDown size={20} weight="regular" className={pulling ? 'animate-pulse' : undefined} />
+          {pulling ? 'Pulling...' : 'Pull from OpenF1'}
+        </Button>
+        <p className="text-sm text-muted">
+          {race
+            ? 'Fills the draft from the finished race. Nothing is saved until you press Save.'
+            : 'Custom events have no calendar race to pull from.'}
+        </p>
+      </div>
+      {notes.length > 0 && (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
       <div className="mt-6 divide-y divide-line">
-        {QUESTIONS.map((q, i) => {
-          const saved = results[q.id];
-          const opts = optionsFor(q);
+        {config.questions.map((q, i) => {
+          const saved = results[q.id] ?? [];
+          const opts = optionsFor(config, q);
+          const picked = draft[q.id] ?? [];
           return (
             <fieldset key={q.id} className="py-5">
               <legend className="mb-3 text-xl">
@@ -70,7 +144,7 @@ export default function ResultsForm({
               </p>
               <div className="flex flex-wrap gap-2">
                 {opts.map((o) => {
-                  const on = draft[q.id].includes(o.id);
+                  const on = picked.includes(o.id);
                   return (
                     <button
                       key={o.id}
@@ -88,7 +162,7 @@ export default function ResultsForm({
                   );
                 })}
               </div>
-              {draft[q.id].length > 0 && (
+              {picked.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, [q.id]: [] }))}

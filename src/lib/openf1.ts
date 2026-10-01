@@ -7,7 +7,7 @@
  * Every exported async function returns a typed result and never throws.
  */
 
-const BASE = 'https://api.openf1.org/v1';
+export const BASE = 'https://api.openf1.org/v1';
 
 interface OpenF1Session {
   session_key: number;
@@ -17,7 +17,7 @@ interface OpenF1Session {
   location?: string;
 }
 
-interface OpenF1Driver {
+export interface OpenF1Driver {
   driver_number: number;
   full_name: string;
   team_name: string;
@@ -44,7 +44,7 @@ export type LineupResult =
 export type SessionLookupResult = { ok: true; sessionKey: number } | { ok: false; reason: string };
 
 /** slugify a label into a stable-ish id, e.g. "Max Verstappen" -> "max-verstappen" */
-function slug(label: string): string {
+export function slug(label: string): string {
   return label
     .toLowerCase()
     .trim()
@@ -52,7 +52,7 @@ function slug(label: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-async function getJson(url: string): Promise<unknown> {
+export async function getJson(url: string): Promise<unknown> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`OpenF1 request failed: ${res.status}`);
   return res.json();
