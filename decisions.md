@@ -1,0 +1,36 @@
+# Decisions and rejected alternatives
+
+| Decision | Chosen | Rejected (why) |
+|---|---|---|
+| Collection backend | Firebase Auth + Firestore + Hosting, client-side scoring | Static/no-backend (no shared leaderboard); Google Form (least polished); Cloud Functions (needs Blaze, unnecessary for 5 questions) |
+| Identity | Google sign-in OR name (+optional phone) | Anonymous only (can't award prize to a person) |
+| WhatsApp | Invite link button + CSV export | Auto-add via API (WhatsApp offers no free community-add API) |
+| Season table | Dropped (R2) | Carry-over points (guests change every race) |
+| Tiebreak | Earliest submission; host override | Random draw (opaque); sudden-death question (needs another live judged answer) |
+| Theme | Dark + Baku red fallback; swappable tokens | Guessing Karter Cup colours (couldn't verify; Instagram not scrapeable) |
+| Search result "Kartar Cup" | Ignored Indonesian Karang Taruna tournaments | Using them as brand reference (wrong org) |
+| Build priority (2026-09-27) | 1) Home page (H1, in flight): community/brand page, quiz demoted. 2) `/events` page: full upcoming-events listing. 3) Booking page: buyer flow off `/events`, using the existing B1 data/rules layer. Host scanner, big-screen podium, calendar validation, guest history/stats all come after | User: "priority, home page, then events page which takes to booking page" | Home page's own Upcoming Events section stays a short teaser linking to `/events`, not a full listing built twice |
+
+## Deferred / future scope
+- Android app for community members only (user, 2026-09-27): discuss and scope later, not started.
+
+## PRD (2026-09-27, two docs added by user)
+Decision: Vision doc, not a rewrite. Keep the current Vite+React+Firebase serverless build and all 28 rules/decisions made today. Adopt two PRD ideas now: OpenF1 as the live-data source (not FastF1 - FastF1 has no live capability, confirmed by earlier research; OpenF1 does), and Tier-1 manual-UPI-with-UTR-verification as the real next step beyond R23's mock-pay (not built this session). Rejected for now: Next.js/Cloud Functions replatform, 1/3-distance dynamic lock (keep R13's time-based lock), Electric Emerald/Midnight Void/Inter palette (keep R26/R27's real-brand-derived palette), multi-role system (keep R10/R18's single-host model).
+
+## Session-end demo priority (2026-09-27, ~19:18 IST)
+User needs a deployed, demo-safe production build by end of this session to pitch the company for a deal. Cut for this session: booking QR/scanner/payment, big-screen podium, calendar validation script, guest history/stats, Android app. In scope: verify build, deploy to production kartar-cup, add host doc, set a live active event.
+
+## Local dev server target (2026-09-27)
+`npm run dev` (plain `vite`, no mode flag) now connects to the REAL kartar-cup Firebase project via `.env.local` (gitignored, mirrors `.env.production.local`), not the emulator. Background agents continue verifying against the emulator (explicit VITE_USE_EMULATORS=true) so their throwaway test data never lands in the production database being demoed. `localhost` is already an authorized domain on kartar-cup, so Google sign-in works from the local server unmodified.
+
+## Always pass --project explicitly on firebase deploy (2026-09-30, incident)
+A plain `firebase deploy --only hosting,firestore:rules` (no `--project` flag) deployed to the WRONG Firebase project (`recovery-companion-hack`, an unrelated prior project on the same machine), despite this repo's `.firebaserc` correctly defaulting to `kartar-cup`. Root cause: firebase-tools' `activeProjects` cache (`~/.config/configstore/firebase-tools.json`) had a stale entry mapping an ANCESTOR directory (`/home/hari`) to `recovery-companion-hack`, left over from an unrelated session, and the CLI's project resolution walked up to that cache hit before honoring the local `.firebaserc`. Hosting impact was contained (hit an unused default site, not the real `soter-recovery` site) and was cleared via `firebase hosting:disable --project recovery-companion-hack --site recovery-companion-hack`; Firestore rules impact (project-wide, so it DID hit the real database) was left for the user to restore via Firebase Console rules history, since no local backup of the original rules existed. Fix going forward: every `firebase` CLI command in this repo passes `--project kartar-cup` explicitly — never rely on `.firebaserc`/cache resolution alone.
+
+## Race times come from the official schedule, not a flat 13:00 UTC (2026-10-02)
+Every race was treated as starting 13:00 UTC (`DEFAULT_RACE_START_UTC_TIME`), so the home countdown and the /events watch-party times were hours off (Malaysia actually starts 07:00 UTC). Now `raceStartFor()` (src/lib/f1api.ts) uses the Jolpica schedule's real lights-out and only falls back to the flat default, flagged "(est.)", when the API has nothing for that round (e.g. 2027 not published). Jolpica was chosen over OpenF1 for this because it returns every session time for the whole season in one cached request, while OpenF1 rate-limits bursts (HTTP 429, seen when pulling results). Existing saved quiz events keep the time they were created with; only new ones use the real start. Rejected for now: a Three.js globe — its two blockers (circuit coordinates and session times) are now available from Jolpica, but it would still need a heavy 3D dependency and a world-geometry dataset, so it stays a future item.
+
+## Guest/host code boundary (2026-10-01)
+Guest-facing code (`src/guest/**`) must never import from `src/host/**`, even a trivial pure utility — `BookingCheckout.tsx` initially imported a date formatter from `src/host/settings/time.ts`, caught in review and replaced with a small local copy. Reason: `HostApp` is lazy-loaded specifically so guests never download host-console code (see `src/App.tsx`'s lazy imports and `HostApp.tsx`'s own comment); an import across that boundary is an architecture smell worth fixing even when the actual bundled cost is negligible (a one-function tree-shaken leaf), because it's the kind of thing that compounds into real bloat/coupling once copied a few more times. If a formatter/helper is genuinely shared, it belongs in `src/lib/` or a guest-side module, not borrowed from `src/host/`.
+
+## Booking UI built with stub data ahead of real venue/pricing (2026-09-30/10-01, B2)
+Per R35, built both the host admin UI (`src/host/bookings/`) and the guest checkout flow (`src/guest/BookingCheckout.tsx`, `src/lib/mapEmbed.ts`) before the user had real venue/ticket-price data, rather than waiting — this was an explicit user instruction, not a default. New booking events start with one placeholder tier at ₹0 (signals "not set" without fabricating a real-looking price, consistent with R26's no-fabrication rule) and zero discounts; the host fills in real data later through the same admin UI. Venue maps use a no-API-key `output=embed` Google Maps iframe trick (`toMapEmbedUrl()`), which only works for full `google.com/maps/...` URLs, not short `maps.app.goo.gl` links (falls back to a plain "Open in Google Maps" link for those) — a short-link resolution would need a server-side redirect follow, rejected as unnecessary complexity for this project's serverless/no-Cloud-Functions constraint (see the original PRD decision above).

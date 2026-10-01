@@ -141,3 +141,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+node_modules
+dist
+.env.local
+test-results
+.firebase
+firestore-debug.log
+.env*.local
+scripts/.venv
+scripts/.cache
+docs/
+.agents/
+.claude/

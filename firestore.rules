@@ -1,0 +1,257 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isHost() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && exists(/databases/$(database)/documents/hosts/$(request.auth.token.email.lower()));
+    }
+    function evDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)).data; }
+    function activeId() { return get(/databases/$(database)/documents/settings/active).data.eventId; }
+    // Server clock (request.time); R13 window plus manual override. Override 'open' can never pass closesAt.
+    function acceptingEntries(eventId) {
+      let ev = evDoc(eventId);
+      return activeId() == eventId
+        && ev.override != 'closed'
+        && request.time < ev.closesAt
+        && (ev.override == 'open' || request.time >= ev.opensAt);
+    }
+    function validWhatsapp(u) {
+      return u is string && (u == ''
+        || u.matches('^https://chat\\.whatsapp\\.com/[A-Za-z0-9_-]{1,64}$')
+        || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
+    }
+    // NOTE: per-item label caps for drivers/questions are inlined (1000-expression budget); teams are client-capped.
+    function promptsOk(l, i) {
+      return l.size() <= i || (l[i].prompt.size() <= 80 && l[i].get('hint', '').size() <= 160);
+    }
+    function validEvent(eventId) {
+      let d = request.resource.data;
+      let dr = d.drivers;
+      let qs = d.questions;
+      return d.keys().hasOnly(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','nextQuestionSeq','createdAt','updatedAt'])
+        && d.keys().hasAll(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
+        && d.id == eventId
+        && d.raceId is string && d.raceId.size() <= 60
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.subtitle is string && d.subtitle.size() <= 120
+        && (d.circuit == null || (d.circuit is string && d.circuit.size() <= 80))
+        && d.themeId is string && d.themeId.size() <= 60
+        && d.raceStartUtc is timestamp
+        && d.raceDurationMin is number && d.raceDurationMin >= 10 && d.raceDurationMin <= 600
+        && d.opensAt is timestamp && d.closesAt is timestamp && d.closesAt > d.opensAt
+        && d.override in ['none','open','closed']
+        && validWhatsapp(d.whatsappUrl)
+        && d.teams is list && d.teams.size() <= 12
+        && d.drivers is list && d.drivers.size() <= 24
+        && d.questions is list && d.questions.size() <= 8
+        && d.questionIds is list && d.questionIds.size() <= 8
+        && d.questionIds.size() == d.questions.size()
+        && (!('nextQuestionSeq' in d) || (d.nextQuestionSeq is int && d.nextQuestionSeq >= 1 && d.nextQuestionSeq <= 1000))
+        && (dr.size() <= 0 || dr[0].label.size() <= 80) && (dr.size() <= 1 || dr[1].label.size() <= 80) && (dr.size() <= 2 || dr[2].label.size() <= 80) && (dr.size() <= 3 || dr[3].label.size() <= 80)
+        && (dr.size() <= 4 || dr[4].label.size() <= 80) && (dr.size() <= 5 || dr[5].label.size() <= 80) && (dr.size() <= 6 || dr[6].label.size() <= 80) && (dr.size() <= 7 || dr[7].label.size() <= 80)
+        && (dr.size() <= 8 || dr[8].label.size() <= 80) && (dr.size() <= 9 || dr[9].label.size() <= 80) && (dr.size() <= 10 || dr[10].label.size() <= 80) && (dr.size() <= 11 || dr[11].label.size() <= 80)
+        && (dr.size() <= 12 || dr[12].label.size() <= 80) && (dr.size() <= 13 || dr[13].label.size() <= 80) && (dr.size() <= 14 || dr[14].label.size() <= 80) && (dr.size() <= 15 || dr[15].label.size() <= 80)
+        && (dr.size() <= 16 || dr[16].label.size() <= 80) && (dr.size() <= 17 || dr[17].label.size() <= 80) && (dr.size() <= 18 || dr[18].label.size() <= 80) && (dr.size() <= 19 || dr[19].label.size() <= 80)
+        && (dr.size() <= 20 || dr[20].label.size() <= 80) && (dr.size() <= 21 || dr[21].label.size() <= 80) && (dr.size() <= 22 || dr[22].label.size() <= 80) && (dr.size() <= 23 || dr[23].label.size() <= 80)
+        && promptsOk(qs, 0) && promptsOk(qs, 1) && promptsOk(qs, 2) && promptsOk(qs, 3)
+        && promptsOk(qs, 4) && promptsOk(qs, 5) && promptsOk(qs, 6) && promptsOk(qs, 7)
+        && d.winnerRevealed is bool
+        && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
+    }
+    function answerOk(a, q, i) {
+      return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40);
+    }
+    function validEntry(eventId, uid) {
+      let d = request.resource.data;
+      let q = evDoc(eventId).questionIds;
+      return d.keys().hasOnly(['uid','name','email','phone','photoURL','provider','answers','submittedAt','createdAt'])
+        && d.keys().hasAll(['uid','name','email','provider','answers','submittedAt','createdAt'])
+        && d.uid == uid
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 60
+        && (!('phone' in d) || (d.phone is string && d.phone.matches('^[+0-9 ]{7,16}$')))
+        && (!('photoURL' in d) || (d.photoURL is string && d.photoURL.matches('^https://lh[0-9]\\.googleusercontent\\.com/.*')))
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && d.email is string && d.email.lower() == request.auth.token.email.lower()
+        && d.provider == 'google'
+        && d.answers is map
+        && d.answers.keys().toSet().hasOnly(q.toSet())
+        && d.answers.keys().toSet().hasAll(q)
+        && answerOk(d.answers, q, 0) && answerOk(d.answers, q, 1) && answerOk(d.answers, q, 2)
+        && answerOk(d.answers, q, 3) && answerOk(d.answers, q, 4) && answerOk(d.answers, q, 5)
+        && answerOk(d.answers, q, 6) && answerOk(d.answers, q, 7)
+        && d.submittedAt == request.time;
+    }
+
+    match /settings/active {
+      allow read: if true;
+      allow write: if isHost() && request.resource.data.keys().hasOnly(['eventId'])
+                   && request.resource.data.eventId is string
+                   && request.resource.data.eventId.size() >= 1 && request.resource.data.eventId.size() <= 60;
+    }
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update: if isHost() && validEvent(eventId);
+      allow delete: if isHost();
+
+      match /results/answers {
+        allow read: if isHost() || evDoc(eventId).winnerRevealed == true;
+        allow write: if isHost();
+      }
+      // Host-controlled big-screen podium reveal state (PD1). R15: never a public/guest route,
+      // however visible the screen it drives — read AND write both host-only, no exceptions.
+      match /screen/state {
+        allow read: if isHost();
+        allow write: if isHost();
+      }
+      match /entries/{uid} {
+        allow get: if (signedIn() && request.auth.uid == uid) || isHost();
+        allow list, delete: if isHost();
+        allow create: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == request.time;
+        allow update: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == resource.data.createdAt;
+      }
+    }
+    match /hosts/{email} {
+      allow get: if signedIn() && request.auth.token.email.lower() == email;
+      allow write: if false;
+    }
+
+    /* ---------- host audit log (append-only) ----------
+     * Hosts record sensitive actions here. Entries can be created and read by hosts only, and can
+     * never be edited or deleted by anyone — so a mistake or a disputed result can be traced. The
+     * actor and timestamp are pinned to the signed-in host and the server clock, so an entry cannot
+     * be backdated or attributed to another host. */
+    match /auditLogs/{logId} {
+      allow read: if isHost();
+      allow create: if isHost()
+        && request.resource.data.keys().hasOnly(['action', 'actor', 'target', 'detail', 'at'])
+        && request.resource.data.keys().hasAll(['action', 'actor', 'target', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.action.size() >= 1 && request.resource.data.action.size() <= 40
+        && request.resource.data.actor == request.auth.token.email.lower()
+        && request.resource.data.target is string && request.resource.data.target.size() <= 120
+        && (!('detail' in request.resource.data)
+            || (request.resource.data.detail is string && request.resource.data.detail.size() <= 300))
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    /* ---------- booking/ticketing (R23) ---------- */
+
+    function validTier(t) {
+      return t.keys().hasAll(['id', 'label', 'priceInr']) && t.id is string
+        && t.label is string && t.label.size() <= 60
+        && t.priceInr is number && t.priceInr >= 0;
+    }
+    function tiersOk(l, i) { return l.size() <= i || validTier(l[i]); }
+    function validBookingEvent(eventId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
+                'capacity','bookedCount','salesOpen','policy','createdAt','updatedAt'])
+        && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
+                'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
+        && d.id == eventId
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.venue is map
+        && d.dateUtc is string
+        && d.tiers is list && d.tiers.size() <= 10
+        && tiersOk(d.tiers, 0) && tiersOk(d.tiers, 1) && tiersOk(d.tiers, 2) && tiersOk(d.tiers, 3)
+        && tiersOk(d.tiers, 4) && tiersOk(d.tiers, 5) && tiersOk(d.tiers, 6) && tiersOk(d.tiers, 7)
+        && tiersOk(d.tiers, 8) && tiersOk(d.tiers, 9)
+        && d.discounts is list && d.discounts.size() <= 20
+        && d.capacity is int && d.capacity > 0
+        && d.bookedCount is int && d.bookedCount >= 0
+        && d.salesOpen is bool
+        && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300));
+    }
+    // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
+    // that a query would return, using that document's `resource.data` (same as `get`). A query
+    // is only granted if EVERY document it could return passes the rule; otherwise the whole
+    // request is denied (queries are never silently filtered by rules). So a plain
+    // `resource.data.<field> == <allowed value>` read rule already scopes `list` correctly for a
+    // client query filtered on that field (e.g. `where('salesOpen','==',true)` or
+    // `where('buyerUid','==',uid)`): every returned doc satisfies the rule, while an unfiltered or
+    // wrongly-filtered query would include a doc that fails it and gets denied outright. No
+    // special `request.query.*` filter-inspection syntax is needed or used. This is the same
+    // family of pattern as this file's existing `entries/{uid}` get/list split, applied to `read`
+    // (get+list together) instead.
+    // A signed-in guest reserving a seat must increment bookedCount as part of the SAME
+    // transaction that creates their booking (see createReservation in src/lib/bookings.ts).
+    // This path is deliberately narrow: it may touch ONLY bookedCount (+updatedAt), the new
+    // value must be a strictly-larger int, and it can never push bookedCount past capacity —
+    // so real capacity is enforced here by rules, not just trusted from the client.
+    function capacityBump() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return signedIn()
+        && before.salesOpen == true
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+        && after.bookedCount is int
+        && after.bookedCount > before.bookedCount
+        && after.bookedCount <= before.capacity;
+    }
+    match /bookingEvents/{eventId} {
+      allow read: if resource.data.salesOpen == true || isHost();
+      allow create: if isHost() && validBookingEvent(eventId);
+      allow update: if (isHost() && validBookingEvent(eventId)) || capacityBump();
+      allow delete: if isHost();
+    }
+
+    function bookingEv(id) { return get(/databases/$(database)/documents/bookingEvents/$(id)).data; }
+    function validBooking() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
+                'qty','unitPriceInr','discountCode','discountAmountInr','totalInr','status','qrToken',
+                'createdAt','paidAt','checkedInAt','checkedInBy'])
+        && d.keys().hasAll(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
+                'qty','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
+        && d.id == d.qrToken
+        && d.buyerUid == request.auth.uid
+        && d.buyerName is string && d.buyerName.size() >= 1 && d.buyerName.size() <= 80
+        && d.buyerEmail is string && d.buyerEmail.lower() == request.auth.token.email.lower()
+        && d.tierId is string
+        && d.qty is int && d.qty > 0 && d.qty <= 10
+        && d.unitPriceInr is number && d.unitPriceInr >= 0
+        && d.discountAmountInr is number && d.discountAmountInr >= 0
+        && d.totalInr is number && d.totalInr >= 0
+        && d.totalInr == d.unitPriceInr * d.qty - d.discountAmountInr
+        && d.status == 'reserved'
+        && !('paidAt' in d) && !('checkedInAt' in d) && !('checkedInBy' in d)
+        && bookingEv(d.bookingEventId).salesOpen == true
+        && d.createdAt == request.time;
+    }
+    match /bookings/{bookingId} {
+      // R15: get() and list() share this rule. A guest querying `where('buyerUid','==',uid)`
+      // gets every matching doc back (each passes); a guest attempting an unfiltered/other-uid
+      // query is denied outright because at least one candidate document would fail the check
+      // (see the note above `bookingEvents` for why this scopes `list` safely).
+      allow read: if signedIn() && (resource.data.buyerUid == request.auth.uid || isHost());
+
+      allow create: if signedIn() && validBooking();
+
+      allow update: if signedIn()
+        && ((resource.data.buyerUid == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
+              && resource.data.status == 'reserved'
+              && request.resource.data.status == 'paid_mock'
+              && request.resource.data.paidAt == request.time)
+            || (isHost()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkedInAt', 'checkedInBy'])
+              && resource.data.status == 'paid_mock'
+              && request.resource.data.status == 'checked_in'
+              && request.resource.data.checkedInAt == request.time
+              && request.resource.data.checkedInBy == request.auth.token.email.lower()));
+
+      allow delete: if false;
+    }
+  }
+}
