@@ -116,7 +116,7 @@ function HeroAndNextRace() {
               <p className="mt-1 text-h3 text-balance font-medium text-ink">
                 {next.name}
               </p>
-              <p className="mt-1 text-sm text-muted lg:text-base">
+              <p className="mt-1 text-sm text-muted lg:text-[1rem]">
                 {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
                 {next.locality}, {next.country}
               </p>
@@ -154,13 +154,13 @@ function AboutSection() {
         Karting, sim racing, watch parties
       </SectionHeading>
       <Reveal index={1} className="mt-6 grid gap-6 md:grid-cols-2">
-        <p className="max-w-[42ch] text-base leading-relaxed text-pretty text-muted md:text-lg">
+        <p className="max-w-[42ch] text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
           The Karter Cup is a Chennai-founded, F1-style leisure go-karting
           league and motorsport community — and a small community-led company
           exploring how to run more of it: karting days, sim racing, and F1
           watch parties.
         </p>
-        <p className="max-w-[42ch] text-base leading-relaxed text-pretty text-muted md:text-lg">
+        <p className="max-w-[42ch] text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
           It runs across two cities: karting events at{" "}
           <strong className="text-ink">ECR Speedway</strong> in Chennai and{" "}
           <strong className="text-ink">Prime Kart Zone</strong> in Coimbatore,
@@ -303,7 +303,7 @@ function PartnershipsSection() {
         ))}
       </Reveal>
       <Reveal index={2} className="mt-4">
-        <p className="text-base leading-relaxed text-pretty text-muted md:text-lg">
+        <p className="text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
           Also exploring a sim-racing collaboration with racesims.in —
           exploratory only, not a confirmed partnership.
         </p>

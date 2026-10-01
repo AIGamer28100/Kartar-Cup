@@ -8,7 +8,8 @@ import { useTimedOut } from '../../lib/useTimedOut';
 import { ALL_RACES, nextRace, getRace } from '../../config/calendar';
 import { getActiveEventId, saveEventConfig, setActiveEvent, watchEventConfig } from '../../lib/db';
 import type { EventConfig } from '../../lib/types';
-import { GridEditor, QuestionsEditor, TeamsEditor } from './Editors';
+import { QuestionsEditor } from './Editors';
+import { GridView, RefreshGridButton, TeamsView, useGridRefresh } from './GridTeamsView';
 import LiveControls from './LiveControls';
 import {
   compute,
@@ -89,6 +90,8 @@ export default function SettingsPage() {
   const errors = useMemo(() => (form ? validate(form) : {}), [form]);
   const dirty = form ? snap(form) !== saved : false;
   const comp = useMemo(() => (form ? compute(form) : null), [form]);
+  const formRace = form ? (getRace(form.raceId) ?? null) : null;
+  const gridRefresh = useGridRefresh(form, patch, formRace);
 
   async function pickRace(id: string) {
     setPickErr(null);
@@ -284,11 +287,17 @@ export default function SettingsPage() {
       </TabPanel>
 
       <TabPanel id="grid" active={tab === 'grid'}>
-        <GridEditor form={form} errors={errors} patch={patch} />
+        <div className="flex justify-end">
+          <RefreshGridButton busy={gridRefresh.busy} onRefresh={() => void gridRefresh.refresh()} disabled={!race} />
+        </div>
+        <GridView form={form} />
       </TabPanel>
 
       <TabPanel id="teams" active={tab === 'teams'}>
-        <TeamsEditor form={form} errors={errors} patch={patch} />
+        <div className="flex justify-end">
+          <RefreshGridButton busy={gridRefresh.busy} onRefresh={() => void gridRefresh.refresh()} disabled={!race} />
+        </div>
+        <TeamsView form={form} />
       </TabPanel>
 
       <TabPanel id="questions" active={tab === 'questions'}>

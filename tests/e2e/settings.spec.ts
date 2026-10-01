@@ -81,7 +81,7 @@ test('editors are tabbed, keyboard-operable, and the unsaved indicator survives 
 
   await page.keyboard.press('ArrowRight');
   await expect(teams).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('button', { name: 'Add team' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toBeVisible();
 
   await questions.click();
   await expect(page.getByRole('button', { name: /Add question/ })).toBeVisible();

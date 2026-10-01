@@ -289,7 +289,7 @@ export default function EventsPage() {
         <Reveal>
           <Eyebrow>Calendar</Eyebrow>
           <h1 className={`mt-3 ${PageTitle}`}>Events</h1>
-          <p className="mt-6 text-base leading-relaxed text-pretty text-muted md:mt-8 md:text-lg">
+          <p className="mt-6 text-[1rem] leading-relaxed text-pretty text-muted md:mt-8 md:text-lg">
             The remaining {activeSeason ?? ''} season, round by round. The Karter Cup doesn&rsquo;t
             run the Grand Prix itself — we host watch parties for it, with tickets going live race
             by race.
