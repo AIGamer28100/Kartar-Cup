@@ -7,7 +7,15 @@ import type { BookingEvent } from '../../lib/types';
 import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { DiscountsEditor, TiersEditor } from './Editors';
-import { blankForm, eventToForm, formToEvent, validate, type FormState } from './model';
+import {
+  blankForm,
+  eventToForm,
+  formToEvent,
+  raceDefaultDateUtc,
+  upcomingRaceOptions,
+  validate,
+  type FormState,
+} from './model';
 
 const snap = (f: FormState) => JSON.stringify(f);
 
@@ -34,6 +42,7 @@ export default function BookingsAdmin() {
 
   const errors = useMemo(() => (form ? validate(form) : {}), [form]);
   const dirty = form ? snap(form) !== saved : false;
+  const raceOptions = useMemo(() => upcomingRaceOptions(new Date(), 5, form?.raceId || undefined), [form?.raceId]);
 
   function openNew() {
     setBanner(null);
@@ -108,8 +117,28 @@ export default function BookingsAdmin() {
                 onChange={(e) => patch(() => ({ title: e.target.value }))}
               />
             </Field>
-            <Field id="f-raceid" label="Race id (optional)" hint="Links this event to a calendar race.">
-              <input id="f-raceid" className={inputCls} value={form.raceId} onChange={(e) => patch(() => ({ raceId: e.target.value }))} />
+            <Field
+              id="f-raceid"
+              label="Linked race"
+              hint="Pulls the race's start time (minus a 30-min arrival buffer) into Date & time. Required for this event's tickets to show up on /events."
+            >
+              <select
+                id="f-raceid"
+                className={inputCls}
+                value={form.raceId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const race = raceOptions.find((r) => r.id === id);
+                  patch(() => ({ raceId: id, ...(race ? { dateUtc: raceDefaultDateUtc(race) } : {}) }));
+                }}
+              >
+                <option value="">Not linked to a calendar race</option>
+                {raceOptions.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    R{r.round} {r.name} ({r.raceDate})
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field id="f-date" label="Date & time" error={show('dateUtc')}>
               <input

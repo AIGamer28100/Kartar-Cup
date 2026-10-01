@@ -1,6 +1,8 @@
 import { Timestamp } from 'firebase/firestore';
 import type { NewBookingEvent } from '../../lib/bookings';
 import type { BookingEvent, Discount, DiscountKind, PriceTier, Venue } from '../../lib/types';
+import { ALL_RACES, type RaceInfo } from '../../config/calendar';
+import { DEFAULT_RACE_START_UTC_TIME } from '../../config/event';
 import { fromLocalInput, toLocalInput } from '../settings/time';
 
 export const MAX_TIERS = 10;
@@ -123,6 +125,27 @@ export function formToEvent(f: FormState): NewBookingEvent {
   if (f.id) ev.id = f.id;
   if (f.raceId.trim()) ev.raceId = f.raceId.trim();
   return ev;
+}
+
+/** Next scheduled races (any season, soonest first) for the Details tab's "link a race" picker.
+ * `extraId` (the event's currently-saved raceId, if any) is always included even if it has fallen
+ * outside the default window, so editing an older event never silently blanks the selection. */
+export function upcomingRaceOptions(now: Date = new Date(), limit = 5, extraId?: string): RaceInfo[] {
+  const today = now.toISOString().slice(0, 10);
+  const upcoming = ALL_RACES.filter((r) => r.status === 'scheduled' && r.raceDate >= today).slice(0, limit);
+  if (extraId && !upcoming.some((r) => r.id === extraId)) {
+    const extra = ALL_RACES.find((r) => r.id === extraId);
+    if (extra) return [extra, ...upcoming];
+  }
+  return upcoming;
+}
+
+/** Race start (same DEFAULT_RACE_START_UTC_TIME convention the quiz's buildDefaultEvent uses)
+ * minus a 30-minute doors-open buffer, as a datetime-local string for the dateUtc field — so
+ * picking a race pulls its real time in rather than leaving the host to guess it. */
+export function raceDefaultDateUtc(race: RaceInfo): string {
+  const startMs = Date.parse(`${race.raceDate}T${DEFAULT_RACE_START_UTC_TIME}Z`);
+  return toLocalInput(startMs - 30 * 60_000);
 }
 
 export type Errors = Partial<

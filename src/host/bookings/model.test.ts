@@ -1,7 +1,8 @@
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import type { BookingEvent } from '../../lib/types';
-import { blankForm, eventToForm, formToEvent, validate } from './model';
+import { fromLocalInput } from '../settings/time';
+import { blankForm, eventToForm, formToEvent, raceDefaultDateUtc, upcomingRaceOptions, validate } from './model';
 
 function makeEvent(): BookingEvent {
   return {
@@ -103,5 +104,34 @@ describe('bookings model', () => {
     f.capacity = '5';
     f.tiers = Array.from({ length: 11 }, (_, i) => ({ id: `tier-${i}`, label: 'x', priceInr: 0 }));
     expect(validate(f).tiers).toBeTruthy();
+  });
+
+  describe('upcomingRaceOptions', () => {
+    it('returns the next scheduled races, skipping cancelled-by-host, soonest first', () => {
+      // R15 Azerbaijan is cancelled-by-host; real calendar data, same fixture date used by
+      // eventsModel.test.ts's previousRace tests.
+      const opts = upcomingRaceOptions(new Date('2026-09-27T00:00:00Z'), 3);
+      expect(opts.map((r) => r.round)).toEqual([16, 17, 18]);
+    });
+
+    it('keeps the currently-linked race in the list even once it falls outside the window', () => {
+      const opts = upcomingRaceOptions(new Date('2026-09-27T00:00:00Z'), 2, '2026-r22-qatar');
+      expect(opts[0].id).toBe('2026-r22-qatar');
+      expect(opts.length).toBe(3); // the extra, plus the normal 2-item window
+    });
+
+    it('does not duplicate the extra race when it is already in the window', () => {
+      const opts = upcomingRaceOptions(new Date('2026-09-27T00:00:00Z'), 3, '2026-r16-malaysia');
+      expect(opts.filter((r) => r.id === '2026-r16-malaysia')).toHaveLength(1);
+    });
+  });
+
+  describe('raceDefaultDateUtc', () => {
+    it('is 30 minutes before the race start (DEFAULT_RACE_START_UTC_TIME convention)', () => {
+      const race = upcomingRaceOptions(new Date('2026-09-27T00:00:00Z'), 1)[0]; // round 16, raceDate 2026-10-04
+      const result = raceDefaultDateUtc(race);
+      const startMs = Date.parse(`${race.raceDate}T13:00:00Z`);
+      expect(fromLocalInput(result)).toBe(startMs - 30 * 60_000);
+    });
   });
 });
