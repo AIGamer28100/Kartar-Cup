@@ -96,6 +96,13 @@ stub/placeholder data now rather than wait for real venue/pricing:
   retry; a failed load is reported as "couldn't load", never as "no data". `ResultsForm` now uses the
   live event's own lineup (it used the static template before, whose ids never matched OpenF1 grids).
   Deployed, bundle `index-cQBsh9An.js`, HEAD b16d51a.
+- **Audit log (roadmap #7, last item) + tickets + hit areas, 2026-10-02**: Host > Activity page and
+  `auditLogs` rules (114 rules tests). Tickets can now be reopened: Profile bookings are tappable cards
+  to `/tickets/:bookingId` (buyer-only by rule, shared `TicketQr` component). `/events` cards are
+  stretched links; nav/logo/text links got padding offset by negative margin (bigger target, no layout
+  shift). Rules + hosting deployed, bundle `index-m0saIZ13.js`, HEAD 1ee8550.
+  ALL 9 ROADMAP ITEMS ARE NOW DONE. Left: the user's items below, delete-booking-event button,
+  rewriting the stale guest/a11y e2e tests.
 - Still the user's: restore `recovery-companion-hack` Firestore rules via Console history; merge
   `worktree-build-v1` to main (I never do this); real venue/pricing data entry.
 

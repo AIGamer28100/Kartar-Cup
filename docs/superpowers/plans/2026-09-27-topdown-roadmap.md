@@ -42,7 +42,11 @@ Production is LIVE at https://kartar-cup.web.app (deployed 2026-09-27). Local em
 - [x] 5. Big-screen podium — DONE (PD1, 2026-09-28/30, R34 in rules.md). `/host/screen`
   lobby/standings/podium reveal, host-controlled stage advance, Google photoURL avatars.
 - [x] 6. Guest personal history/stats — DONE as /profile (R31), own-data-only verified against R15.
-- [ ] 7. Lightweight audit log + idempotency review — NOT STARTED.
+- [x] 7. Lightweight audit log + idempotency review — DONE 2026-10-02. Append-only `auditLogs`
+  (hosts create/read, nobody edits/deletes; actor + server timestamp pinned by rules), best-effort
+  `logAudit()` in src/lib/audit.ts called from the host writes in db.ts/bookings.ts, Host > Activity
+  page. Idempotency review: absolute writes are idempotent, checkIn/createReservation are
+  transactions; the one gap, `extendCloses` (read-then-write), is now a transaction.
 - [ ] 8. Calendar validation cleanup — NOT DONE. scripts/validate-calendar.py is still an abandoned,
   untracked, unfinished FastF1-based script. Safe to delete; OpenF1 (#4) is the live approach now.
 
