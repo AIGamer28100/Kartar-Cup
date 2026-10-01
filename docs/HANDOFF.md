@@ -103,6 +103,13 @@ stub/placeholder data now rather than wait for real venue/pricing:
   shift). Rules + hosting deployed, bundle `index-m0saIZ13.js`, HEAD 1ee8550.
   ALL 9 ROADMAP ITEMS ARE NOW DONE. Left: the user's items below, delete-booking-event button,
   rewriting the stale guest/a11y e2e tests.
+- **F1 data + motion (R38), 2026-10-02**: Jolpica client (`src/lib/f1api.ts`), home "Where the title stands"
+  (animated bars + count-up), `/events` race-weekend schedule on the featured card, "Next on track" in the home
+  hero. FIXED WRONG DATA: countdown/event times used a flat 13:00 UTC; now the real lights-out (decisions.md).
+  Gotcha found on a phone screenshot: scroll-triggered animation on a zero-width element never fires if an
+  all-sides scroll margin excludes the side gutter — observe the full-width parent, vertical-only margins.
+  Deployed, bundle `index-DEdU1qsz.js` (index.html is cached up to 1h at the edge, so a fresh deploy can lag).
+  Ideas not done: globe (coordinates now available), per-circuit lap-by-lap replays, live timing via OpenF1.
 - Still the user's: restore `recovery-companion-hack` Firestore rules via Console history; merge
   `worktree-build-v1` to main (I never do this); real venue/pricing data entry.
 
