@@ -2,12 +2,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isHost() {
+    function verifiedGoogle() {
       return signedIn()
         && request.auth.token.email_verified == true
-        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    // ---- Access model ----------------------------------------------------------------------
+    // Super admin: a hosts/{email} document, created ONLY by hand in the console (R18). Full
+    // access to everything; nothing in the app can create, edit or remove one.
+    // Everyone else is RBAC: users/{uid}.roles, changed only by admins (see /users below).
+    function isSuperAdmin() {
+      return verifiedGoogle()
         && exists(/databases/$(database)/documents/hosts/$(request.auth.token.email.lower()));
     }
+    function hasRole(r) {
+      return verifiedGoogle()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (r in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles);
+    }
+    function isAdmin() { return isSuperAdmin() || hasRole('admin'); }
+    // Operational host: everything in the host console (quiz, results, podium, bookings, check-in).
+    function isHost() { return isAdmin() || hasRole('host'); }
+    // Bookings and door check-in only: a venue partner who runs tickets but not the quiz.
+    function canRunBookings() { return isHost() || hasRole('venue_host'); }
     function evDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)).data; }
     function activeId() { return get(/databases/$(database)/documents/settings/active).data.eventId; }
     // Server clock (request.time); R13 window plus manual override. Override 'open' can never pass closesAt.
@@ -125,6 +142,96 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* ---------- people and roles (RBAC) ----------
+     * users/{uid}: one profile per signed-in person. They create their own with NO roles and can
+     * edit only their profile fields; roles change only through (a) an admin, or (b) redeeming a
+     * valid invite link for a low-privilege role. Reading the directory is admin-only (R15: a guest
+     * only ever sees their own record).
+     * Roles: admin, host, venue_host, contributor, community_member, marketing, social_admin. */
+    function linkRoles() {
+      return ['community_member', 'contributor', 'marketing', 'venue_host', 'social_admin'];
+    }
+    function allRoles() {
+      return ['admin', 'host', 'community_member', 'contributor', 'marketing', 'venue_host', 'social_admin'];
+    }
+    function newUserOk(uid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['uid', 'email', 'name', 'photoURL', 'createdAt', 'lastSeenAt', 'roles'])
+        && d.keys().hasAll(['uid', 'email', 'name', 'createdAt', 'lastSeenAt', 'roles'])
+        && d.uid == uid
+        && d.email == request.auth.token.email.lower()
+        && d.name is string && d.name.size() <= 120
+        && (!('photoURL' in d) || (d.photoURL is string && d.photoURL.size() <= 500))
+        && d.createdAt == request.time && d.lastSeenAt == request.time
+        && d.roles == [];
+    }
+    function profileUpdateOk() {
+      let a = request.resource.data;
+      return a.diff(resource.data).affectedKeys().hasOnly(['name', 'photoURL', 'lastSeenAt'])
+        && a.name is string && a.name.size() <= 120
+        && (!('photoURL' in a) || (a.photoURL is string && a.photoURL.size() <= 500))
+        && a.lastSeenAt == request.time;
+    }
+    // Redeeming an invite: add exactly the invite's role, nothing else, while the invite is live.
+    function selfJoinOk() {
+      let a = request.resource.data;
+      let b = resource.data;
+      let inv = get(/databases/$(database)/documents/invites/$(a.joinedVia)).data;
+      return a.diff(b).affectedKeys().hasOnly(['roles', 'joinedVia'])
+        && a.joinedVia is string
+        && inv.active == true
+        && inv.expiresAt > request.time
+        && inv.role in linkRoles()
+        && a.roles.toSet() == b.roles.toSet().union([inv.role].toSet());
+    }
+    // An admin edits another person's roles. Only a super admin may grant or remove 'admin'.
+    function adminRoleEditOk(uid) {
+      let a = request.resource.data;
+      let b = resource.data;
+      return uid != request.auth.uid
+        && a.diff(b).affectedKeys().hasOnly(['roles', 'roleUpdatedBy', 'roleUpdatedAt'])
+        && a.roles is list && a.roles.size() <= 8
+        && a.roles.toSet().difference(allRoles().toSet()).size() == 0
+        && a.roleUpdatedBy == request.auth.token.email.lower()
+        && a.roleUpdatedAt == request.time
+        && (isSuperAdmin() || ('admin' in a.roles) == ('admin' in b.roles));
+    }
+    match /users/{uid} {
+      allow get: if verifiedGoogle() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if verifiedGoogle() && request.auth.uid == uid && newUserOk(uid);
+      allow update: if verifiedGoogle()
+        && ((request.auth.uid == uid && (profileUpdateOk() || selfJoinOk()))
+            || (isAdmin() && adminRoleEditOk(uid)));
+      allow delete: if false;
+    }
+
+    /* Invite links: the doc id IS the secret token (long and random), so possession of the link
+     * is what grants the role. Only low-privilege roles can ever be granted this way (never host
+     * or admin). Hosts can mint community_member links; admins can mint any link role. */
+    match /invites/{token} {
+      allow get: if verifiedGoogle();
+      allow list: if isHost();
+      allow create: if isHost()
+        && token.size() >= 24 && token.size() <= 64
+        && request.resource.data.keys().hasOnly(['role', 'createdBy', 'createdAt', 'expiresAt', 'active', 'note'])
+        && request.resource.data.keys().hasAll(['role', 'createdBy', 'createdAt', 'expiresAt', 'active'])
+        && request.resource.data.role in linkRoles()
+        && (request.resource.data.role == 'community_member' || isAdmin())
+        && request.resource.data.createdBy == request.auth.token.email.lower()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(90, 'd')
+        && request.resource.data.active == true
+        && (!('note' in request.resource.data)
+            || (request.resource.data.note is string && request.resource.data.note.size() <= 120));
+      // Revoke only: an invite can be switched off, never edited or turned back on.
+      allow update: if isHost()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+        && request.resource.data.active == false;
+      allow delete: if false;
+    }
+
     /* ---------- host audit log (append-only) ----------
      * Hosts record sensitive actions here. Entries can be created and read by hosts only, and can
      * never be edited or deleted by anyone — so a mistake or a disputed result can be traced. The
@@ -132,7 +239,7 @@ service cloud.firestore {
      * be backdated or attributed to another host. */
     match /auditLogs/{logId} {
       allow read: if isHost();
-      allow create: if isHost()
+      allow create: if canRunBookings()
         && request.resource.data.keys().hasOnly(['action', 'actor', 'target', 'detail', 'at'])
         && request.resource.data.keys().hasAll(['action', 'actor', 'target', 'at'])
         && request.resource.data.action is string
@@ -200,10 +307,10 @@ service cloud.firestore {
         && after.bookedCount <= before.capacity;
     }
     match /bookingEvents/{eventId} {
-      allow read: if resource.data.salesOpen == true || isHost();
-      allow create: if isHost() && validBookingEvent(eventId);
-      allow update: if (isHost() && validBookingEvent(eventId)) || capacityBump();
-      allow delete: if isHost();
+      allow read: if resource.data.salesOpen == true || canRunBookings();
+      allow create: if canRunBookings() && validBookingEvent(eventId);
+      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump();
+      allow delete: if canRunBookings();
     }
 
     function bookingEv(id) { return get(/databases/$(database)/documents/bookingEvents/$(id)).data; }
@@ -234,7 +341,7 @@ service cloud.firestore {
       // gets every matching doc back (each passes); a guest attempting an unfiltered/other-uid
       // query is denied outright because at least one candidate document would fail the check
       // (see the note above `bookingEvents` for why this scopes `list` safely).
-      allow read: if signedIn() && (resource.data.buyerUid == request.auth.uid || isHost());
+      allow read: if signedIn() && (resource.data.buyerUid == request.auth.uid || canRunBookings());
 
       allow create: if signedIn() && validBooking();
 
@@ -244,7 +351,7 @@ service cloud.firestore {
               && resource.data.status == 'reserved'
               && request.resource.data.status == 'paid_mock'
               && request.resource.data.paidAt == request.time)
-            || (isHost()
+            || (canRunBookings()
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkedInAt', 'checkedInBy'])
               && resource.data.status == 'paid_mock'
               && request.resource.data.status == 'checked_in'
