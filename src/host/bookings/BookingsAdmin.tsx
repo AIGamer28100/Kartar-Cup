@@ -195,7 +195,7 @@ export default function BookingsAdmin() {
             <Field
               id="f-venue-map"
               label="Map link (optional)"
-              hint="A Google Maps share link. Leave blank for now if you don't have one yet."
+              hint="Optional. Paste a Google Maps link for an exact pin; leave blank and the map is found from the venue name and city."
             >
               <input
                 id="f-venue-map"

@@ -28,3 +28,33 @@ export function toMapEmbedUrl(mapUrl: string): string | null {
   const sep = trimmed.includes('?') ? '&' : '?';
   return `${trimmed}${sep}output=embed`;
 }
+
+export interface VenueLike {
+  name: string;
+  city: string;
+  mapUrl?: string;
+}
+
+const placeQuery = (v: VenueLike) => [v.name.trim(), v.city.trim()].filter(Boolean).join(', ');
+
+/** Embed src for a venue: the host's pasted link when it can be embedded, otherwise a Google Maps
+ * search for "name, city" — so a venue always gets a real map without the host hunting for a
+ * share link (or us needing a Maps API key). Null only when there is no venue name at all. */
+export function venueEmbedUrl(v: VenueLike): string | null {
+  const fromLink = v.mapUrl ? toMapEmbedUrl(v.mapUrl) : null;
+  if (fromLink) return fromLink;
+  if (!v.name.trim()) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(placeQuery(v))}&output=embed`;
+}
+
+/** Where "Open in Google Maps" goes: the host's own link if given, else a search for the venue. */
+export function venueMapLink(v: VenueLike): string {
+  const own = v.mapUrl?.trim();
+  if (own && /^https?:\/\//i.test(own)) return own;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery(v))}`;
+}
+
+/** Turn-by-turn directions from wherever the guest is (Google fills in their location). */
+export function venueDirectionsUrl(v: VenueLike): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(placeQuery(v))}`;
+}

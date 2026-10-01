@@ -7,7 +7,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { applyDiscount, createReservation, markPaidMock, watchBookingEvent } from '../lib/bookings';
-import { toMapEmbedUrl } from '../lib/mapEmbed';
+import { venueDirectionsUrl, venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
 import type { BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
 import { TicketQr } from './TicketView';
@@ -30,30 +30,34 @@ function fmtLocal(ms: number): string {
 const inputCls =
   'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
-function VenueMap({ mapUrl }: { mapUrl?: string }) {
-  if (!mapUrl) return null;
-  const embed = toMapEmbedUrl(mapUrl);
-  if (embed) {
-    return (
-      <iframe
-        src={embed}
-        className="w-full aspect-video rounded-lg border border-line"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        allowFullScreen
-        title="Venue map"
-      />
-    );
-  }
+const mapLinkCls =
+  '-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent';
+
+/** Google Maps for the venue: an embedded map plus open/directions links. Uses the host's pasted
+ * link when it embeds, else a search for the venue's name and city, so every venue gets a map. */
+function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
+  const embed = venueEmbedUrl(venue);
   return (
-    <a
-      href={mapUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
-    >
-      Open in Google Maps
-    </a>
+    <div>
+      {embed && (
+        <iframe
+          src={embed}
+          className="w-full aspect-video rounded-lg border border-line"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+          title={`Map of ${venue.name}`}
+        />
+      )}
+      <div className="mt-2 flex flex-wrap gap-x-6">
+        <a href={venueMapLink(venue)} target="_blank" rel="noopener noreferrer" className={mapLinkCls}>
+          Open in Google Maps
+        </a>
+        <a href={venueDirectionsUrl(venue)} target="_blank" rel="noopener noreferrer" className={mapLinkCls}>
+          Get directions
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -186,11 +190,9 @@ export default function BookingCheckout() {
         </p>
       </Reveal>
 
-      {event.venue.mapUrl && (
-        <Reveal index={1} className="mt-6">
-          <VenueMap mapUrl={event.venue.mapUrl} />
-        </Reveal>
-      )}
+      <Reveal index={1} className="mt-6">
+        <VenueMap venue={event.venue} />
+      </Reveal>
 
       <Reveal index={2} className="mt-8">
         <h2 className="text-lg font-medium text-ink">Choose a tier</h2>
