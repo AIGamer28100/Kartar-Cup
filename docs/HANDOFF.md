@@ -110,6 +110,14 @@ stub/placeholder data now rather than wait for real venue/pricing:
   all-sides scroll margin excludes the side gutter — observe the full-width parent, vertical-only margins.
   Deployed, bundle `index-DEdU1qsz.js` (index.html is cached up to 1h at the edge, so a fresh deploy can lag).
   Ideas not done: globe (coordinates now available), per-circuit lap-by-lap replays, live timing via OpenF1.
+- **Venues + booking UX (R39), 2026-10-02**: every venue gets a Google map from name+city (no key); admin has a free
+  "Find a venue" search (Photon/OSM). Checkout is choose -> review; real "N of M seats left"/Sold out; Add to Calendar
+  (Google + .ics) and invite-a-friend; host-written refund policy per event (new `policy` field, rules + 7 tests).
+  Research caveat: District/BookMyShow flows could NOT be verified (only Eventbrite/Luma help pages); not copied.
+  Skipped on purpose: hold timer (payment is instant mock), ticket-holder names, any invented urgency.
+  Production Firestore wiped on request: bookingEvents/bookings/events/settings emptied, `hosts/` kept (deleting it locks the
+  host out; hosts are console-only, R18). The site now has NO live event until one is set in Host > Settings.
+  Calendar source: static `src/config/calendar/2026.ts` + `2027.ts` (from formula1.com), session times live from Jolpica.
 - Still the user's: restore `recovery-companion-hack` Firestore rules via Console history; merge
   `worktree-build-v1` to main (I never do this); real venue/pricing data entry.
 
