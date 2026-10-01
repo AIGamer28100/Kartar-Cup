@@ -11,6 +11,8 @@ import { venueDirectionsUrl, venueEmbedUrl, venueMapLink } from '../lib/mapEmbed
 import type { BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
 import { TicketQr } from './TicketView';
+import TicketActions, { PolicyNote } from './TicketActions';
+import { maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
 import { formatInr } from './profileModel';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
@@ -99,7 +101,15 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
       <Reveal index={1} className="mt-8">
         <TicketQr bookingId={reservation.bookingId} />
       </Reveal>
-      <Reveal index={2} className="mt-8 flex flex-wrap gap-3">
+      <Reveal index={2} className="mt-8">
+        <TicketActions event={event} bookingId={reservation.bookingId} />
+      </Reveal>
+      {event.policy && (
+        <Reveal index={3} className="mt-6 max-w-xl">
+          <PolicyNote policy={event.policy} />
+        </Reveal>
+      )}
+      <Reveal index={4} className="mt-6 flex flex-wrap gap-3">
         <Link
           to={`/tickets/${reservation.bookingId}`}
           className="inline-flex min-h-12 items-center rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
@@ -132,6 +142,7 @@ export default function BookingCheckout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [step, setStep] = useState<'choose' | 'review'>('choose');
 
   useEffect(() => {
     if (!bookingEventId) return;
@@ -142,6 +153,12 @@ export default function BookingCheckout() {
   useEffect(() => {
     if (event && !tierId && event.tiers.length > 0) setTierId(event.tiers[0].id);
   }, [event, tierId]);
+
+  const left = event ? seatsLeft(event) : 0;
+  const maxQty = maxQtyFor(left);
+  useEffect(() => {
+    setQty((q) => Math.min(q, maxQty));
+  }, [maxQty]);
 
   const tier = event?.tiers.find((t) => t.id === tierId);
   const discount = useMemo(
@@ -179,6 +196,88 @@ export default function BookingCheckout() {
   if (!bookingEventId || !ready || event === undefined) return <PageSkeleton />;
   if (event === null || !event.salesOpen) return <ClosedNotice />;
   if (reservation) return <SuccessView event={event} reservation={reservation} />;
+  const soldOut = left === 0;
+
+  if (step === 'review' && tier) {
+    return (
+      <Shell>
+        <Reveal>
+          <Eyebrow>Review your order</Eyebrow>
+          <h1 className={`mt-3 ${PageTitle}`}>{event.title}</h1>
+          <p className="mt-2 text-muted">
+            {fmtLocal(new Date(event.dateUtc).getTime())} · {event.venue.name}, {event.venue.city}
+          </p>
+        </Reveal>
+
+        <Reveal index={1} className="mt-8 max-w-xl rounded-lg border border-line bg-raised p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium text-ink">{tier.label}</p>
+              <p className="text-sm text-muted">
+                {formatInr(preview.unitPriceInr)} × {qty}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStep('choose')}
+              className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent"
+            >
+              Edit
+            </button>
+          </div>
+          <div className="mt-4 space-y-1 border-t border-line pt-4 text-sm">
+            <div className="flex justify-between text-muted">
+              <span>Tickets</span>
+              <span>{formatInr(preview.unitPriceInr * qty)}</span>
+            </div>
+            {preview.discountAmountInr > 0 && (
+              <div className="flex justify-between text-muted">
+                <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
+                <span>-{formatInr(preview.discountAmountInr)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-muted">
+              <span>Booking fee</span>
+              <span>None</span>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-lg font-semibold text-ink">
+            <span>Total</span>
+            <span>{formatInr(preview.totalInr)}</span>
+          </div>
+        </Reveal>
+
+        {event.policy && (
+          <Reveal index={2} className="mt-4 max-w-xl">
+            <PolicyNote policy={event.policy} />
+          </Reveal>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-6 text-sm text-accent">
+            {error}
+          </p>
+        )}
+
+        <Reveal index={3} className="mt-6 max-w-xl">
+          {!user ? (
+            <>
+              <p className="mb-3 text-sm text-muted">
+                Sign in with Google to confirm. Your ticket is saved to your account so you can reopen it any time.
+              </p>
+              <GoogleCta onGoogle={() => signInGoogle().then(() => undefined)} />
+            </>
+          ) : (
+            <Button onClick={() => void reserve()} disabled={busy} className="w-full md:w-auto">
+              <TicketIcon size={20} weight="regular" aria-hidden="true" />
+              {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+            </Button>
+          )}
+          <p className="mt-3 text-xs text-muted">Payment is a sample for now: nothing is charged.</p>
+        </Reveal>
+      </Shell>
+    );
+  }
 
   return (
     <Shell>
@@ -187,6 +286,13 @@ export default function BookingCheckout() {
         <h1 className={`mt-3 ${PageTitle}`}>{event.title}</h1>
         <p className="mt-2 text-muted">
           {fmtLocal(new Date(event.dateUtc).getTime())} · {event.venue.name}, {event.venue.city}
+        </p>
+        <p
+          className={`mt-3 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${
+            soldOut ? 'text-accent' : 'text-muted'
+          }`}
+        >
+          {seatsLabel(event)}
         </p>
       </Reveal>
 
@@ -228,9 +334,9 @@ export default function BookingCheckout() {
             id="bc-qty"
             type="number"
             min={1}
-            max={10}
+            max={maxQty}
             value={qty}
-            onChange={(e) => setQty(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+            onChange={(e) => setQty(Math.min(maxQty, Math.max(1, Number(e.target.value) || 1)))}
             className={`${inputCls} w-28`}
           />
         </div>
@@ -275,19 +381,26 @@ export default function BookingCheckout() {
         <Divider />
       </Reveal>
 
-      {error && (
-        <p role="alert" className="mt-6 text-sm text-accent">
-          {error}
-        </p>
+      {event.policy && (
+        <Reveal index={5} className="mt-6 max-w-xl">
+          <PolicyNote policy={event.policy} />
+        </Reveal>
       )}
 
-      <Reveal index={5} className="mt-6">
-        {!user ? (
-          <GoogleCta onGoogle={() => signInGoogle().then(() => undefined)} />
+      <Reveal index={6} className="mt-6">
+        {soldOut ? (
+          <p className="text-accent">This watch party is sold out.</p>
         ) : (
-          <Button onClick={() => void reserve()} disabled={busy || !tier} className="w-full md:w-auto">
-            <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            {busy ? 'Reserving...' : 'Reserve & pay'}
+          <Button
+            onClick={() => {
+              setError('');
+              setStep('review');
+              window.scrollTo({ top: 0 });
+            }}
+            disabled={!tier}
+            className="w-full md:w-auto"
+          >
+            Review order
           </Button>
         )}
       </Reveal>

@@ -171,6 +171,24 @@ export default function BookingsAdmin() {
               Open for sales
             </label>
           </div>
+          <div className="mt-5 max-w-2xl">
+            <Field
+              id="f-policy"
+              label="Cancellation & refund policy (optional)"
+              hint="Shown to guests before they pay and on their ticket. For example: “No refunds. Tickets can be transferred to a friend until the day before.”"
+              error={show('policy')}
+            >
+              <textarea
+                id="f-policy"
+                rows={3}
+                maxLength={300}
+                className={`${inputCls} py-2`}
+                value={form.policy}
+                aria-invalid={!!show('policy')}
+                onChange={(e) => patch(() => ({ policy: e.target.value }))}
+              />
+            </Field>
+          </div>
         </Section>
 
         <Section title="Venue">

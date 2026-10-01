@@ -146,6 +146,8 @@ export interface BookingEvent {
   capacity: number;
   bookedCount: number;
   salesOpen: boolean;
+  /** Host-written cancellation/refund wording shown before and after purchase. */
+  policy?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

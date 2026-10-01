@@ -28,6 +28,7 @@ export interface FormState {
   dateUtc: string; // datetime-local
   capacity: string;
   salesOpen: boolean;
+  policy: string;
   venueName: string;
   venueCity: string;
   venueMapUrl: string;
@@ -44,6 +45,7 @@ export function blankForm(): FormState {
     dateUtc: '',
     capacity: '',
     salesOpen: false,
+    policy: '',
     venueName: '',
     venueCity: '',
     venueMapUrl: '',
@@ -76,6 +78,7 @@ export function eventToForm(e: BookingEvent): FormState {
     dateUtc: toLocalInput(new Date(e.dateUtc).getTime()),
     capacity: String(e.capacity),
     salesOpen: e.salesOpen,
+    policy: e.policy ?? '',
     venueName: e.venue.name,
     venueCity: e.venue.city,
     venueMapUrl: e.venue.mapUrl ?? '',
@@ -121,6 +124,8 @@ export function formToEvent(f: FormState): NewBookingEvent {
     discounts: f.discounts.map(formToDiscount),
     capacity: Number(f.capacity),
     salesOpen: f.salesOpen,
+    // Always written (blank allowed) so clearing it in the form really clears it on update.
+    policy: f.policy.trim(),
   };
   if (f.id) ev.id = f.id;
   if (f.raceId.trim()) ev.raceId = f.raceId.trim();
@@ -148,7 +153,7 @@ export function raceDefaultDateUtc(race: RaceInfo, schedule?: Map<number, Sessio
 }
 
 export type Errors = Partial<
-  Record<'title' | 'capacity' | 'dateUtc' | 'venueName' | 'venueCity' | 'tiers' | 'discounts', string>
+  Record<'title' | 'policy' | 'capacity' | 'dateUtc' | 'venueName' | 'venueCity' | 'tiers' | 'discounts', string>
 >;
 
 /** Mirrors firestore.rules `validBookingEvent` hard constraints, plus basic required-field checks. */
@@ -156,6 +161,8 @@ export function validate(f: FormState): Errors {
   const errs: Errors = {};
   if (!f.title.trim()) errs.title = 'Title is required.';
   else if (f.title.length > 120) errs.title = 'Title must be 120 characters or fewer.';
+
+  if (f.policy.trim().length > 300) errs.policy = 'Keep the policy to 300 characters or fewer.';
 
   const cap = Number(f.capacity);
   if (!f.capacity.trim() || !Number.isInteger(cap) || cap <= 0) {

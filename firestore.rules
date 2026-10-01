@@ -156,7 +156,7 @@ service cloud.firestore {
     function validBookingEvent(eventId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
-                'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
+                'capacity','bookedCount','salesOpen','policy','createdAt','updatedAt'])
         && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
@@ -170,7 +170,8 @@ service cloud.firestore {
         && d.discounts is list && d.discounts.size() <= 20
         && d.capacity is int && d.capacity > 0
         && d.bookedCount is int && d.bookedCount >= 0
-        && d.salesOpen is bool;
+        && d.salesOpen is bool
+        && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300));
     }
     // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
     // that a query would return, using that document's `resource.data` (same as `get`). A query
