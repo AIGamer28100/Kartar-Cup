@@ -5,11 +5,13 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   type Unsubscribe,
 } from 'firebase/firestore';
+import { logAudit } from './audit';
 import { db } from './firebase';
 import { deriveStatus } from './eventStatus';
 import { scoreEntry } from './scoring';
@@ -71,24 +73,31 @@ export async function getActiveEventId(): Promise<string | null> {
 
 export async function saveEventConfig(config: EventConfig): Promise<void> {
   await setDoc(eventRef(config.id), { ...config, updatedAt: serverTimestamp() });
+  logAudit('event.save', config.id, config.name);
 }
 
 export async function setActiveEvent(eventId: string): Promise<void> {
   await setDoc(activeRef(), { eventId });
+  logAudit('event.go-live', eventId);
 }
 
 export async function setOverride(eventId: string, override: Override): Promise<void> {
   await updateDoc(eventRef(eventId), { override, updatedAt: serverTimestamp() });
+  logAudit('event.override', eventId, `override=${override}`);
 }
 
 export async function extendCloses(eventId: string, minutes: number): Promise<void> {
-  const s = await getDoc(eventRef(eventId));
-  if (!s.exists()) throw new Error('Event not found');
-  const cur = (s.data() as EventConfig).closesAt.toMillis();
-  await updateDoc(eventRef(eventId), {
-    closesAt: Timestamp.fromMillis(cur + minutes * 60_000),
-    updatedAt: serverTimestamp(),
+  // Transaction, not read-then-write: two hosts extending at once must both count, not clobber.
+  await runTransaction(db, async (tx) => {
+    const s = await tx.get(eventRef(eventId));
+    if (!s.exists()) throw new Error('Event not found');
+    const cur = (s.data() as EventConfig).closesAt.toMillis();
+    tx.update(eventRef(eventId), {
+      closesAt: Timestamp.fromMillis(cur + minutes * 60_000),
+      updatedAt: serverTimestamp(),
+    });
   });
+  logAudit('event.extend-closes', eventId, `${minutes > 0 ? '+' : ''}${minutes} min`);
 }
 
 /** Subscribe to something under the active event, re-subscribing when the active event changes. */
@@ -293,8 +302,10 @@ export async function initEvent(lightsOutIso: string): Promise<void> {
 
 export async function setEventStatus(s: EventStatus): Promise<void> {
   const id = await requireActive();
-  if (s === 'scored') await updateDoc(eventRef(id), { winnerRevealed: true });
-  else await setOverride(id, s === 'open' ? 'open' : 'closed');
+  if (s === 'scored') {
+    await updateDoc(eventRef(id), { winnerRevealed: true });
+    logAudit('winner.reveal', id, 'via status=scored');
+  } else await setOverride(id, s === 'open' ? 'open' : 'closed');
 }
 
 /** Legacy: moves the moment picks lock (closesAt). */
@@ -304,16 +315,19 @@ export async function setLightsOut(iso: string): Promise<void> {
     closesAt: Timestamp.fromMillis(new Date(iso).getTime()),
     updatedAt: serverTimestamp(),
   });
+  logAudit('event.set-lights-out', id, iso);
 }
 
 export async function saveResults(r: Results, source: string): Promise<void> {
   const id = await requireActive();
   await setDoc(resultsRef(id), { answers: r, source, updatedAt: serverTimestamp() });
+  logAudit('results.save', id, source || 'no source note');
 }
 
 export async function revealWinner(overrideUid: string | null): Promise<void> {
   const id = await requireActive();
   await updateDoc(eventRef(id), { winnerRevealed: true, tiebreakOverride: overrideUid });
+  logAudit('winner.reveal', id, overrideUid ? `tiebreak override uid=${overrideUid}` : 'no override');
 }
 
 /* ---------- big-screen podium reveal (PD1), host-only per R15 ---------- */

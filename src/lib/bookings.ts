@@ -12,6 +12,7 @@ import {
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
+import { logAudit } from './audit';
 import { db } from './firebase';
 import { applyDiscount } from './pricing';
 import type { Booking, BookingEvent } from './types';
@@ -80,11 +81,13 @@ export async function createBookingEvent(data: NewBookingEvent): Promise<string>
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  logAudit('booking-event.create', ref.id, data.title);
   return ref.id;
 }
 
 export async function updateBookingEvent(id: string, patch: Partial<BookingEvent>): Promise<void> {
   await updateDoc(bookingEventRef(id), { ...patch, updatedAt: serverTimestamp() });
+  logAudit('booking-event.update', id, Object.keys(patch).join(', '));
 }
 
 /* ---------- bookings (guest side) ---------- */
@@ -187,6 +190,7 @@ export async function checkIn(bookingId: string, hostEmail: string): Promise<voi
       checkedInBy: hostEmail,
     });
   });
+  logAudit('booking.check-in', bookingId);
 }
 
 /** Host only. For scanner/manual search by booking id (== qrToken). */

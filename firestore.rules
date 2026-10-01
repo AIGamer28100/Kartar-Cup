@@ -125,6 +125,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* ---------- host audit log (append-only) ----------
+     * Hosts record sensitive actions here. Entries can be created and read by hosts only, and can
+     * never be edited or deleted by anyone — so a mistake or a disputed result can be traced. The
+     * actor and timestamp are pinned to the signed-in host and the server clock, so an entry cannot
+     * be backdated or attributed to another host. */
+    match /auditLogs/{logId} {
+      allow read: if isHost();
+      allow create: if isHost()
+        && request.resource.data.keys().hasOnly(['action', 'actor', 'target', 'detail', 'at'])
+        && request.resource.data.keys().hasAll(['action', 'actor', 'target', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.action.size() >= 1 && request.resource.data.action.size() <= 40
+        && request.resource.data.actor == request.auth.token.email.lower()
+        && request.resource.data.target is string && request.resource.data.target.size() <= 120
+        && (!('detail' in request.resource.data)
+            || (request.resource.data.detail is string && request.resource.data.detail.size() <= 300))
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
     /* ---------- booking/ticketing (R23) ---------- */
 
     function validTier(t) {
