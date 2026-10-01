@@ -8,6 +8,7 @@ import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { useSchedule } from '../../lib/useSchedule';
 import { DiscountsEditor, TiersEditor } from './Editors';
+import VenueSearch from './VenueSearch';
 import {
   blankForm,
   eventToForm,
@@ -173,6 +174,9 @@ export default function BookingsAdmin() {
         </Section>
 
         <Section title="Venue">
+          <VenueSearch
+            onPick={(p) => patch(() => ({ venueName: p.name, venueCity: p.city, venueMapUrl: p.mapUrl }))}
+          />
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <Field id="f-venue-name" label="Name" error={show('venueName')}>
               <input
