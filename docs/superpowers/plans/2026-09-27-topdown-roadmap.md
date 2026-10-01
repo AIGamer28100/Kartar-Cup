@@ -34,9 +34,11 @@ Production is LIVE at https://kartar-cup.web.app (deployed 2026-09-27). Local em
   Verified end-to-end via real screenshots incl. discount math and mobile, not just agent reports.
 - [ ] 3. Host check-in scanner — NOT STARTED, now genuinely unblocked (real bookings exist to scan
   as of #2). Next task.
-- [x] 4. OpenF1 live data — DONE for Grid/Teams (R30, src/lib/openf1.ts), verified against the real
-  live API (not just mocked). RaceFact-style normalization for scoring/DNF/fastest-lap (the
-  wider PRD idea) is NOT done — only grid/teams was in scope this session.
+- [x] 4. OpenF1 live data — DONE. Grid/Teams (R30/R37, src/lib/openf1.ts, read-only settings tabs)
+  and, as of 2026-10-01, race RESULTS: `src/lib/raceResults.ts` + a "Pull from OpenF1" button on the
+  host results form fill slowest/fastest pit team, most overtakes, DNFs and fastest lap. Prefill only;
+  the host reviews and saves. Verified on the real 2026 Baku race (fastest lap cross-checked against
+  the raw API). Caveat: pit times are pit-lane time when OpenF1 has no stationary time.
 - [x] 5. Big-screen podium — DONE (PD1, 2026-09-28/30, R34 in rules.md). `/host/screen`
   lobby/standings/podium reveal, host-controlled stage advance, Google photoURL avatars.
 - [x] 6. Guest personal history/stats — DONE as /profile (R31), own-data-only verified against R15.

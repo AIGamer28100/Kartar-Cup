@@ -91,6 +91,11 @@ stub/placeholder data now rather than wait for real venue/pricing:
 - **Known stale tests**: `tests/e2e/guest.spec.ts` (3 tests) and `a11y.spec.ts` (1) fail on the
   pre-R37 baseline too — they still expect the old quiz-first home page; R25 moved the quiz behind
   a "Predict now" banner. Not a regression; needs rewriting. host/settings e2e: 6/6 pass.
+- **OpenF1 race results (roadmap #4, now complete)**: host results form has "Pull from OpenF1"
+  (`src/lib/raceResults.ts`). OpenF1 returns HTTP 429 on bursts, so requests are sequential/paced with
+  retry; a failed load is reported as "couldn't load", never as "no data". `ResultsForm` now uses the
+  live event's own lineup (it used the static template before, whose ids never matched OpenF1 grids).
+  Deployed, bundle `index-cQBsh9An.js`, HEAD b16d51a.
 - Still the user's: restore `recovery-companion-hack` Firestore rules via Console history; merge
   `worktree-build-v1` to main (I never do this); real venue/pricing data entry.
 
