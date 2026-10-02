@@ -153,3 +153,5 @@ scripts/.cache
 docs/
 .agents/
 .claude/
+# Local-only folders (never committed)
+brand/
