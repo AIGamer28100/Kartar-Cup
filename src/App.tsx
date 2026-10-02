@@ -1,11 +1,13 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router';
+import { Route, Routes, useLocation } from 'react-router';
 import { PageSkeleton } from './components/Skeleton';
 import LogoutPage from './pages/LogoutPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RequireHost from './pages/RequireHost';
 import FailurePage from './components/FailurePage';
 import TransitionLayer from './guest/transitions/TransitionLayer';
+import MobileNav from './guest/MobileNav';
+import { chromeVisible } from './guest/mobileChrome';
 
 const HomePage = lazy(() => import('./guest/HomePage'));
 const EventsPage = lazy(() => import('./guest/EventsPage'));
@@ -20,8 +22,9 @@ const HostApp = lazy(() => import('./host/HostApp'));
 const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
-    <div className="min-h-[100dvh] bg-base text-ink">
+    <div className={`min-h-[100dvh] bg-base text-ink ${chromeVisible(pathname) ? 'max-md:pb-[calc(6.5rem+env(safe-area-inset-bottom))]' : ''}`}>
       <TransitionLayer>
         {(location) => (
           <Suspense fallback={<PageSkeleton />}>
@@ -58,6 +61,7 @@ export default function App() {
           </Suspense>
         )}
       </TransitionLayer>
+      <MobileNav />
     </div>
   );
 }

@@ -59,31 +59,32 @@ function LogoMark() {
  * popup-error handling as the hero's own CTA, condensed for the header. This is the header's
  * general button with no other task to continue, so a successful sign-in here lands on /profile
  * (R31) — unlike the hero's quiz CTA or a booking checkout's sign-in, which stay in place (R28). */
-function HeaderSignIn() {
+export function useSignInToProfile() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const navigate = useNavigate();
+  const start = async () => {
+    setErr('');
+    setBusy(true);
+    try {
+      await signInGoogle();
+      navigate('/profile');
+    } catch (e) {
+      setErr(signInError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, err, start };
+}
+
+function HeaderSignIn() {
+  const { busy, err, start } = useSignInToProfile();
   if (isInAppBrowser()) return null; // hero's full InAppPanel is the real entry point there
   return (
     <div className="flex items-center gap-2">
       {err && <span className="hidden text-xs text-muted sm:inline">{err}</span>}
-      <button
-        type="button"
-        className={linkCls}
-        disabled={busy}
-        onClick={async () => {
-          setErr('');
-          setBusy(true);
-          try {
-            await signInGoogle();
-            navigate('/profile');
-          } catch (e) {
-            setErr(signInError(e));
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
+      <button type="button" className={linkCls} disabled={busy} onClick={() => void start()}>
         <SignIn size={20} weight="regular" aria-hidden="true" />
         {busy ? 'Signing in…' : 'Sign in'}
       </button>

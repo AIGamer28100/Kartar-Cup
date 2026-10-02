@@ -1,5 +1,5 @@
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowLeft,
@@ -447,6 +447,12 @@ export default function HomePage() {
   usePageMeta({});
   const s = useGuestSession();
   const [quizRevealed, setQuizRevealed] = useState(false);
+  // The mobile tab bar's Predict tab (and its Home tab, to leave the quiz) navigate here with
+  // router state; same-path navigations get a fresh key, so key drives the sync.
+  const location = useLocation();
+  useEffect(() => {
+    setQuizRevealed((location.state as { quiz?: boolean } | null)?.quiz === true);
+  }, [location.key, location.state]);
 
   if (quizRevealed) {
     return (
