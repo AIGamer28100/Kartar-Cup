@@ -1,6 +1,6 @@
 import type { RaceInfo } from '../config/calendar';
 import { nextRace } from '../config/calendar';
-import type { BookingEvent } from '../lib/types';
+import type { BookingEvent, EventCategory } from '../lib/types';
 
 /** Every scheduled race from the current/next race onward, sorted by date. Cancelled-by-host
  * races and past races are excluded. Scoped to ONE season at a time (F1.com's own listing
@@ -94,14 +94,128 @@ export function groupByMonth(races: RaceInfo[]): MonthGroup[] {
   return groups;
 }
 
+/* ---------- hosted detection + watch-party label (R47/R49) ---------- */
+
+export type TicketState = 'none' | 'soon' | 'open';
+
 export interface TicketStatus {
+  /** Tickets can be bought right now. */
   available: boolean;
   bookingEventId: string | null;
+  /** 'none' = not hosted: render nothing watch-party related. 'soon' = hosted, sales closed.
+   * 'open' = hosted and selling. */
+  state: TicketState;
 }
 
-/** A race has tickets only if a public, sales-open BookingEvent references its raceId — never
- * invented (R28-adjacent: no ticket info is shown unless a real bookingEvents doc says so). */
-export function ticketStatusFor(raceId: string, openBookingEvents: BookingEvent[]): TicketStatus {
-  const match = openBookingEvents.find((e) => e.raceId === raceId);
-  return match ? { available: true, bookingEventId: match.id } : { available: false, bookingEventId: null };
+/** Legacy docs have no `category`; they were all F1 watch parties. */
+export function categoryOf(e: BookingEvent): EventCategory {
+  return e.category === 'cup' || e.category === 'club' ? e.category : 'f1';
+}
+
+/** The host set this event up (and it is publicly visible): sales open, or explicitly hosted. A
+ * legacy sales-open doc without the flag counts as hosted; a closed legacy doc is not listed
+ * publicly at all (rules), so it never reaches this page. */
+export function isHostedEvent(e: BookingEvent): boolean {
+  return e.salesOpen === true || e.hosted === true;
+}
+
+/** Source of truth for "is this race hosted": a host-managed, publicly listed BookingEvent whose
+ * raceId is the race's id. Sales-open decides 'open' vs 'soon'. Never invented: no doc, no label (R49). */
+export function ticketStatusFor(raceId: string, bookingEvents: BookingEvent[]): TicketStatus {
+  const matches = bookingEvents.filter((e) => e.raceId === raceId && categoryOf(e) === 'f1' && isHostedEvent(e));
+  const open = matches.find((e) => e.salesOpen === true);
+  if (open) return { available: true, bookingEventId: open.id, state: 'open' };
+  if (matches.length > 0) return { available: false, bookingEventId: matches[0].id, state: 'soon' };
+  return { available: false, bookingEventId: null, state: 'none' };
+}
+
+/** The next HOSTED race (skips races we are not hosting, e.g. Malaysia), by race date. */
+export function nextHostedRace(now: Date, races: RaceInfo[], bookingEvents: BookingEvent[]): RaceInfo | null {
+  const today = now.toISOString().slice(0, 10);
+  return (
+    [...races]
+      .filter((r) => r.status === 'scheduled' && r.raceDate >= today)
+      .sort((a, b) => a.raceDate.localeCompare(b.raceDate))
+      .find((r) => ticketStatusFor(r.id, bookingEvents).state !== 'none') ?? null
+  );
+}
+
+/* ---------- categories + tabs (R50) ---------- */
+
+export type EventsTab = 'f1' | 'cup' | 'club' | 'all';
+export const EVENTS_TABS: { id: EventsTab; label: string }[] = [
+  { id: 'f1', label: 'F1' },
+  { id: 'cup', label: 'Kartar Cup' },
+  { id: 'club', label: 'Kartar Club' },
+  { id: 'all', label: 'All' },
+];
+
+export function parseTab(raw: string | null | undefined): EventsTab | null {
+  return EVENTS_TABS.some((t) => t.id === raw) ? (raw as EventsTab) : null;
+}
+
+/** F1 when the calendar has anything to show, else All. A missing/invalid ?tab= falls back to it. */
+export function defaultTab(hasUpcomingRaces: boolean): EventsTab {
+  return hasUpcomingRaces ? 'f1' : 'all';
+}
+
+/** Public, host-created events of one category (publicly listed only), unsorted. */
+export function eventsInCategory(events: BookingEvent[], category: EventCategory): BookingEvent[] {
+  return events.filter((e) => isHostedEvent(e) && categoryOf(e) === category);
+}
+
+/** Events not already represented by a calendar race card: every cup/club event, plus F1 events
+ * with no raceId or a raceId that is not on the calendar. */
+export function standaloneEvents(events: BookingEvent[], races: RaceInfo[]): BookingEvent[] {
+  const raceIds = new Set(races.map((r) => r.id));
+  return events.filter(
+    (e) => isHostedEvent(e) && !(categoryOf(e) === 'f1' && e.raceId && raceIds.has(e.raceId)),
+  );
+}
+
+/** How long after its start an event still counts as upcoming (tonight's party is not "past"). */
+const GRACE_MS = 6 * 3_600_000;
+
+export function eventStartMs(e: BookingEvent): number {
+  const t = Date.parse(e.dateUtc);
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+}
+
+/** The calendar has a date, not a time, per race; 13:00 UTC is the default the page already uses. */
+export function raceStartMs(r: RaceInfo): number {
+  return Date.parse(`${r.raceDate}T13:00:00Z`);
+}
+
+export interface EventsPartition<T> {
+  upcoming: T[];
+  past: T[];
+}
+
+/** Upcoming soonest-first; past most-recent-first. */
+export function partitionByTime<T>(items: T[], startMs: (t: T) => number, now: Date): EventsPartition<T> {
+  const cut = now.getTime() - GRACE_MS;
+  const upcoming = items.filter((i) => startMs(i) >= cut).sort((a, b) => startMs(a) - startMs(b));
+  const past = items.filter((i) => startMs(i) < cut).sort((a, b) => startMs(b) - startMs(a));
+  return { upcoming, past };
+}
+
+export type AllItem =
+  | { kind: 'race'; key: string; startMs: number; race: RaceInfo; ticket: TicketStatus }
+  | { kind: 'event'; key: string; startMs: number; event: BookingEvent };
+
+/** The "All" tab: every host-created event plus the F1 races that are hosted, in one list. Races
+ * the host is not hosting are NOT included (they live on the F1 tab). An F1 event tied to a
+ * calendar race appears once, as that race. */
+export function allItems(races: RaceInfo[], bookingEvents: BookingEvent[]): AllItem[] {
+  const items: AllItem[] = [];
+  for (const race of races) {
+    if (race.status !== 'scheduled') continue;
+    const ticket = ticketStatusFor(race.id, bookingEvents);
+    if (ticket.state === 'none') continue;
+    items.push({ kind: 'race', key: `race-${race.id}`, startMs: raceStartMs(race), race, ticket });
+  }
+  for (const event of standaloneEvents(bookingEvents, races)) {
+    items.push({ kind: 'event', key: `event-${event.id}`, startMs: eventStartMs(event), event });
+  }
+  return items;
 }

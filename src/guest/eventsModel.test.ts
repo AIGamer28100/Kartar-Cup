@@ -147,15 +147,15 @@ describe('ticketStatusFor', () => {
 
   it('reports tickets available when a matching sales-open booking event exists', () => {
     const events = [mkEvent('2026-r15', 'evt-1')];
-    expect(ticketStatusFor('2026-r15', events)).toEqual({ available: true, bookingEventId: 'evt-1' });
+    expect(ticketStatusFor('2026-r15', events)).toEqual({ available: true, bookingEventId: 'evt-1', state: 'open' });
   });
 
   it('reports no tickets when no booking event references the race', () => {
     const events = [mkEvent('2026-r16', 'evt-2')];
-    expect(ticketStatusFor('2026-r15', events)).toEqual({ available: false, bookingEventId: null });
+    expect(ticketStatusFor('2026-r15', events)).toEqual({ available: false, bookingEventId: null, state: 'none' });
   });
 
   it('reports no tickets when there are no booking events at all', () => {
-    expect(ticketStatusFor('2026-r15', [])).toEqual({ available: false, bookingEventId: null });
+    expect(ticketStatusFor('2026-r15', [])).toEqual({ available: false, bookingEventId: null, state: 'none' });
   });
 });

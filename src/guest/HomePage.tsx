@@ -24,6 +24,9 @@ import { useCountdown } from "../lib/useCountdown";
 import { nextSession, raceStartFor } from "../lib/f1api";
 import { useSchedule } from "../lib/useSchedule";
 import { usePageMeta } from "../lib/pageMeta";
+import { watchBookingEvents } from "../lib/bookings";
+import type { BookingEvent } from "../lib/types";
+import { nextHostedRace } from "./eventsModel";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -73,6 +76,12 @@ function PlainDivider() {
  * so height-matching stays predictable regardless of quiz state. */
 function HeroAndNextRace() {
   const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
+  // R47: "next watch party" is the next HOSTED race, which can be later than the next race
+  // on the calendar (e.g. Malaysia is not hosted, Singapore is). Until booking events load, or if
+  // they fail to, nothing watch-party related is claimed.
+  const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
+  useEffect(() => watchBookingEvents(setBookingEvents, () => setBookingEvents([])), []);
+  const hostedNext = useMemo(() => nextHostedRace(new Date(), ALL_RACES, bookingEvents), [bookingEvents]);
   const track = next ? trackForRace(next.id) : null;
   const { schedule, settled } = useSchedule(next?.season);
   const targetMs = next ? raceStartFor(next, schedule).ms : 0;
@@ -116,8 +125,8 @@ function HeroAndNextRace() {
           <div className="min-w-0">
             <Reveal index={1}>
               <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                Round {String(next.round).padStart(2, "0")} · watch-party
-                night
+                Round {String(next.round).padStart(2, "0")} ·{" "}
+                {hostedNext?.id === next.id ? "watch-party night" : "next race"}
               </p>
               <p className="mt-1 text-h3 text-balance font-medium text-ink">
                 {next.name}
@@ -126,6 +135,15 @@ function HeroAndNextRace() {
                 {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
                 {next.locality}, {next.country}
               </p>
+              {hostedNext && hostedNext.id !== next.id && (
+                <p className="mt-2 text-sm text-muted">
+                  Next watch party:{" "}
+                  <Link to="/events" className="font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent">
+                    {hostedNext.name}
+                  </Link>{" "}
+                  · {istReadout(raceStartFor(hostedNext, null).ms).day} {istReadout(raceStartFor(hostedNext, null).ms).month}
+                </p>
+              )}
               {upNext && upNext.key !== "race" && (
                 <p className="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
                   <span className="relative flex size-2" aria-hidden="true">

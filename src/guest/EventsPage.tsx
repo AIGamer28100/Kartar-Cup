@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
-import { CalendarBlank, FlagCheckered, TicketIcon } from '@phosphor-icons/react';
+import { CalendarBlank, FlagCheckered, MapPin, TicketIcon, Trophy, UsersThree } from '@phosphor-icons/react';
 import Divider from '../components/Divider';
 import Skeleton, { Busy } from '../components/Skeleton';
 import TrackMap from '../components/TrackMap';
@@ -13,8 +13,26 @@ import { watchBookingEvents } from '../lib/bookings';
 import { nextSession, raceStartFor, type SessionTime } from '../lib/f1api';
 import { useSchedule } from '../lib/useSchedule';
 import { usePageMeta } from '../lib/pageMeta';
-import type { BookingEvent, EventConfig } from '../lib/types';
-import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
+import type { BookingEvent, EventCategory, EventConfig } from '../lib/types';
+import {
+  EVENTS_TABS,
+  allItems,
+  categoryOf,
+  defaultTab,
+  eventStartMs,
+  eventsInCategory,
+  groupByMonth,
+  parseTab,
+  partitionByTime,
+  previousRace,
+  standaloneEvents,
+  ticketStatusFor,
+  timelineEntries,
+  upcomingRaces,
+  upcomingSeasons,
+  type EventsTab,
+  type TicketStatus,
+} from './eventsModel';
 import { quizGateVariant } from './quizGate';
 import { Eyebrow, H2, PageTitle, Reveal, Shell } from './parts';
 
@@ -124,17 +142,81 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
   );
 }
 
-function TicketReadout({ ticket }: { ticket: { available: boolean; bookingEventId: string | null } }) {
-  return ticket.available && ticket.bookingEventId ? (
-    <Link
-      to={`/events/${ticket.bookingEventId}`}
-      className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition after:absolute after:inset-0 after:content-[''] hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+/** R49: only HOSTED races/events get any watch-party wording. Not hosted -> nothing at all. */
+function TicketReadout({ ticket, kind = 'f1' }: { ticket: TicketStatus; kind?: EventCategory }) {
+  if (ticket.state === 'none') return null;
+  if (ticket.state === 'open' && ticket.bookingEventId) {
+    return (
+      <Link
+        to={`/events/${ticket.bookingEventId}`}
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition after:absolute after:inset-0 after:content-[''] hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <TicketIcon size={18} weight="regular" aria-hidden="true" />
+        Tickets available
+      </Link>
+    );
+  }
+  return (
+    <p className="text-sm text-muted">{kind === 'f1' ? 'Watch party \u2014 booking opening soon' : 'Booking opening soon'}</p>
+  );
+}
+
+const CATEGORY_META: Record<EventCategory, { label: string; Icon: typeof Trophy; shape: string }> = {
+  f1: { label: 'F1 watch party', Icon: FlagCheckered, shape: 'rounded-full' },
+  cup: { label: 'Kartar Cup', Icon: Trophy, shape: 'rounded-md' },
+  club: { label: 'Kartar Club', Icon: UsersThree, shape: 'rounded-none border-dashed' },
+};
+
+/** Category label: icon + text + a distinct outline shape, so it never relies on colour alone (R50). */
+function CategoryChip({ category }: { category: EventCategory }) {
+  const { label, Icon, shape } = CATEGORY_META[category];
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center gap-1.5 border border-line px-2.5 font-mono text-xs uppercase tracking-widest text-ink ${shape}`}
     >
-      <TicketIcon size={18} weight="regular" aria-hidden="true" />
-      Tickets available
-    </Link>
-  ) : (
-    <p className="text-sm text-muted">Watch party — booking coming soon</p>
+      <Icon size={14} weight="regular" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+const whenFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const whenIstFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** A host-created event (Kartar Cup / Kartar Club / an F1 event with no calendar race). Same card
+ * shell as RaceCard so the page reads as one family. */
+function EventCard({ event, index }: { event: BookingEvent; index: number }) {
+  const category = categoryOf(event);
+  const ms = eventStartMs(event);
+  const ticket: TicketStatus = event.salesOpen
+    ? { available: true, bookingEventId: event.id, state: 'open' }
+    : { available: false, bookingEventId: event.id, state: 'soon' };
+  return (
+    <Reveal
+      index={index}
+      className={`group relative overflow-hidden rounded-lg border border-line bg-raised p-5 transition-colors hover:border-muted ${
+        ticket.available ? 'cursor-pointer hover:border-accent' : ''
+      }`}
+    >
+      <CategoryChip category={category} />
+      <h3 className="mt-3 text-pretty text-h3 font-medium text-ink">{event.title}</h3>
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+        <CalendarBlank size={16} weight="regular" aria-hidden="true" />
+        <span>{whenFmt.format(ms)}</span>
+        <span aria-hidden="true">·</span>
+        <span>{whenIstFmt.format(ms)} IST</span>
+      </p>
+      <p className="mt-1 flex items-center gap-2 text-sm text-muted">
+        <MapPin size={16} weight="regular" aria-hidden="true" />
+        <span>
+          {event.venue.name}, {event.venue.city}
+        </span>
+      </p>
+      {event.description && <p className="mt-3 line-clamp-3 text-pretty text-sm text-muted">{event.description}</p>}
+      <div className="mt-4">
+        <TicketReadout ticket={ticket} kind={category} />
+      </div>
+    </Reveal>
   );
 }
 
@@ -257,12 +339,14 @@ function RaceCard({
   ticket,
   quizNote,
   featured = false,
+  chip = false,
 }: {
   race: RaceInfo;
   index: number;
-  ticket: { available: boolean; bookingEventId: string | null };
+  ticket: TicketStatus;
   quizNote: boolean;
   featured?: boolean;
+  chip?: boolean;
 }) {
   const schedule = useContext(ScheduleContext);
   const { range, local, ist, exact } = raceDateReadout(race, schedule);
@@ -279,6 +363,11 @@ function RaceCard({
          explicit request). */}
       <div className={`grid grid-cols-[2fr_1fr] items-start gap-4 p-5 ${featured ? 'sm:grid-cols-[3fr_2fr] sm:gap-6 sm:p-6' : ''}`}>
         <div>
+          {chip && (
+            <div className="mb-3">
+              <CategoryChip category="f1" />
+            </div>
+          )}
           <p className="font-mono text-xs uppercase tracking-widest text-muted">
             Round {String(race.round).padStart(2, '0')} · {range}
             {featured && ' · next up'}
@@ -309,14 +398,98 @@ function RaceCard({
   );
 }
 
-/** Public /events listing: the remaining races of ONE season at a time (F1.com-style round
- * list, grouped by month) — not a flat multi-season dump. Ticket status is sourced only from
- * real BookingEvent docs (never invented) — R28 (browse without auth). */
+/** Upcoming items in a grid, past ones collapsed under a native disclosure so a long history never
+ * crowds the page. Empty state is honest: nothing is invented. */
+function SectionedList<T>({
+  items,
+  startMs,
+  now,
+  empty,
+  render,
+}: {
+  items: T[];
+  startMs: (t: T) => number;
+  now: Date;
+  empty: string;
+  render: (t: T, i: number) => React.ReactNode;
+}) {
+  const { upcoming, past } = useMemo(() => partitionByTime(items, startMs, now), [items, startMs, now]);
+  if (items.length === 0) {
+    return (
+      <div className="mt-8 rounded-lg border border-dashed border-line p-6">
+        <p className="font-medium text-ink">Nothing scheduled yet</p>
+        <p className="mt-1 text-sm text-muted">{empty}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-8">
+      {upcoming.length > 0 ? (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">{upcoming.map(render)}</div>
+      ) : (
+        <p className="text-sm text-muted">Nothing coming up right now.</p>
+      )}
+      {past.length > 0 && (
+        <details className="group mt-10">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-mono text-xs uppercase tracking-widest text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            Past events ({past.length})
+          </summary>
+          <div className="mt-4 grid grid-cols-1 gap-6 opacity-80 sm:grid-cols-2">{past.map(render)}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/** Accessible segmented control: roving tabindex, arrow/Home/End keys, selection follows focus. */
+function TabBar({ tab, onChange }: { tab: EventsTab; onChange: (t: EventsTab) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const last = EVENTS_TABS.length - 1;
+    const next = e.key === 'ArrowRight' ? (i === last ? 0 : i + 1) : e.key === 'ArrowLeft' ? (i === 0 ? last : i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? last : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    onChange(EVENTS_TABS[next].id);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div className="mt-8 flex w-full max-w-full rounded-lg border border-line p-1 sm:inline-flex sm:w-auto" role="tablist" aria-label="Event type">
+      {EVENTS_TABS.map((t, i) => (
+        <button
+          key={t.id}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          id={`events-tab-${t.id}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === t.id}
+          aria-controls="events-panel"
+          tabIndex={tab === t.id ? 0 : -1}
+          onClick={() => onChange(t.id)}
+          onKeyDown={(e) => onKey(e, i)}
+          className={`min-h-11 flex-1 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex-none sm:px-4 ${
+            tab === t.id ? 'bg-raised text-ink' : 'text-muted hover:text-ink'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Public /events listing, in sections (R50): F1 (the whole calendar, one season at a time,
+ * F1.com-style) | Kartar Cup | Kartar Club | All (every host event + the hosted F1 races, one list).
+ * The section lives in ?tab= so it is shareable and survives back/forward. Ticket status is sourced
+ * only from real BookingEvent docs (never invented, R49) - R28 (browse without auth). */
 export default function EventsPage() {
   usePageMeta({ title: 'Events', description: 'Upcoming race watch parties and karting events, with tickets.' });
   const [bookingEvents, setBookingEvents] = useState<BookingEvent[] | undefined>(undefined);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const { raceId: quizRaceId, status: quizStatus } = useActiveQuizRace();
+  const [params, setParams] = useSearchParams();
+  const reduce = useReducedMotion();
 
   useEffect(
     () =>
@@ -345,23 +518,35 @@ export default function EventsPage() {
   // as track-layout cards — the card grid stays for the current/imminent season (2026).
   const showTimeline = activeSeason === 2027;
 
-  return (
-    <ScheduleContext.Provider value={schedule}>
-    <Shell>
-      <div className="max-w-[52ch]">
-        <Reveal>
-          <Eyebrow>Calendar</Eyebrow>
-          <h1 className={`mt-3 ${PageTitle}`}>Events</h1>
-          <p className="mt-6 text-[1rem] leading-relaxed text-pretty text-muted md:mt-8 md:text-lg">
-            The remaining {activeSeason ?? ''} season, round by round. The Karter Cup doesn&rsquo;t
-            run the Grand Prix itself — we host watch parties for it, with tickets going live race
-            by race.
-          </p>
-        </Reveal>
-      </div>
+  const tab: EventsTab = parseTab(params.get('tab')) ?? defaultTab(seasons.length > 0);
+  const setTab = (t: EventsTab) => setParams({ tab: t }, { preventScrollReset: true });
+  const events = bookingEvents ?? [];
+  const cupEvents = useMemo(() => eventsInCategory(events, 'cup'), [events]);
+  const clubEvents = useMemo(() => eventsInCategory(events, 'club'), [events]);
+  const otherF1 = useMemo(() => standaloneEvents(events, ALL_RACES).filter((e) => categoryOf(e) === 'f1'), [events]);
+  const everything = useMemo(() => allItems(ALL_RACES, events), [events]);
+  const loading = bookingEvents === undefined && !loadError;
 
+  const listSkeleton = (
+    <Busy className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <CardSkeleton />
+      <CardSkeleton />
+    </Busy>
+  );
+  const errorNote = loadError && (
+    <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
+      Couldn&rsquo;t load event details — showing the schedule only.
+    </p>
+  );
+
+  const f1Panel = (
+    <>
+      <p className="mt-6 max-w-[60ch] text-sm text-muted">
+        Every race on the calendar is listed so you can follow along. Watch parties run only on the rounds
+        marked below, and the All tab lists just those, not the rest of the calendar.
+      </p>
       {seasons.length > 1 && (
-        <div className="mt-8 inline-flex rounded-lg border border-line p-1" role="tablist" aria-label="Season">
+        <div className="mt-6 inline-flex rounded-lg border border-line p-1" role="tablist" aria-label="Season">
           {seasons.map((s) => (
             <button
               key={s}
@@ -381,7 +566,7 @@ export default function EventsPage() {
 
       <Divider className="mt-8" />
 
-      {bookingEvents === undefined && !loadError ? (
+      {loading ? (
         showTimeline ? (
           <Busy className="mt-8 flex flex-col gap-6">
             {Array.from({ length: 5 }, (_, i) => (
@@ -408,25 +593,12 @@ export default function EventsPage() {
         </Reveal>
       ) : showTimeline ? (
         <div className="mt-8">
-          {loadError && (
-            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
-              Couldn&rsquo;t load ticket status — showing the schedule only.
-            </p>
-          )}
-          <SeasonTimeline
-            entries={entries}
-            quizRaceId={quizRaceId}
-            quizVisible={quizVisible}
-            bookingEvents={bookingEvents ?? []}
-          />
+          {errorNote}
+          <SeasonTimeline entries={entries} quizRaceId={quizRaceId} quizVisible={quizVisible} bookingEvents={events} />
         </div>
       ) : (
         <div className="mt-8">
-          {loadError && (
-            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
-              Couldn&rsquo;t load ticket status — showing the schedule only.
-            </p>
-          )}
+          {errorNote}
           {/* F1.com-inspired featured row: Previous (small) + Next (large), 5% outer padding,
              ~2.5% gap between, previous ~15% / next ~65% of the row (the rest is breathing room,
              not a hard third card). Stacks to a single column below lg. */}
@@ -434,25 +606,16 @@ export default function EventsPage() {
             <div className="flex flex-col gap-6 px-0 lg:flex-row lg:gap-[2.5%]">
               {previous && (
                 <div className="lg:basis-[15%]">
-                  <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
-                    Previous
-                  </p>
-                  <RaceCard
-                    race={previous}
-                    index={0}
-                    ticket={ticketStatusFor(previous.id, bookingEvents ?? [])}
-                    quizNote={false}
-                  />
+                  <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">Previous</p>
+                  <RaceCard race={previous} index={0} ticket={ticketStatusFor(previous.id, events)} quizNote={false} />
                 </div>
               )}
               <div className="min-w-0 lg:flex-1">
-                <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
-                  Next
-                </p>
+                <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">Next</p>
                 <RaceCard
                   race={featuredRace}
                   index={1}
-                  ticket={ticketStatusFor(featuredRace.id, bookingEvents ?? [])}
+                  ticket={ticketStatusFor(featuredRace.id, events)}
                   quizNote={quizVisible && quizRaceId === featuredRace.id}
                   featured
                 />
@@ -468,7 +631,7 @@ export default function EventsPage() {
                     key={race.id}
                     race={race}
                     index={gi * 3 + i}
-                    ticket={ticketStatusFor(race.id, bookingEvents ?? [])}
+                    ticket={ticketStatusFor(race.id, events)}
                     quizNote={quizVisible && quizRaceId === race.id}
                   />
                 ))}
@@ -477,7 +640,84 @@ export default function EventsPage() {
           ))}
         </div>
       )}
-    </Shell>
+      {!loading && otherF1.length > 0 && (
+        <section aria-label="More F1 events" className="mt-12">
+          <p className="font-mono text-xs uppercase tracking-widest text-muted">More F1 events</p>
+          <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {otherF1.map((e, i) => (
+              <EventCard key={e.id} event={e} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+
+  const eventCards = (e: BookingEvent, i: number) => <EventCard key={e.id} event={e} index={i} />;
+  const categoryPanel = (items: BookingEvent[], empty: string) =>
+    loading ? listSkeleton : (
+      <>
+        {errorNote}
+        <SectionedList items={items} startMs={eventStartMs} now={now} empty={empty} render={eventCards} />
+      </>
+    );
+
+  const panel =
+    tab === 'f1' ? (
+      f1Panel
+    ) : tab === 'cup' ? (
+      categoryPanel(cupEvents, 'Kartar Cup events (karting days and league nights) will show up here once they are announced.')
+    ) : tab === 'club' ? (
+      categoryPanel(clubEvents, 'Kartar Club meetups and watch-party extras will show up here once they are announced.')
+    ) : loading ? (
+      listSkeleton
+    ) : (
+      <>
+        {errorNote}
+        <SectionedList
+          items={everything}
+          startMs={(i) => i.startMs}
+          now={now}
+          empty="Hosted watch parties and events will show up here once they are announced."
+          render={(item, i) =>
+            item.kind === 'race' ? (
+              <RaceCard key={item.key} race={item.race} index={i} ticket={item.ticket} quizNote={quizVisible && quizRaceId === item.race.id} chip />
+            ) : (
+              <EventCard key={item.key} event={item.event} index={i} />
+            )
+          }
+        />
+      </>
+    );
+
+  return (
+    <ScheduleContext.Provider value={schedule}>
+      <Shell>
+        <div className="max-w-[52ch]">
+          <Reveal>
+            <Eyebrow>Calendar</Eyebrow>
+            <h1 className={`mt-3 ${PageTitle}`}>Events</h1>
+            <p className="mt-6 text-[1rem] leading-relaxed text-pretty text-muted md:mt-8 md:text-lg">
+              Follow every Grand Prix, and find the watch parties and events we host. The Karter Cup doesn&rsquo;t
+              run the Grand Prix itself — we host watch parties for it, with tickets going live race by race.
+            </p>
+          </Reveal>
+        </div>
+
+        <TabBar tab={tab} onChange={setTab} />
+
+        <motion.div
+          key={tab}
+          id="events-panel"
+          role="tabpanel"
+          aria-labelledby={`events-tab-${tab}`}
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
+          {panel}
+        </motion.div>
+      </Shell>
     </ScheduleContext.Provider>
   );
 }
