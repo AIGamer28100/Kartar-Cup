@@ -19,6 +19,12 @@
   }
 }
 
+/* R40: the route transition moves focus to the new page's heading; it is a programmatic target,
+   not an interactive control, so no ring. */
+h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 /* Large displays: scale the rem base so the capped composition grows instead of floating lost. */
 @media (min-width: 1800px) {
   html {

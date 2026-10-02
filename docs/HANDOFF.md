@@ -170,3 +170,9 @@ several paths are already explicitly rejected and re-deriving them wastes time.
 - Host: Attendees roster per booking event (search, status filter, tallies, per-row cancel, CSV export).
 - firestore.rules changed (booking cancel + capacityRelease on bookingEvents): MUST be deployed with `firebase deploy --only firestore:rules --project kartar-cup`. Not deployed yet.
 - Known gap: guest-cancel start-time gate is client-only (dateUtc is a string in rules); capacityRelease lets any signed-in user lower bookedCount by <=10 (mirror of capacityBump trust).
+
+## R40 page transitions (shipped, unreleased)
+- `src/guest/transitions/`: `variants.ts` (pure `transitionFor`, tested), `graphics.tsx` (own-drawn kart, checker flag, pit lane, lights), `TransitionLayer.tsx` (lagging `displayedLocation`, swap at overlay midpoint via setTimeout). Wired in `src/App.tsx` around the single `<Routes location=...>`.
+- Variants: flag-wipe (default), pit-lane (to /events/:id and /tickets/:id), lights-out (first leave of "/" per session), 350ms crossfade for back/forward and REPLACE, 150ms opacity fade under reduced motion. Host/logout/error/404 and same-route/hash/search changes are instant.
+- After a transition: scroll to top (restored on back), focus moves to the page h1, aria-live announces "<Title> page".
+- Existing Playwright e2e specs were not re-run against the overlay (it is pointer-events:none, so clicks pass through during the sweep).
