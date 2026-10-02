@@ -445,7 +445,7 @@ export default function EventsPage() {
                   />
                 </div>
               )}
-              <div className="lg:basis">
+              <div className="min-w-0 lg:flex-1">
                 <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
                   Next
                 </p>

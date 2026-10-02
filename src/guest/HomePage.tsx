@@ -415,32 +415,6 @@ function GallerySection() {
   );
 }
 
-function CommunityFooter() {
-  return (
-    <footer className="mt-24 border-t border-line pt-8 text-sm text-muted md:mt-32">
-      <p>The Karter Cup · Chennai &amp; Coimbatore</p>
-      <div className="mt-3 flex flex-wrap gap-4">
-        <a
-          href={INSTAGRAM_CUP}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-ink"
-        >
-          Instagram · @thekartercup
-        </a>
-        <a
-          href={INSTAGRAM_CLUB}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-ink"
-        >
-          Instagram · @thekarterclub
-        </a>
-      </div>
-    </footer>
-  );
-}
-
 /** The Kartar CUP home page: a community/brand page. The quiz is demoted to a small, contextual
  * banner (see QuizBanner + quizGate) — never the hero's main CTA or its own headline section. */
 export default function HomePage() {
@@ -495,7 +469,6 @@ export default function HomePage() {
         <GallerySection />
         <PlainDivider />
         <PartnershipsSection />
-        <CommunityFooter />
       </Shell>
     </>
   );
