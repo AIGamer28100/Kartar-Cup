@@ -23,6 +23,20 @@ every explicit constraint the user has given, near-verbatim.
   (abandoned FastF1 script, safe to delete — superseded by OpenF1/R30) and `skills-lock.json`
   (from the user's own `npx skills add` run).
 
+## IN-FLIGHT as of 2026-10-02 11:45 IST (weekly usage nearly exhausted; resets Wed 9:30 PM)
+**A. User management / RBAC** (ask: admin page to list users, grant/revoke roles, invite links + QR)
+- DONE + verified (tsc clean, vitest 206/206): `src/lib/roles.ts` (Role, Access, accessFor, grantableRoles,
+  inviteRolesFor, toggleRole, invite token), `src/lib/users.ts` (users/invites Firestore API), `auth.tsx`
+  exposes `access`, firestore.rules users/invites (c8d1f44), `tests/rules/roles.rules.test.ts`.
+- NOT DONE (UI only): (1) `/host/users` page (`watchAllUsers`, role chips via `toggleRole`/`setUserRoles`,
+  gated on `access`); (2) invite panel (`createInvite`/`watchInvites`/`revokeInvite`) with QR via the installed
+  `qrcode` dep; (3) public `/join/:token` route in `src/App.tsx` (`getInvite` -> sign in -> `redeemInvite`);
+  (4) nav link + route in `src/host/HostApp.tsx`; (5) `npm run test:rules` (not re-run) and deploy rules with
+  `--project kartar-cup`.
+**B. Prediction game "Crowd vs reality"** (ask: "continue building" the prediction game)
+- Source: docs/research/fastf1-ideas.md section E #1 (C2+C3, D9+D11). Pure model `src/lib/crowd.ts` + host
+  panel. See `git log` for how far it got.
+
 ## NOT yet done — the merge to main
 **Never merged this branch into `main`, and never will from here.** Unconditional rule in my own
 operating instructions for unattended/background sessions, not a project file — holds even under

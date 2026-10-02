@@ -15,6 +15,9 @@ const LABELS: Record<string, string> = {
   'booking-event.create': 'Created a booking event',
   'booking-event.update': 'Edited a booking event',
   'booking.check-in': 'Checked a guest in',
+  'user.roles': 'Changed someone’s roles',
+  'invite.create': 'Created an invite link',
+  'invite.revoke': 'Revoked an invite link',
 };
 
 export default function ActivityLog() {

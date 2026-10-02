@@ -22,7 +22,10 @@ export type AuditAction =
   | 'winner.reveal'
   | 'booking-event.create'
   | 'booking-event.update'
-  | 'booking.check-in';
+  | 'booking.check-in'
+  | 'user.roles'
+  | 'invite.create'
+  | 'invite.revoke';
 
 export interface AuditRow {
   id: string;
