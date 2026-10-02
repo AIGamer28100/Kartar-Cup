@@ -63,11 +63,19 @@ export interface DriverCfg {
   teamId: string;
   grid: number;
 }
+export type QuestionKind = 'team' | 'driver' | 'yesno';
+export const YESNO_OPTIONS: Option[] = [
+  { id: 'yes', label: 'Yes' },
+  { id: 'no', label: 'No' },
+];
+export const MAX_QUESTION_POINTS = 10;
 export interface QuestionCfg {
   id: string;
   prompt: string;
-  kind: 'team' | 'driver';
+  kind: QuestionKind;
   hint?: string;
+  /** Positive integer 1..MAX_QUESTION_POINTS; absent means 1 (the original scoring). */
+  points?: number;
 }
 export interface EventConfig {
   id: string;
@@ -100,8 +108,9 @@ export interface Option {
 export interface Question {
   id: string;
   prompt: string;
-  kind: 'team' | 'driver';
+  kind: QuestionKind;
   hint?: string;
+  points?: number;
 }
 
 /* ---------- booking/ticketing (R23) ---------- */

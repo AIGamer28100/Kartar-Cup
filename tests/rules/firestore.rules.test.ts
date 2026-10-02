@@ -377,3 +377,54 @@ describe('16 screen/state (PD1, R15 host-only)', () => {
     await assertFails(setDoc(doc(anon, S), screenDoc()));
   });
 });
+
+describe('17 prediction depth: yesno + points', () => {
+  const YN = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'];
+  const ynQs = (extra: Record<string, unknown> = {}) =>
+    YN.map((id) => (id === 'q6' ? { id, prompt: 'Safety car?', kind: 'yesno', ...extra } : { id, prompt: 'p', kind: 'team' }));
+  const seedYn = () => seed({ questionIds: YN, questions: ynQs() });
+  const yn = (uid: string, v: string) => entry(uid, { answers: { ...answers(), q6: v } });
+  const put = (over: Record<string, unknown>) => setDoc(doc(host(), 'events/' + EID), eventDoc(over));
+
+  it('valid yes and no answers accepted', async () => {
+    await seedYn();
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), yn('g1', 'yes')));
+    await assertSucceeds(setDoc(doc(guest('g2'), E + 'g2'), yn('g2', 'no')));
+  });
+  it('invalid yesno answer id rejected', async () => {
+    await seedYn();
+    await assertFails(setDoc(doc(guest(), E + 'g1'), yn('g1', 'maybe')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), yn('g1', 'Yes')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), yn('g1', '')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), yn('g1', 'd')));
+  });
+  it('yesno update path validates too', async () => {
+    await seedYn();
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), yn('g1', 'yes')));
+    await assertFails(setDoc(doc(guest(), E + 'g1'), yn('g1', 'maybe')));
+  });
+  it('default 5-question entries still pass (no points, no yesno)', async () => {
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('guest cannot read other guests entries (yesno event)', async () => {
+    await seedYn();
+    await assertFails(getDoc(doc(guest(), E + 'other')));
+    await assertFails(getDocs(collection(guest(), 'events/' + EID + '/entries')));
+  });
+  it('host can save yesno and points on questions', async () => {
+    await assertSucceeds(put({ questionIds: YN, questions: ynQs({ points: 3 }) }));
+    await assertSucceeds(put({ questionIds: YN, questions: ynQs({ points: 10 }) }));
+    await assertSucceeds(put({ questionIds: YN, questions: ynQs({ points: 1 }) }));
+  });
+  it('points are host-only: guest cannot write the event config', async () => {
+    await assertFails(setDoc(doc(guest(), 'events/' + EID), eventDoc({ questionIds: YN, questions: ynQs({ points: 10 }) })));
+  });
+  it('full-size 8-question event with yesno + points fits the rules budget', async () => {
+    const ids = Array.from({ length: 8 }, (_, i) => 'q' + (i + 1));
+    const questions = ids.map((id, i) => ({ id, prompt: 'p', kind: i % 2 ? 'yesno' : 'driver', hint: 'h', points: 10 }));
+    await assertSucceeds(put({ questions, questionIds: ids, nextQuestionSeq: 9 }));
+    await seed({ questions, questionIds: ids });
+    const a = Object.fromEntries(ids.map((id, i) => [id, i % 2 ? 'no' : 'd']));
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1', { answers: a })));
+  });
+});

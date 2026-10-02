@@ -6,7 +6,7 @@ import { RowsSkeleton } from '../components/Skeleton';
 import { useTimedOut } from '../lib/useTimedOut';
 import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
-import { rankEntries, winner } from '../lib/scoring';
+import { maxScore, pointsMap, rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
 import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
@@ -29,8 +29,9 @@ export default function HostConsole() {
       answers: e.answers,
       submittedAtMs: e.submittedAt.toMillis(),
     }));
-    return rankEntries(scorable, results, overrideUid);
-  }, [entries, results, overrideUid]);
+    // Without a config (nothing live) fall back to the defaults, exactly as before.
+    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined);
+  }, [entries, results, overrideUid, config]);
 
   function exportCsv() {
     const byUid = new Map(entries.map((e) => [e.uid, e]));
@@ -69,12 +70,14 @@ export default function HostConsole() {
         rows={ranked}
         overrideUid={overrideUid}
         canPick={!event?.winnerRevealed}
+        questions={config?.questions}
         onPick={setLocalOverride}
       />
       <RevealWinner
         winner={winner(ranked)}
         overrideUid={overrideUid}
         revealed={event?.winnerRevealed ?? false}
+        max={config ? maxScore(config.questions) : undefined}
       />
       <CrowdReveal config={config} entries={entries} results={results} />
       <ResultsForm config={config} resultsDoc={resultsDoc} results={results} />

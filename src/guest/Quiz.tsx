@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, MagnifyingGlass } from '@phosphor-icons/react';
 import Button from '../components/Button';
+import { pointsOf } from '../lib/scoring';
 import type { EventConfig } from '../lib/types';
 import type { PickMap } from './draft';
 import { optionLabel, optionsFor } from './model';
@@ -175,13 +176,59 @@ function Step({
     document.getElementById(`${uid}-o-${shown[cur]?.id}`)?.scrollIntoView({ block: 'nearest' });
   }, [cur, shown, uid]);
 
+  const pts = pointsOf(q);
+  const heading = (
+    <div className="min-w-0">
+      <h1 className={H2}>{q.prompt}</h1>
+      {q.hint && <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">{q.hint}</p>}
+      {pts > 1 && <p className="mt-3 font-mono text-sm tabular-nums text-muted">Worth {pts} points</p>}
+      <Rail config={config} answers={answers} step={qi} onStep={onStep} />
+    </div>
+  );
+
+  if (q.kind === 'yesno') {
+    return (
+      <>
+        {heading}
+        <div className="flex min-w-0 flex-col">
+          <div role="group" aria-label={q.prompt} className="grid grid-cols-2 gap-3 lg:max-w-md">
+            {opts.map((o) => {
+              const sel = o.id === value;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  aria-pressed={sel}
+                  onClick={() => onPick(o.id)}
+                  className={`flex min-h-20 items-center justify-center gap-2 rounded-xl border-2 px-4 text-xl font-semibold transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none motion-reduce:active:scale-100 ${
+                    sel ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-raised text-ink hover:border-muted'
+                  }`}
+                >
+                  {sel && <Check size={22} weight="bold" aria-hidden="true" />}
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-3 pt-6 lg:max-w-md">
+            {onBack && (
+              <Button variant="secondary" aria-label="Back" onClick={onBack}>
+                <ArrowLeft size={20} weight="regular" aria-hidden="true" />
+              </Button>
+            )}
+            <Button className="flex-1" disabled={!value} onClick={onNext}>
+              {qi === QUESTIONS.length - 1 ? 'Review picks' : 'Next question'}
+              <ArrowRight size={20} weight="regular" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="min-w-0">
-        <h1 className={H2}>{q.prompt}</h1>
-        {q.hint && <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">{q.hint}</p>}
-        <Rail config={config} answers={answers} step={qi} onStep={onStep} />
-      </div>
+      {heading}
       <div className="flex min-w-0 flex-col">
       <label htmlFor={`${uid}-search`} className="mb-2 block text-sm font-medium">
         Search {q.kind === 'team' ? 'constructors' : 'drivers'}

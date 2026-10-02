@@ -9,13 +9,14 @@ interface StepProps {
   revealed: boolean;
   active: boolean;
   totalQuestions: number;
+  weighted?: boolean;
   heightClass: string;
   reduce: boolean;
 }
 
 const PLACE_LABEL: Record<1 | 2 | 3, string> = { 1: 'P1', 2: 'P2', 3: 'P3' };
 
-function Step({ place, row, revealed, active, totalQuestions, heightClass, reduce }: StepProps) {
+function Step({ place, row, revealed, active, totalQuestions, weighted, heightClass, reduce }: StepProps) {
   const finale = place === 1 && active;
   return (
     <div className="flex flex-col items-center">
@@ -75,7 +76,7 @@ function Step({ place, row, revealed, active, totalQuestions, heightClass, reduc
                 {row.name}
               </p>
               <p className="w-[clamp(6rem,16vw,12rem)] truncate font-mono text-[clamp(0.9rem,1.6vw,1.5rem)] tabular-nums text-accent">
-                {row.score} of {totalQuestions} correct
+                {row.score} of {totalQuestions} {weighted ? 'points' : 'correct'}
               </p>
             </motion.div>
           ) : (
@@ -118,12 +119,14 @@ export default function PodiumScreen({
   p3,
   stage,
   totalQuestions,
+  weighted,
 }: {
   p1: RankedRow | null;
   p2: RankedRow | null;
   p3: RankedRow | null;
   stage: Stage;
   totalQuestions: number;
+  weighted?: boolean;
 }) {
   const reduce = !!useReducedMotion();
   const activeSlot: 'p3' | 'p2' | 'p1' | null = stage === 1 ? 'p3' : stage === 2 ? 'p2' : stage === 3 ? 'p1' : null;
@@ -150,6 +153,7 @@ export default function PodiumScreen({
           revealed={stage >= 2}
           active={activeSlot === 'p2'}
           totalQuestions={totalQuestions}
+          weighted={weighted}
           heightClass="h-[clamp(6rem,16vh,11rem)]"
           reduce={reduce}
         />
@@ -159,6 +163,7 @@ export default function PodiumScreen({
           revealed={stage >= 3}
           active={activeSlot === 'p1'}
           totalQuestions={totalQuestions}
+          weighted={weighted}
           heightClass="h-[clamp(8rem,22vh,15rem)]"
           reduce={reduce}
         />
@@ -168,6 +173,7 @@ export default function PodiumScreen({
           revealed={stage >= 1}
           active={activeSlot === 'p3'}
           totalQuestions={totalQuestions}
+          weighted={weighted}
           heightClass="h-[clamp(4.5rem,12vh,8rem)]"
           reduce={reduce}
         />

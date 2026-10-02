@@ -4,6 +4,7 @@ import Button from '../components/Button';
 import { getRace } from '../config/calendar';
 import { saveResults } from '../lib/db';
 import { fetchRaceFactsForRace, mapFactsToQuestions } from '../lib/raceResults';
+import { YESNO_OPTIONS } from '../lib/types';
 import type { EventConfig, QuestionCfg, Results, ResultsDoc } from '../lib/types';
 
 interface Opt {
@@ -14,6 +15,7 @@ interface Opt {
 /** Answer choices come from the live event's own lineup (not a static template), so the ids the
  * host ticks are exactly the ids guests picked from. */
 function optionsFor(config: EventConfig, q: QuestionCfg): Opt[] {
+  if (q.kind === 'yesno') return YESNO_OPTIONS;
   if (q.kind === 'team') return config.teams.map((t) => ({ id: t.id, label: t.label }));
   return [...config.drivers].sort((a, b) => a.grid - b.grid).map((d) => ({ id: d.id, label: d.label }));
 }
@@ -83,7 +85,7 @@ export default function ResultsForm({
       setNotes([...res.facts.notes, ...mapped.skipped]);
       setMsg({
         ok: true,
-        text: `Filled ${mapped.filled.length} of ${config.questions.length} questions from OpenF1. Check them, then save.`,
+        text: `Filled ${mapped.filled.length} of ${config.questions.filter((q) => q.kind !== 'yesno').length} questions from OpenF1. Check them, then save.`,
       });
     } finally {
       setPulling(false);

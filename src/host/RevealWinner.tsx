@@ -12,10 +12,12 @@ export default function RevealWinner({
   winner,
   overrideUid,
   revealed,
+  max = 5,
 }: {
   winner: RankedRow | null;
   overrideUid: string | null;
   revealed: boolean;
+  max?: number;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export default function RevealWinner({
                 {...item(1)}
                 className="mt-6 font-mono text-5xl tabular-nums text-accent md:text-6xl"
               >
-                {winner.score} / 5
+                {winner.score} / {max}
               </motion.p>
               <motion.div {...item(1.5)} className="mt-10">
                 <Button variant="secondary" onClick={() => setShow(false)}>

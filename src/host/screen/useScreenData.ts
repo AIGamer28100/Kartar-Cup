@@ -6,7 +6,7 @@ import {
   watchResults,
   watchScreenState,
 } from '../../lib/db';
-import { rankEntries } from '../../lib/scoring';
+import { pointsMap, rankEntries } from '../../lib/scoring';
 import type { Entry, EventConfig, RankedRow, ScreenState } from '../../lib/types';
 
 export interface ScreenData {
@@ -79,8 +79,8 @@ export function useScreenData(): ScreenData {
       answers: e.answers,
       submittedAtMs: e.submittedAt.toMillis(),
     }));
-    return rankEntries(scorable, results, screenState.overrideUid, config?.questionIds);
-  }, [entries, results, screenState.overrideUid, config?.questionIds]);
+    return rankEntries(scorable, results, screenState.overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined);
+  }, [entries, results, screenState.overrideUid, config]);
 
   return {
     loading: eventId === undefined || !(ready.event && ready.entries),

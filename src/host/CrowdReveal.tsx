@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { boldCalls, crowdBreakdown, roomAccuracy } from '../lib/crowd';
 import type { QuestionCrowd } from '../lib/crowd';
 import { normalize } from '../lib/scoring';
+import { YESNO_OPTIONS } from '../lib/types';
 import type { Entry, EventConfig, QuestionCfg, Results, ScorableEntry } from '../lib/types';
 
 const pct = (share: number) => `${Math.round(share * 100)}%`;
@@ -20,7 +21,7 @@ function codeOf(label: string): string {
 }
 
 function optionMap(config: EventConfig, q: QuestionCfg | undefined): Map<string, Opt> {
-  const src = q?.kind === 'team' ? config.teams : config.drivers;
+  const src = q?.kind === 'yesno' ? YESNO_OPTIONS : q?.kind === 'team' ? config.teams : config.drivers;
   return new Map(src.map((o) => [normalize(o.id), { label: o.label, code: codeOf(o.label) }]));
 }
 

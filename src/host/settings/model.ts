@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { buildDefaultEvent, type GridStatus } from '../../config/event';
 import { ALL_RACES, type RaceInfo } from '../../config/calendar';
+import { MAX_QUESTION_POINTS } from '../../lib/types';
 import type { DriverCfg, EventConfig, Override, QuestionCfg, TeamCfg } from '../../lib/types';
 import { fromLocalInput, toLocalInput } from './time';
 
@@ -128,6 +129,8 @@ export function validate(f: FormState): Errors {
     e.drivers = 'Every driver needs a label and a team.';
   if (f.questions.length < 1 || f.questions.some((q) => !q.prompt.trim()))
     e.questions = 'Add at least one question; every question needs a prompt.';
+  else if (f.questions.some((q) => q.points !== undefined && (!Number.isInteger(q.points) || q.points < 1 || q.points > MAX_QUESTION_POINTS)))
+    e.questions = `Points per question must be a whole number from 1 to ${MAX_QUESTION_POINTS}.`;
   return e;
 }
 
@@ -149,8 +152,10 @@ export function formToConfig(f: FormState): EventConfig {
     teams: f.teams,
     drivers: f.drivers.map((d, i) => ({ ...d, grid: i + 1 })),
     questions: f.questions.map((q) => {
-      const { hint, ...rest } = q;
-      return hint?.trim() ? { ...rest, hint: hint.trim() } : rest;
+      const { hint, points, ...rest } = q;
+      // Default weight (1) is stored as absence so untouched events stay byte-identical.
+      const base = points && points > 1 ? { ...rest, points } : rest;
+      return hint?.trim() ? { ...base, hint: hint.trim() } : base;
     }),
     questionIds: f.questions.map((q) => q.id),
     nextQuestionSeq: Math.max(f.qCounter, ...f.questions.map((q) => qNum(q.id))) + 1,

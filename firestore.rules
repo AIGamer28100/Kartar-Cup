@@ -41,6 +41,8 @@ service cloud.firestore {
         || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
     }
     // NOTE: per-item label caps for drivers/questions are inlined (1000-expression budget); teams are client-capped.
+    // Question `points` is deliberately NOT range-checked here: the budget is exhausted by a full-size event.
+    // It is host-only-writable (events write = isHost) and scoring clamps anything outside 1..10 to 1.
     function promptsOk(l, i) {
       return l.size() <= i || (l[i].prompt.size() <= 80 && l[i].get('hint', '').size() <= 160);
     }
@@ -82,12 +84,17 @@ service cloud.firestore {
         && d.winnerRevealed is bool
         && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
     }
-    function answerOk(a, q, i) {
-      return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40);
+    // qs[i] is the question config for questionIds[i] (validEvent keeps both lists the same size, same order).
+    // yesno questions take exactly 'yes' or 'no'; team/driver ids stay free-form strings as before.
+    function answerOk(a, q, qs, i) {
+      return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40
+        && (qs[i].get('kind', 'team') != 'yesno' || a[q[i]] in ['yes','no']));
     }
     function validEntry(eventId, uid) {
       let d = request.resource.data;
-      let q = evDoc(eventId).questionIds;
+      let ev = evDoc(eventId);
+      let q = ev.questionIds;
+      let qs = ev.questions;
       return d.keys().hasOnly(['uid','name','email','phone','photoURL','provider','answers','submittedAt','createdAt'])
         && d.keys().hasAll(['uid','name','email','provider','answers','submittedAt','createdAt'])
         && d.uid == uid
@@ -101,9 +108,9 @@ service cloud.firestore {
         && d.answers is map
         && d.answers.keys().toSet().hasOnly(q.toSet())
         && d.answers.keys().toSet().hasAll(q)
-        && answerOk(d.answers, q, 0) && answerOk(d.answers, q, 1) && answerOk(d.answers, q, 2)
-        && answerOk(d.answers, q, 3) && answerOk(d.answers, q, 4) && answerOk(d.answers, q, 5)
-        && answerOk(d.answers, q, 6) && answerOk(d.answers, q, 7)
+        && answerOk(d.answers, q, qs, 0) && answerOk(d.answers, q, qs, 1) && answerOk(d.answers, q, qs, 2)
+        && answerOk(d.answers, q, qs, 3) && answerOk(d.answers, q, qs, 4) && answerOk(d.answers, q, qs, 5)
+        && answerOk(d.answers, q, qs, 6) && answerOk(d.answers, q, qs, 7)
         && d.submittedAt == request.time;
     }
 

@@ -1,4 +1,5 @@
-import { scoreEntry } from '../lib/scoring';
+import { pointsMap, scoreEntry } from '../lib/scoring';
+import { YESNO_OPTIONS } from '../lib/types';
 import type { EventConfig, Option, QuestionCfg } from '../lib/types';
 import type { PickMap } from './draft';
 
@@ -7,6 +8,7 @@ export const safeWhatsappUrl = (u: string | undefined): string =>
   u && WA_ALLOW.some((p) => u.startsWith(p) && u.length > p.length) ? u : '';
 
 export function optionsFor(config: EventConfig, q: QuestionCfg): Option[] {
+  if (q.kind === 'yesno') return YESNO_OPTIONS;
   if (q.kind === 'team') return config.teams.map((t) => ({ id: t.id, label: t.label }));
   const teamLabel = new Map(config.teams.map((t) => [t.id, t.label]));
   return [...config.drivers]
@@ -27,7 +29,7 @@ export function scoreOwn(
   answers: PickMap,
   results: Record<string, string[]>,
 ): { score: number; ticks: Record<string, boolean> } {
-  return scoreEntry(answers, results, config.questionIds);
+  return scoreEntry(answers, results, config.questionIds, pointsMap(config.questions));
 }
 
 const IST = 'Asia/Kolkata';

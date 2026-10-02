@@ -10,6 +10,8 @@ import type { EventConfig } from '../lib/types';
 import { clearDraft, loadDraft, saveDraft, type Draft } from './draft';
 import Hero from './Hero';
 import { scoreOwn } from './model';
+import { maxScore } from '../lib/scoring';
+import PicksCard from './PicksCard';
 import Quiz from './Quiz';
 import GoogleCta, { Profile, accountName } from './SignIn';
 import { CloseTimer, Eyebrow, PageTitle, PicksList, Reveal, SPRING, Shell, Split, TickStrip, WhatsAppCta } from './parts';
@@ -124,7 +126,7 @@ function EventFlow({
                       className="font-mono text-[clamp(4rem,11vw,9.5rem)] font-semibold tabular-nums leading-none"
                     >
                       {sc.score}
-                      <span className="text-[0.4em] text-muted"> / {event.questions.length}</span>
+                      <span className="text-[0.4em] text-muted"> / {maxScore(event.questions)}</span>
                     </motion.p>
                     <div className="mt-8">
                       <TickStrip config={event} ticks={sc.ticks} />
@@ -169,7 +171,7 @@ function EventFlow({
             <>
               {entryAnswers && (
                 <Reveal index={1}>
-                  <PicksList config={event} answers={entryAnswers} />
+                  <PicksCard config={event} answers={entryAnswers} />
                 </Reveal>
               )}
               <Reveal index={2} className="mt-6">
@@ -242,7 +244,7 @@ function EventFlow({
           }
           right={
             <Reveal index={2}>
-              <PicksList config={event} answers={entryAnswers} />
+              <PicksCard config={event} answers={entryAnswers} />
             </Reveal>
           }
         />

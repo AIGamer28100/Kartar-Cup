@@ -157,6 +157,7 @@ export function mapFactsToQuestions(
   const filled: string[] = [];
   const skipped: string[] = [];
   for (const q of questions) {
+    if (q.kind === 'yesno') continue; // OpenF1 has no yes/no facts; the host ticks these by hand
     const key = factForPrompt(q.prompt);
     if (!key) {
       skipped.push(`"${q.prompt}" - no matching OpenF1 data, fill in by hand.`);

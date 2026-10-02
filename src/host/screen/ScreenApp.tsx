@@ -7,6 +7,7 @@ import { buildPodium, clampStage, nextStage, prevStage, type Stage } from './pod
 import LobbyScreen from './LobbyScreen';
 import StandingsScreen from './StandingsScreen';
 import PodiumScreen from './PodiumScreen';
+import { maxScore } from '../../lib/scoring';
 
 function Skel() {
   return (
@@ -92,7 +93,7 @@ export default function ScreenApp() {
       {screenState.mode === 'lobby' && <LobbyScreen config={config} entryCount={entryCount} />}
       {screenState.mode === 'standings' && <StandingsScreen config={config} ranked={ranked} />}
       {screenState.mode === 'podium' && (
-        <PodiumScreen p1={p1} p2={p2} p3={p3} stage={stage} totalQuestions={config.questionIds.length} />
+        <PodiumScreen p1={p1} p2={p2} p3={p3} stage={stage} totalQuestions={maxScore(config.questions)} weighted={maxScore(config.questions) !== config.questions.length} />
       )}
 
       <div

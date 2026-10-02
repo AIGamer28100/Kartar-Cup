@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { Check, X } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { QUESTIONS } from '../config/event';
-import { DEFAULT_QUESTION_IDS as QUESTION_IDS } from '../lib/types';
-import type { RankedRow } from '../lib/types';
+import { pointsOf } from '../lib/scoring';
+import type { QuestionCfg, RankedRow } from '../lib/types';
 
 // Host tools stay low-motion (R20): a quick linear reorder, no spring bounce.
 const reorder = { duration: 0.18, ease: 'easeOut' } as const;
@@ -13,11 +13,14 @@ export default function Leaderboard({
   rows,
   overrideUid,
   canPick,
+  questions,
   onPick,
 }: {
   rows: RankedRow[];
   overrideUid: string | null;
   canPick: boolean;
+  /** The live event's questions (ids, prompts, points); absent falls back to the original five. */
+  questions?: QuestionCfg[];
   onPick: (uid: string | null) => void;
 }) {
   const [pending, setPending] = useState<string | null>(null);
@@ -30,6 +33,7 @@ export default function Leaderboard({
     );
   }
   const top = rows[0].score;
+  const qs: QuestionCfg[] = questions ?? QUESTIONS;
 
   return (
     <section aria-label="Leaderboard" className="py-8">
@@ -54,19 +58,19 @@ export default function Leaderboard({
               <span
                 className="hidden gap-1.5 sm:flex"
                 role="img"
-                aria-label={QUESTIONS.map(
-                  (_q, i) => `${i + 1} ${r.ticks[QUESTION_IDS[i]] ? 'right' : 'wrong'}`,
-                ).join(', ')}
+                aria-label={qs
+                  .map((q, i) => `${i + 1} ${r.ticks[q.id] ? 'right' : 'wrong'}${pointsOf(q) > 1 ? ` (${pointsOf(q)} points)` : ''}`)
+                  .join(', ')}
               >
-                {QUESTION_IDS.map((id, i) => (
+                {qs.map((q) => (
                   <span
-                    key={id}
-                    title={QUESTIONS[i].prompt}
+                    key={q.id}
+                    title={pointsOf(q) > 1 ? `${q.prompt} (${pointsOf(q)} points)` : q.prompt}
                     className={`grid size-9 place-items-center rounded-md border ${
-                      r.ticks[id] ? 'border-accent text-accent' : 'border-line text-muted'
+                      r.ticks[q.id] ? 'border-accent text-accent' : 'border-line text-muted'
                     }`}
                   >
-                    {r.ticks[id] ? (
+                    {r.ticks[q.id] ? (
                       <Check size={20} weight="regular" />
                     ) : (
                       <X size={16} weight="regular" />
