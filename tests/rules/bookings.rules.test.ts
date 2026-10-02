@@ -82,6 +82,54 @@ describe('bookingEvents read', () => {
   });
 });
 
+describe('bookingEvents hosted-but-closed (R49)', () => {
+  it('guest reads a closed event only when hosted==true', async () => {
+    await seed({ salesOpen: false, hosted: true });
+    await assertSucceeds(getDoc(doc(guest(), 'bookingEvents/' + BEID)));
+  });
+  it('hosted:false and legacy (no hosted field) closed events stay private', async () => {
+    await seed({ salesOpen: false, hosted: false });
+    await assertFails(getDoc(doc(guest(), 'bookingEvents/' + BEID)));
+    await seed({ salesOpen: false });
+    await assertFails(getDoc(doc(guest(), 'bookingEvents/' + BEID)));
+  });
+  it('guest can list where hosted==true; unfiltered list is still denied', async () => {
+    await seed({ salesOpen: false, hosted: true });
+    await assertSucceeds(getDocs(query(collection(guest(), 'bookingEvents'), where('hosted', '==', true))));
+    await assertFails(getDocs(collection(guest(), 'bookingEvents')));
+  });
+  it('a hosted-but-closed event cannot be reserved (salesOpen still gates booking)', async () => {
+    await seed({ salesOpen: false, hosted: true });
+    await assertFails(setDoc(doc(guest(), 'bookings/r1'), booking('r1')));
+  });
+  it('closed hosted listing never exposes bookings (R15)', async () => {
+    await seed({ salesOpen: false, hosted: true });
+    await seedBooking('b1');
+    await assertFails(getDoc(doc(other(), 'bookings/b1')));
+    await assertFails(getDocs(collection(other(), 'bookings')));
+  });
+});
+
+describe('bookingEvents category/hosted/description validation (R50)', () => {
+  const put = (over: Record<string, unknown>) => setDoc(doc(host(), 'bookingEvents/' + BEID), bookingEventDoc(over));
+  it('accepts f1/cup/club, hosted bool, description', async () => {
+    await assertSucceeds(put({ category: 'cup', hosted: true, description: 'Kart night' }));
+    await assertSucceeds(put({ category: 'club', hosted: false }));
+    await assertSucceeds(put({ category: 'f1' }));
+  });
+  it('legacy doc without category/hosted still valid', async () => {
+    await assertSucceeds(put({}));
+  });
+  it('rejects unknown category, non-bool hosted, long description', async () => {
+    await assertFails(put({ category: 'other' }));
+    await assertFails(put({ hosted: 'yes' }));
+    await assertFails(put({ description: 'x'.repeat(601) }));
+  });
+  it('guest cannot set category', async () => {
+    await assertFails(setDoc(doc(guest(), 'bookingEvents/' + BEID), bookingEventDoc({ category: 'cup' })));
+  });
+});
+
 describe('bookingEvents write', () => {
   it('host can create/update', async () => {
     await assertSucceeds(setDoc(doc(host(), 'bookingEvents/' + BEID), bookingEventDoc({ capacity: 20 })));

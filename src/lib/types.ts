@@ -142,6 +142,8 @@ export interface Discount {
   redeemed?: number;
   active: boolean;
 }
+/** R50: which section of /events an event belongs to. Missing on legacy docs = 'f1'. */
+export type EventCategory = 'f1' | 'cup' | 'club';
 /** A ticketed watch party. Own collection `bookingEvents/{id}`, separate from the quiz `events/{id}`;
  * may optionally reference a calendar race via raceId but is not required to. */
 export interface BookingEvent {
@@ -157,6 +159,13 @@ export interface BookingEvent {
   /** Id of the booking whose cancellation last released seats; the rules require it on every seat release. */
   lastReleaseBookingId?: string;
   salesOpen: boolean;
+  /** R50: events-page section. Absent on legacy docs, which read as 'f1'. */
+  category?: EventCategory;
+  /** R47/R49: the host runs this event, so it is publicly listed even while sales are closed (then it
+   * reads "booking opening soon"). Absent on legacy docs, which are listed only while sales are open. */
+  hosted?: boolean;
+  /** Optional free-form blurb (used by non-F1 events, which have no calendar race to describe them). */
+  description?: string;
   /** Host-written cancellation/refund wording shown before and after purchase. */
   policy?: string;
   createdAt: Timestamp;

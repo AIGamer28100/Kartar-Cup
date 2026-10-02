@@ -270,7 +270,8 @@ service cloud.firestore {
     function validBookingEvent(eventId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
-                'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt'])
+                'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt',
+                'category','hosted','description'])
         && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
@@ -286,6 +287,9 @@ service cloud.firestore {
         && d.bookedCount is int && d.bookedCount >= 0
         && d.salesOpen is bool
         && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300))
+        && (!('category' in d) || d.category in ['f1', 'cup', 'club'])
+        && (!('hosted' in d) || d.hosted is bool)
+        && (!('description' in d) || (d.description is string && d.description.size() <= 600))
         && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64));
     }
     // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
@@ -349,7 +353,9 @@ service cloud.firestore {
         && (get(bpath).data.buyerUid == request.auth.uid || canRunBookings());
     }
     match /bookingEvents/{eventId} {
-      allow read: if resource.data.salesOpen == true || canRunBookings();
+      // hosted==true lists a closed event publicly ("booking opening soon"); it exposes only what a
+      // sales-open event already does (R15: no per-guest data lives on this doc).
+      allow read: if resource.data.salesOpen == true || resource.data.hosted == true || canRunBookings();
       allow create: if canRunBookings() && validBookingEvent(eventId);
       allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease(eventId);
       allow delete: if canRunBookings();

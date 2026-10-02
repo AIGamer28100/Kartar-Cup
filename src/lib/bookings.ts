@@ -26,21 +26,45 @@ const bookingsCol = () => collection(db, 'bookings');
 
 /* ---------- booking events ---------- */
 
-/** Public: only sales-open booking events (host sees all via watchBookingEvent by id, or a
- * host-only listing screen can be added on top of this in B2). The `where` filter is required,
- * not cosmetic — Firestore rules only allow this list query when it is provably constrained to
- * salesOpen == true (see firestore.rules `bookingEvents` read rule and
- * tests/rules/bookings.rules.test.ts); an unfiltered collection listen is rejected. */
+/** Public listing: sales-open events PLUS hosted-but-closed ones (R49: the host set the event up, so
+ * it can read "booking opening soon"). Two filtered listens are merged by id because the rules
+ * only grant a list query provably constrained to `salesOpen == true` or `hosted == true`; an
+ * unfiltered collection listen is rejected (see firestore.rules `bookingEvents` and
+ * tests/rules/bookings.rules.test.ts). Callers must still check `salesOpen` before offering tickets. */
 export function watchBookingEvents(
   cb: (events: BookingEvent[]) => void,
   onErr?: (e: Error) => void,
 ): Unsubscribe {
-  const q = query(bookingEventsCol(), where('salesOpen', '==', true));
-  return onSnapshot(
-    q,
-    (s) => cb(s.docs.map((d) => ({ ...d.data(), id: d.id }) as BookingEvent)),
-    onErr,
-  );
+  const open = new Map<string, BookingEvent>();
+  const hosted = new Map<string, BookingEvent>();
+  let ready = 0;
+  const emit = () => {
+    if (ready < 2) return;
+    const all = new Map([...hosted, ...open]);
+    cb([...all.values()]);
+  };
+  const listen = (field: 'salesOpen' | 'hosted', into: Map<string, BookingEvent>) => {
+    let first = true;
+    return onSnapshot(
+      query(bookingEventsCol(), where(field, '==', true)),
+      (s) => {
+        into.clear();
+        s.docs.forEach((d) => into.set(d.id, { ...d.data(), id: d.id } as BookingEvent));
+        if (first) {
+          first = false;
+          ready += 1;
+        }
+        emit();
+      },
+      onErr,
+    );
+  };
+  const u1 = listen('salesOpen', open);
+  const u2 = listen('hosted', hosted);
+  return () => {
+    u1();
+    u2();
+  };
 }
 
 /** Host only: unfiltered listen over all booking events (open and closed). Allowed by firestore.rules
