@@ -23,6 +23,7 @@ export type AuditAction =
   | 'booking-event.create'
   | 'booking-event.update'
   | 'booking.check-in'
+  | 'booking.cancel'
   | 'user.roles'
   | 'invite.create'
   | 'invite.revoke';

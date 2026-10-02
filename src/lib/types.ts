@@ -171,4 +171,9 @@ export interface Booking {
   paidAt?: Timestamp;
   checkedInAt?: Timestamp;
   checkedInBy?: string;
+  cancelledAt?: Timestamp;
+  cancelledBy?: 'guest' | 'host';
+  cancelReason?: string;
+  /** Mock payments only (R23): 'mock_refunded' = a paid_mock booking was cancelled; no real money moved. */
+  refund?: 'mock_refunded' | 'none';
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { googleCalendarUrl, icsFile, maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
+import { canGuestCancel, googleCalendarUrl, icsFile, maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
 
 describe('seats', () => {
   it('counts the real remaining seats and never goes negative', () => {
@@ -51,5 +51,26 @@ describe('calendar', () => {
     const ics = icsFile({ title: 'x', startMs: 0, uid: 'u' });
     expect(ics).not.toContain('LOCATION');
     expect(ics).not.toContain('DESCRIPTION');
+  });
+});
+
+describe('canGuestCancel', () => {
+  const ev = { dateUtc: '2026-10-10T12:00:00Z' };
+  const before = Date.parse('2026-10-10T11:59:59Z');
+  const after = Date.parse('2026-10-10T12:00:00Z');
+  it('allows reserved and paid_mock before the event starts', () => {
+    expect(canGuestCancel({ status: 'reserved' }, ev, before)).toBe(true);
+    expect(canGuestCancel({ status: 'paid_mock' }, ev, before)).toBe(true);
+  });
+  it('blocks once the event has started', () => {
+    expect(canGuestCancel({ status: 'paid_mock' }, ev, after)).toBe(false);
+  });
+  it('blocks checked_in and cancelled', () => {
+    expect(canGuestCancel({ status: 'checked_in' }, ev, before)).toBe(false);
+    expect(canGuestCancel({ status: 'cancelled' }, ev, before)).toBe(false);
+  });
+  it('blocks when the event is unknown or its date is unparseable', () => {
+    expect(canGuestCancel({ status: 'reserved' }, null, before)).toBe(false);
+    expect(canGuestCancel({ status: 'reserved' }, { dateUtc: 'nope' }, before)).toBe(false);
   });
 });

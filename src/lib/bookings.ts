@@ -207,6 +207,51 @@ export async function checkIn(bookingId: string, hostEmail: string): Promise<voi
   logAudit('booking.check-in', bookingId);
 }
 
+export type CancelErrorCode = 'not-found' | 'checked-in' | 'already-cancelled' | 'not-owner';
+export class CancelBookingError extends Error {
+  constructor(public readonly code: CancelErrorCode, message: string) {
+    super(message);
+    this.name = 'CancelBookingError';
+  }
+}
+
+/** Cancel a booking (guest: own, host: any) in ONE transaction: flips status to 'cancelled' and
+ * releases the seats by decrementing the event's bookedCount by qty. Only reserved/paid_mock can be
+ * cancelled; checked_in and already-cancelled throw a typed CancelBookingError, so seats can never
+ * be released twice. R23: mock payments only, so refund 'mock_refunded' is a label, no money moves. */
+export async function cancelBooking(
+  bookingId: string,
+  by: 'guest' | 'host',
+  reason?: string,
+): Promise<void> {
+  const ref = bookingRef(bookingId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new CancelBookingError('not-found', 'Booking not found.');
+    const b = snap.data() as Booking;
+    if (b.status === 'cancelled') throw new CancelBookingError('already-cancelled', 'Already cancelled.');
+    if (b.status === 'checked_in') throw new CancelBookingError('checked-in', 'Checked-in bookings cannot be cancelled.');
+    const evRef = bookingEventRef(b.bookingEventId);
+    const evSnap = await tx.get(evRef);
+    const trimmed = reason?.trim().slice(0, 200);
+    tx.update(ref, {
+      status: 'cancelled',
+      cancelledAt: serverTimestamp(),
+      cancelledBy: by,
+      ...(trimmed ? { cancelReason: trimmed } : {}),
+      refund: b.status === 'paid_mock' ? 'mock_refunded' : 'none',
+    });
+    if (evSnap.exists()) {
+      const ev = evSnap.data() as BookingEvent;
+      tx.update(evRef, {
+        bookedCount: Math.max(0, (ev.bookedCount ?? 0) - b.qty),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  });
+  if (by === 'host') logAudit('booking.cancel', bookingId, reason?.trim() || undefined);
+}
+
 /** Host only. For scanner/manual search by booking id (== qrToken). */
 export async function lookupBookingById(id: string): Promise<Booking | null> {
   const s = await getDoc(bookingRef(id));

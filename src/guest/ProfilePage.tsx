@@ -9,6 +9,7 @@ import { watchBookingEvent, watchOwnBookings } from '../lib/bookings';
 import { listOwnEntries } from '../lib/db';
 import { useTimedOut } from '../lib/useTimedOut';
 import type { Booking, BookingEvent } from '../lib/types';
+import CancelBooking from './CancelBooking';
 import { accountName } from './SignIn';
 import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
@@ -133,6 +134,9 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
           </p>
         </div>
       </Link>
+      <div className="pb-2">
+        <CancelBooking booking={booking} event={ev} />
+      </div>
     </Reveal>
   );
 }

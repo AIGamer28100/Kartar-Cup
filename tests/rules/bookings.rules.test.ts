@@ -6,7 +6,7 @@ import {
   assertSucceeds,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -228,5 +228,96 @@ describe('delete', () => {
   it('host cannot delete a booking', async () => {
     await seedBooking('b1');
     await assertFails(deleteDoc(doc(host(), 'bookings/b1')));
+  });
+});
+
+describe('cancelBooking', () => {
+  const cancelFields = (by: 'guest' | 'host', refund: 'mock_refunded' | 'none', extra: Record<string, unknown> = {}) => ({
+    status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: by, refund, ...extra,
+  });
+  /** Cancel + seat release in one atomic batch, as the client transaction does. */
+  async function cancelWithRelease(db: ReturnType<typeof guest>, id: string, fields: Record<string, unknown>, newCount: number) {
+    const b = writeBatch(db);
+    b.update(doc(db, 'bookings/' + id), fields);
+    b.update(doc(db, 'bookingEvents/' + BEID), { bookedCount: newCount, updatedAt: serverTimestamp() });
+    return b.commit();
+  }
+
+  it('owner cancels a reserved booking and releases its seats', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 3 })); });
+    await seedBooking('b1', { qty: 2, totalInr: 1000, unitPriceInr: 500 });
+    await assertSucceeds(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'none'), 1));
+  });
+  it('owner cancels a paid_mock booking with mock_refunded', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1', { status: 'paid_mock', paidAt: Timestamp.now() });
+    await assertSucceeds(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'mock_refunded', { cancelReason: 'Plans changed' }), 0));
+  });
+  it('refund label must match the prior status', async () => {
+    await seedBooking('b1', { status: 'paid_mock', paidAt: Timestamp.now() });
+    await assertFails(updateDoc(doc(guest(), 'bookings/b1'), cancelFields('guest', 'none')));
+  });
+  it('owner cancel without releasing the matching seats is denied', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 3 })); });
+    await seedBooking('b1', { qty: 2, totalInr: 1000, unitPriceInr: 500 });
+    await assertFails(updateDoc(doc(guest(), 'bookings/b1'), cancelFields('guest', 'none')));
+    await assertFails(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'none'), 2));
+  });
+  it('cannot cancel someone else\'s booking', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1');
+    await assertFails(cancelWithRelease(other(), 'b1', cancelFields('guest', 'none'), 0));
+  });
+  it('owner cannot claim cancelledBy host', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1');
+    await assertFails(cancelWithRelease(guest(), 'b1', cancelFields('host', 'none'), 0));
+  });
+  it('owner cannot edit price/tier/qty/uid alongside a cancel', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1');
+    for (const extra of [{ totalInr: 0 }, { unitPriceInr: 1 }, { tierId: 't2' }, { qty: 5 }, { buyerUid: 'g2' }]) {
+      await assertFails(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'none', extra), 0));
+    }
+  });
+  it('owner cannot change fields without cancelling', async () => {
+    await seedBooking('b1');
+    await assertFails(updateDoc(doc(guest(), 'bookings/b1'), { totalInr: 0 }));
+  });
+  it('cannot un-cancel (owner or host)', async () => {
+    await seedBooking('b1', { status: 'cancelled', cancelledBy: 'guest', refund: 'none', cancelledAt: Timestamp.now() });
+    await assertFails(updateDoc(doc(guest(), 'bookings/b1'), { status: 'reserved' }));
+    await assertFails(updateDoc(doc(guest(), 'bookings/b1'), { status: 'paid_mock', paidAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(host(), 'bookings/b1'), { status: 'paid_mock' }));
+  });
+  it('cannot cancel twice', async () => {
+    await seedBooking('b1', { status: 'cancelled', cancelledBy: 'guest', refund: 'none', cancelledAt: Timestamp.now() });
+    await assertFails(updateDoc(doc(host(), 'bookings/b1'), cancelFields('host', 'none')));
+  });
+  it('cannot cancel a checked_in booking (owner or host)', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1', { status: 'checked_in', paidAt: Timestamp.now(), checkedInAt: Timestamp.now(), checkedInBy: 'host@x.com' });
+    await assertFails(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'mock_refunded'), 0));
+    await assertFails(updateDoc(doc(host(), 'bookings/b1'), cancelFields('host', 'mock_refunded')));
+  });
+  it('host cancels any non-checked-in booking', async () => {
+    await seedBooking('b1');
+    await seedBooking('b2', { status: 'paid_mock', paidAt: Timestamp.now() });
+    await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'), cancelFields('host', 'none', { cancelReason: 'Venue closed' })));
+    await assertSucceeds(updateDoc(doc(host(), 'bookings/b2'), cancelFields('host', 'mock_refunded')));
+  });
+  it('a guest cannot cancel with an over-long reason', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 1 })); });
+    await seedBooking('b1');
+    await assertFails(cancelWithRelease(guest(), 'b1', cancelFields('guest', 'none', { cancelReason: 'x'.repeat(201) }), 0));
+  });
+});
+
+describe('seat release on the event (capacityRelease)', () => {
+  it('a guest cannot raise the counter via the release path, nor push it negative', async () => {
+    await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: 2 })); });
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: -1, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 2, capacity: 99, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 1, capacity: 99, updatedAt: serverTimestamp() }));
   });
 });

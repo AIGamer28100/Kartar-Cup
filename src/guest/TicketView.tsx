@@ -8,6 +8,7 @@ import { signInGoogle } from '../lib/firebase';
 import { watchBooking, watchBookingEvent } from '../lib/bookings';
 import type { Booking, BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
+import CancelBooking from './CancelBooking';
 import TicketActions, { PolicyNote } from './TicketActions';
 import { bookingStatusLabel, formatInr } from './profileModel';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
@@ -144,7 +145,15 @@ export default function TicketPage() {
       </Reveal>
       <Reveal index={1} className="mt-8">
         {cancelled ? (
-          <p className="text-muted">This booking was cancelled, so there is no ticket to scan.</p>
+          <div role="status" className="max-w-xl rounded-lg border-2 border-dashed border-accent px-4 py-5">
+            <p className="font-mono text-sm font-semibold uppercase tracking-widest text-accent">Cancelled</p>
+            <p className="mt-2 text-muted">
+              This booking was cancelled and its seats released. This ticket is no longer valid, so there is no code to scan.
+            </p>
+            {booking.refund === 'mock_refunded' && (
+              <p className="mt-2 text-sm text-muted">Your payment has been marked as refunded.</p>
+            )}
+          </div>
         ) : (
           <>
             <TicketQr bookingId={booking.id} dim={used} />
@@ -158,6 +167,9 @@ export default function TicketPage() {
           <TicketActions event={event} bookingId={booking.id} />
         </Reveal>
       )}
+      <Reveal index={3} className="mt-6">
+        <CancelBooking booking={booking} event={event} />
+      </Reveal>
       {event?.policy && (
         <Reveal index={3} className="mt-6 max-w-xl">
           <PolicyNote policy={event.policy} />

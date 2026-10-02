@@ -306,10 +306,24 @@ service cloud.firestore {
         && after.bookedCount > before.bookedCount
         && after.bookedCount <= before.capacity;
     }
+    // Seat release on cancel: the mirror of capacityBump. May touch ONLY bookedCount (+updatedAt),
+    // must strictly decrease by 1..10 and never go below 0. The guest's booking-cancel rule below
+    // additionally requires (via getAfter) that the decrease equals that booking's qty, so a
+    // cancel and its release are one atomic, consistent transaction.
+    function capacityRelease() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return signedIn()
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+        && after.bookedCount is int
+        && after.bookedCount >= 0
+        && after.bookedCount < before.bookedCount
+        && before.bookedCount - after.bookedCount <= 10;
+    }
     match /bookingEvents/{eventId} {
       allow read: if resource.data.salesOpen == true || canRunBookings();
       allow create: if canRunBookings() && validBookingEvent(eventId);
-      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump();
+      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease();
       allow delete: if canRunBookings();
     }
 
@@ -336,6 +350,26 @@ service cloud.firestore {
         && bookingEv(d.bookingEventId).salesOpen == true
         && d.createdAt == request.time;
     }
+    // Cancel: status -> 'cancelled' from reserved/paid_mock only (never from checked_in or
+    // cancelled, so no un-cancel), touching only status + cancel* + refund. refund is
+    // 'mock_refunded' iff it was paid_mock (R23: a label, no real money). cancelledBy names the actor.
+    function cancelShape(by) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelReason', 'refund'])
+        && (before.status == 'reserved' || before.status == 'paid_mock')
+        && after.status == 'cancelled'
+        && after.cancelledAt == request.time
+        && after.cancelledBy == by
+        && (!('cancelReason' in after) || (after.cancelReason is string && after.cancelReason.size() <= 200))
+        && after.refund == (before.status == 'paid_mock' ? 'mock_refunded' : 'none');
+    }
+    function ownerCancel() {
+      return resource.data.buyerUid == request.auth.uid
+        && cancelShape('guest')
+        && getAfter(/databases/$(database)/documents/bookingEvents/$(resource.data.bookingEventId)).data.bookedCount
+           == bookingEv(resource.data.bookingEventId).bookedCount - resource.data.qty;
+    }
     match /bookings/{bookingId} {
       // R15: get() and list() share this rule. A guest querying `where('buyerUid','==',uid)`
       // gets every matching doc back (each passes); a guest attempting an unfiltered/other-uid
@@ -346,7 +380,9 @@ service cloud.firestore {
       allow create: if signedIn() && validBooking();
 
       allow update: if signedIn()
-        && ((resource.data.buyerUid == request.auth.uid
+        && (ownerCancel()
+            || (canRunBookings() && cancelShape('host'))
+            || (resource.data.buyerUid == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
               && resource.data.status == 'reserved'
               && request.resource.data.status == 'paid_mock'

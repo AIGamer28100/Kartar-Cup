@@ -70,3 +70,17 @@ export function icsFile(c: CalendarInput & { uid: string }): string {
     .filter(Boolean)
     .join('\r\n');
 }
+
+/** Guest self-cancel gate: own live booking (reserved/paid_mock) and the event has not started.
+ * The event's `policy` text is display-only and is never parsed. Hosts are not gated by this. */
+export function canGuestCancel(
+  booking: { status: string },
+  event: { dateUtc: string } | null | undefined,
+  now: number,
+): boolean {
+  if (booking.status !== 'reserved' && booking.status !== 'paid_mock') return false;
+  if (!event) return false;
+  const start = Date.parse(event.dateUtc);
+  if (Number.isNaN(start)) return false;
+  return now < start;
+}
