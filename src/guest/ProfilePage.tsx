@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
-import { ArrowRight, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
+import { ArrowRight, Medal, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
 import { Link } from 'react-router';
 import Divider from '../components/Divider';
 import Skeleton, { Busy, PageSkeleton } from '../components/Skeleton';
@@ -9,6 +9,7 @@ import { watchBookingEvent, watchOwnBookings } from '../lib/bookings';
 import { listOwnEntries } from '../lib/db';
 import { useTimedOut } from '../lib/useTimedOut';
 import type { Booking, BookingEvent } from '../lib/types';
+import AchievementsSection from './AchievementsSection';
 import CancelBooking from './CancelBooking';
 import { accountName } from './SignIn';
 import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
@@ -225,6 +226,15 @@ export default function ProfilePage() {
 
       <Divider className="mt-4" />
       <Reveal index={3} className="mt-8">
+        <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
+          <Medal size={20} weight="regular" aria-hidden="true" />
+          Achievements
+        </h2>
+        <AchievementsSection uid={user.uid} />
+      </Reveal>
+
+      <Divider className="mt-8" />
+      <Reveal index={4} className="mt-8">
         <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
           <TicketIcon size={20} weight="regular" aria-hidden="true" />
           Bookings

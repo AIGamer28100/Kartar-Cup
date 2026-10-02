@@ -7,6 +7,11 @@ export interface OwnEntryRow {
   eventName: string;
   submittedAtMs: number;
   score: number | null;
+  /** Count of questions that could be scored (voided questions excluded). Set only with `score`. */
+  maxScore?: number;
+  /** Chronological position of this event among ALL events (public config), so a skipped event
+   * breaks a streak. Absent in legacy rows: entries are then treated as consecutive. */
+  eventOrder?: number;
 }
 
 export function sortOwnEntries(rows: OwnEntryRow[]): OwnEntryRow[] {

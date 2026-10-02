@@ -14,7 +14,7 @@ import {
 import { logAudit } from './audit';
 import { db } from './firebase';
 import { deriveStatus } from './eventStatus';
-import { scoreEntry } from './scoring';
+import { pointsMap, scoreEntry } from './scoring';
 import { ALL_RACES, nextRace } from '../config/calendar';
 import { buildDefaultEvent } from '../config/event';
 import type { OwnEntryRow } from '../guest/profileModel';
@@ -255,6 +255,15 @@ export function watchEntries(cb: (e: Entry[]) => void, onErr?: (e: Error) => voi
  * (results are only readable once `winnerRevealed`). */
 export async function listOwnEntries(uid: string): Promise<OwnEntryRow[]> {
   const eventsSnap = await getDocs(collection(db, 'events'));
+  const orderOf = new Map(
+    [...eventsSnap.docs]
+      .sort(
+        (a, b) =>
+          ((a.data() as EventConfig).raceStartUtc?.toMillis() ?? 0) -
+            ((b.data() as EventConfig).raceStartUtc?.toMillis() ?? 0) || (a.id < b.id ? -1 : 1),
+      )
+      .map((d, i) => [d.id, i] as const),
+  );
   const rows = await Promise.all(
     eventsSnap.docs.map(async (ed): Promise<OwnEntryRow | null> => {
       const config = ed.data() as EventConfig;
@@ -262,10 +271,16 @@ export async function listOwnEntries(uid: string): Promise<OwnEntryRow[]> {
       if (!entrySnap.exists()) return null;
       const entry = entrySnap.data() as Entry;
       let score: number | null = null;
+      let maxScore: number | undefined;
       if (config.winnerRevealed) {
         const rs = await getDoc(resultsRef(ed.id));
         if (rs.exists()) {
-          score = scoreEntry(entry.answers, (rs.data() as ResultsDoc).answers, config.questionIds).score;
+          const key = (rs.data() as ResultsDoc).answers;
+          score = scoreEntry(entry.answers, key, config.questionIds, pointsMap(config.questions ?? [])).score;
+          const pts = pointsMap(config.questions ?? []);
+          maxScore = (config.questionIds ?? Object.keys(key))
+            .filter((q) => (key[q] ?? []).length > 0)
+            .reduce((n, q) => n + (pts[q] ?? 1), 0);
         }
       }
       return {
@@ -273,6 +288,8 @@ export async function listOwnEntries(uid: string): Promise<OwnEntryRow[]> {
         eventName: config.name,
         submittedAtMs: entry.submittedAt.toMillis(),
         score,
+        maxScore,
+        eventOrder: orderOf.get(ed.id),
       };
     }),
   );
