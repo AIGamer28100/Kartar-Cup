@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 import type { NewBookingEvent } from '../../lib/bookings';
-import type { BookingEvent, Discount, DiscountKind, PriceTier, Venue } from '../../lib/types';
+import type { BookingEvent, Discount, EventCategory, DiscountKind, PriceTier, Venue } from '../../lib/types';
 import { ALL_RACES, type RaceInfo } from '../../config/calendar';
 import { raceStartFor, type SessionTime } from '../../lib/f1api';
 import { fromLocalInput, toLocalInput } from '../settings/time';
@@ -24,6 +24,9 @@ export interface DiscountForm {
 export interface FormState {
   id: string | null;
   raceId: string;
+  category: EventCategory;
+  hosted: boolean;
+  description: string;
   title: string;
   dateUtc: string; // datetime-local
   capacity: string;
@@ -41,6 +44,9 @@ export function blankForm(): FormState {
   return {
     id: null,
     raceId: '',
+    category: 'f1',
+    hosted: true,
+    description: '',
     title: '',
     dateUtc: '',
     capacity: '',
@@ -74,6 +80,10 @@ export function eventToForm(e: BookingEvent): FormState {
   return {
     id: e.id,
     raceId: e.raceId ?? '',
+    category: e.category ?? 'f1',
+    // Legacy docs were only listed while sales were open, so they read as hosted.
+    hosted: e.hosted ?? true,
+    description: e.description ?? '',
     title: e.title,
     dateUtc: toLocalInput(new Date(e.dateUtc).getTime()),
     capacity: String(e.capacity),
@@ -126,9 +136,14 @@ export function formToEvent(f: FormState): NewBookingEvent {
     salesOpen: f.salesOpen,
     // Always written (blank allowed) so clearing it in the form really clears it on update.
     policy: f.policy.trim(),
+    category: f.category,
+    hosted: f.hosted,
+    // Always written (blank allowed) so clearing it in the form really clears it on update.
+    description: f.description.trim(),
   };
   if (f.id) ev.id = f.id;
-  if (f.raceId.trim()) ev.raceId = f.raceId.trim();
+  // Only F1 events link to a calendar race; Kartar Cup / Club events are free-form (R50).
+  if (f.category === 'f1' && f.raceId.trim()) ev.raceId = f.raceId.trim();
   return ev;
 }
 
@@ -153,7 +168,7 @@ export function raceDefaultDateUtc(race: RaceInfo, schedule?: Map<number, Sessio
 }
 
 export type Errors = Partial<
-  Record<'title' | 'policy' | 'capacity' | 'dateUtc' | 'venueName' | 'venueCity' | 'tiers' | 'discounts', string>
+  Record<'title' | 'description' | 'policy' | 'capacity' | 'dateUtc' | 'venueName' | 'venueCity' | 'tiers' | 'discounts', string>
 >;
 
 /** Mirrors firestore.rules `validBookingEvent` hard constraints, plus basic required-field checks. */
@@ -161,6 +176,8 @@ export function validate(f: FormState): Errors {
   const errs: Errors = {};
   if (!f.title.trim()) errs.title = 'Title is required.';
   else if (f.title.length > 120) errs.title = 'Title must be 120 characters or fewer.';
+
+  if (f.description.trim().length > 600) errs.description = 'Keep the description to 600 characters or fewer.';
 
   if (f.policy.trim().length > 300) errs.policy = 'Keep the policy to 300 characters or fewer.';
 

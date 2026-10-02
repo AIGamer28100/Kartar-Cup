@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, FloppyDisk, Plus } from '@phosphor-icons/react';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
+import { deleteField } from 'firebase/firestore';
 import { createBookingEvent, updateBookingEvent, watchAllBookingEvents } from '../../lib/bookings';
-import type { BookingEvent } from '../../lib/types';
+import type { BookingEvent, EventCategory } from '../../lib/types';
 import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { useSchedule } from '../../lib/useSchedule';
@@ -82,7 +83,8 @@ export default function BookingsAdmin() {
     setBanner(null);
     try {
       const payload = formToEvent(form);
-      if (form.id) await updateBookingEvent(form.id, payload);
+      // A saved event switched to a non-F1 category (or unlinked) must really drop its raceId.
+      if (form.id) await updateBookingEvent(form.id, payload.raceId ? payload : { ...payload, raceId: deleteField() as unknown as undefined });
       else await createBookingEvent(payload);
       setSaved(snap(form));
       setBanner({ ok: true, msg: 'Booking event saved.' });
@@ -124,9 +126,26 @@ export default function BookingsAdmin() {
               />
             </Field>
             <Field
+              id="f-category"
+              label="Event type"
+              hint="Where it appears on /events. Kartar Cup and Kartar Club events are free-form (no calendar race)."
+            >
+              <select
+                id="f-category"
+                className={inputCls}
+                value={form.category}
+                onChange={(e) => patch(() => ({ category: e.target.value as EventCategory }))}
+              >
+                <option value="f1">F1 watch party</option>
+                <option value="cup">Kartar Cup event</option>
+                <option value="club">Kartar Club event</option>
+              </select>
+            </Field>
+            {form.category === 'f1' && (
+            <Field
               id="f-raceid"
               label="Linked race"
-              hint="Pulls the race's start time (minus a 30-min arrival buffer) into Date & time. Required for this event's tickets to show up on /events."
+              hint="Pulls the race's start time (minus a 30-min arrival buffer) into Date & time. Needed for this race to be marked as hosted on /events."
             >
               <select
                 id="f-raceid"
@@ -146,6 +165,7 @@ export default function BookingsAdmin() {
                 ))}
               </select>
             </Field>
+            )}
             <Field id="f-date" label="Date & time" error={show('dateUtc')}>
               <input
                 id="f-date"
@@ -172,6 +192,28 @@ export default function BookingsAdmin() {
               <input type="checkbox" checked={form.salesOpen} onChange={(e) => patch(() => ({ salesOpen: e.target.checked }))} />
               Open for sales
             </label>
+            <label className="flex min-h-11 items-center gap-2 self-end text-sm font-medium text-muted">
+              <input type="checkbox" checked={form.hosted} onChange={(e) => patch(() => ({ hosted: e.target.checked }))} />
+              Show on the public Events page (reads &ldquo;booking opening soon&rdquo; until sales open)
+            </label>
+          </div>
+          <div className="mt-5 max-w-2xl">
+            <Field
+              id="f-description"
+              label="Description (optional)"
+              hint="A short blurb shown on the event card, for example what to expect or what to bring."
+              error={show('description')}
+            >
+              <textarea
+                id="f-description"
+                rows={3}
+                maxLength={600}
+                className={`${inputCls} py-2`}
+                value={form.description}
+                aria-invalid={!!show('description')}
+                onChange={(e) => patch(() => ({ description: e.target.value }))}
+              />
+            </Field>
           </div>
           <div className="mt-5 max-w-2xl">
             <Field
@@ -286,7 +328,10 @@ export default function BookingsAdmin() {
             <li key={ev.id} className="grid grid-cols-1 gap-2 py-4 md:grid-cols-[1fr_10rem_8rem_8rem_6rem_auto] md:items-center md:gap-4">
               <div>
                 <p className="font-medium">{ev.title}</p>
-                <p className="font-mono text-sm text-muted">{ev.venue.name}</p>
+                <p className="font-mono text-sm text-muted">
+                  {{ f1: 'F1', cup: 'Kartar Cup', club: 'Kartar Club' }[ev.category ?? 'f1']} · {ev.venue.name}
+                  {ev.hosted === false && !ev.salesOpen ? ' · hidden' : ''}
+                </p>
               </div>
               <p className="font-mono text-sm text-muted">{fmtLocal(new Date(ev.dateUtc).getTime())}</p>
               <p className="font-mono text-sm">{ev.bookedCount} / {ev.capacity}</p>

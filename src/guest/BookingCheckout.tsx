@@ -64,13 +64,20 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
   );
 }
 
-function ClosedNotice() {
+/** Eyebrow wording per category (R50); legacy docs without a category are F1 watch parties. */
+const KIND_LABEL = { f1: 'Watch party', cup: 'Kartar Cup event', club: 'Kartar Club event' } as const;
+
+function ClosedNotice({ event }: { event: BookingEvent | null }) {
+  // A hosted event whose sales have not opened yet is publicly readable; say so honestly.
+  const soon = !!event && event.hosted === true;
   return (
     <Shell>
       <Reveal>
-        <Eyebrow>Watch party</Eyebrow>
-        <h1 className={`mt-3 ${PageTitle}`}>Not taking bookings right now</h1>
-        <p className="mt-4 max-w-[34ch] text-muted">This watch party isn&rsquo;t taking bookings right now.</p>
+        <Eyebrow>{KIND_LABEL[event?.category ?? 'f1']}</Eyebrow>
+        <h1 className={`mt-3 ${PageTitle}`}>{event ? event.title : 'Not taking bookings right now'}</h1>
+        <p className="mt-4 max-w-[34ch] text-muted">
+          {soon ? 'Booking is opening soon. Check back here or on the events page.' : 'This event isn\u2019t taking bookings right now.'}
+        </p>
         <Link
           to="/events"
           className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
@@ -196,7 +203,7 @@ export default function BookingCheckout() {
   };
 
   if (!bookingEventId || !ready || event === undefined) return <PageSkeleton />;
-  if (event === null || !event.salesOpen) return <ClosedNotice />;
+  if (event === null || !event.salesOpen) return <ClosedNotice event={event} />;
   if (reservation) return <SuccessView event={event} reservation={reservation} />;
   const soldOut = left === 0;
 
@@ -284,11 +291,12 @@ export default function BookingCheckout() {
   return (
     <Shell>
       <Reveal>
-        <Eyebrow>Watch party</Eyebrow>
+        <Eyebrow>{KIND_LABEL[event.category ?? 'f1']}</Eyebrow>
         <h1 className={`mt-3 ${PageTitle}`}>{event.title}</h1>
         <p className="mt-2 text-muted">
           {fmtLocal(new Date(event.dateUtc).getTime())} · {event.venue.name}, {event.venue.city}
         </p>
+        {event.description && <p className="mt-3 max-w-[60ch] text-pretty text-muted">{event.description}</p>}
         <p
           className={`mt-3 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${
             soldOut ? 'text-accent' : 'text-muted'
