@@ -245,6 +245,8 @@ export async function cancelBooking(
       const ev = evSnap.data() as BookingEvent;
       tx.update(evRef, {
         bookedCount: Math.max(0, (ev.bookedCount ?? 0) - b.qty),
+        // Names the booking so firestore.rules can verify this decrease belongs to exactly this cancel.
+        lastReleaseBookingId: bookingId,
         updatedAt: serverTimestamp(),
       });
     }

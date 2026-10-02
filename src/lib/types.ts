@@ -145,6 +145,8 @@ export interface BookingEvent {
   discounts: Discount[];
   capacity: number;
   bookedCount: number;
+  /** Id of the booking whose cancellation last released seats; the rules require it on every seat release. */
+  lastReleaseBookingId?: string;
   salesOpen: boolean;
   /** Host-written cancellation/refund wording shown before and after purchase. */
   policy?: string;

@@ -263,7 +263,7 @@ service cloud.firestore {
     function validBookingEvent(eventId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
-                'capacity','bookedCount','salesOpen','policy','createdAt','updatedAt'])
+                'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt'])
         && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
@@ -278,7 +278,8 @@ service cloud.firestore {
         && d.capacity is int && d.capacity > 0
         && d.bookedCount is int && d.bookedCount >= 0
         && d.salesOpen is bool
-        && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300));
+        && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300))
+        && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64));
     }
     // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
     // that a query would return, using that document's `resource.data` (same as `get`). A query
@@ -306,24 +307,44 @@ service cloud.firestore {
         && after.bookedCount > before.bookedCount
         && after.bookedCount <= before.capacity;
     }
-    // Seat release on cancel: the mirror of capacityBump. May touch ONLY bookedCount (+updatedAt),
-    // must strictly decrease by 1..10 and never go below 0. The guest's booking-cancel rule below
-    // additionally requires (via getAfter) that the decrease equals that booking's qty, so a
-    // cancel and its release are one atomic, consistent transaction.
-    function capacityRelease() {
+    // Seat release on cancel. An event write cannot see which booking is involved, so the writer
+    // NAMES it in the transient-but-persisted field `lastReleaseBookingId`, and the rule then
+    // checks that booking directly: it must belong to THIS event, be reserved/paid_mock BEFORE the
+    // write and 'cancelled' AFTER it (getAfter, i.e. the same batch/transaction), be owned by the
+    // caller (or the caller runs bookings), and the counter must drop by EXACTLY its qty. Because
+    // the booking is no longer reserved/paid_mock afterwards, the same booking can never release
+    // twice, and the id must change on every release (defence in depth). A user with no booking
+    // of their own cannot lower the counter at all. The booking-cancel rule (ownerCancel/host path)
+    // binds the other way (getAfter on the event), so neither write succeeds alone.
+    // Trade-off: the cancelled booking's id (== its QR token) is written to a publicly readable
+    // event doc; that is safe only because a cancelled ticket can never be checked in. The reserve
+    // side (capacityBump) deliberately has NO such id, since a live ticket token must never be
+    // public; so bumping the counter is still not tied to a booking (it can only waste seats up
+    // to capacity, never oversell). The no-Cloud-Functions alternative (derive seats-left from a
+    // count of bookings) was rejected: guests cannot list other people's bookings (R15).
+    function capacityRelease(eventId) {
       let before = resource.data;
       let after = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(after.lastReleaseBookingId);
       return signedIn()
-        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt', 'lastReleaseBookingId'])
+        && after.lastReleaseBookingId is string
+        && after.lastReleaseBookingId.size() >= 1 && after.lastReleaseBookingId.size() <= 64
+        && (!('lastReleaseBookingId' in before) || before.lastReleaseBookingId != after.lastReleaseBookingId)
         && after.bookedCount is int
         && after.bookedCount >= 0
         && after.bookedCount < before.bookedCount
-        && before.bookedCount - after.bookedCount <= 10;
+        && exists(bpath)
+        && get(bpath).data.bookingEventId == eventId
+        && (get(bpath).data.status == 'reserved' || get(bpath).data.status == 'paid_mock')
+        && getAfter(bpath).data.status == 'cancelled'
+        && before.bookedCount - after.bookedCount == get(bpath).data.qty
+        && (get(bpath).data.buyerUid == request.auth.uid || canRunBookings());
     }
     match /bookingEvents/{eventId} {
       allow read: if resource.data.salesOpen == true || canRunBookings();
       allow create: if canRunBookings() && validBookingEvent(eventId);
-      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease();
+      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease(eventId);
       allow delete: if canRunBookings();
     }
 
@@ -364,11 +385,17 @@ service cloud.firestore {
         && (!('cancelReason' in after) || (after.cancelReason is string && after.cancelReason.size() <= 200))
         && after.refund == (before.status == 'paid_mock' ? 'mock_refunded' : 'none');
     }
-    function ownerCancel() {
+    // Every cancel must come with the matching seat release on the event, in the same batch:
+    // bookedCount drops by exactly qty and lastReleaseBookingId names this booking (host included).
+    function releasesSeats(bookingId) {
+      let evPath = /databases/$(database)/documents/bookingEvents/$(resource.data.bookingEventId);
+      return getAfter(evPath).data.bookedCount == get(evPath).data.bookedCount - resource.data.qty
+        && getAfter(evPath).data.lastReleaseBookingId == bookingId;
+    }
+    function ownerCancel(bookingId) {
       return resource.data.buyerUid == request.auth.uid
         && cancelShape('guest')
-        && getAfter(/databases/$(database)/documents/bookingEvents/$(resource.data.bookingEventId)).data.bookedCount
-           == bookingEv(resource.data.bookingEventId).bookedCount - resource.data.qty;
+        && releasesSeats(bookingId);
     }
     match /bookings/{bookingId} {
       // R15: get() and list() share this rule. A guest querying `where('buyerUid','==',uid)`
@@ -380,8 +407,8 @@ service cloud.firestore {
       allow create: if signedIn() && validBooking();
 
       allow update: if signedIn()
-        && (ownerCancel()
-            || (canRunBookings() && cancelShape('host'))
+        && (ownerCancel(bookingId)
+            || (canRunBookings() && cancelShape('host') && releasesSeats(bookingId))
             || (resource.data.buyerUid == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
               && resource.data.status == 'reserved'
