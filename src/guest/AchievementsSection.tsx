@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Armchair, Check, Eye, Flag, Flame, Lock, Repeat, Target, Ticket } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import Skeleton, { Busy } from '../components/Skeleton';
-import { watchOwnBookings } from '../lib/bookings';
-import { listOwnEntries } from '../lib/db';
 import type { Booking } from '../lib/types';
 import { computeAchievements, computeStreaks } from './achievements';
 import type { Achievement, AchievementIcon } from './achievements';
@@ -102,31 +99,13 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 /** Own-data-only achievements + streaks (R15/R31), derived client-side from the guest's own quiz
  * entries and bookings. Nothing is written anywhere. */
-export default function AchievementsSection({ uid }: { uid: string }) {
-  const [rows, setRows] = useState<OwnEntryRow[] | undefined>(undefined);
-  const [bookings, setBookings] = useState<Booking[] | undefined>(undefined);
-
-  useEffect(() => {
-    let live = true;
-    setRows(undefined);
-    listOwnEntries(uid)
-      .then((r) => live && setRows(r))
-      .catch(() => live && setRows([]));
-    return () => {
-      live = false;
-    };
-  }, [uid]);
-
-  useEffect(
-    () =>
-      watchOwnBookings(
-        uid,
-        (b) => setBookings(b),
-        () => setBookings([]),
-      ),
-    [uid],
-  );
-
+export default function AchievementsSection({
+  rows,
+  bookings,
+}: {
+  rows: OwnEntryRow[] | undefined;
+  bookings: Booking[] | undefined;
+}) {
   if (rows === undefined || bookings === undefined) {
     return (
       <Busy>

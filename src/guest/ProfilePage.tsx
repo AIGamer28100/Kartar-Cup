@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { User } from 'firebase/auth';
 import { Navigate } from 'react-router';
 import { ArrowRight, Medal, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
 import { Link } from 'react-router';
@@ -48,26 +49,7 @@ function EntryRowSkeleton() {
   );
 }
 
-function QuizHistory({ uid }: { uid: string }) {
-  const [rows, setRows] = useState<OwnEntryRow[] | undefined>(undefined);
-  const [err, setErr] = useState<Error | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    setRows(undefined);
-    setErr(null);
-    listOwnEntries(uid)
-      .then((r) => live && setRows(r))
-      .catch((e: unknown) => {
-        if (!live) return;
-        setErr(e instanceof Error ? e : new Error('Could not load your quiz history.'));
-        setRows([]);
-      });
-    return () => {
-      live = false;
-    };
-  }, [uid]);
-
+function QuizHistory({ rows, err }: { rows: OwnEntryRow[] | undefined; err: Error | null }) {
   const stuck = useTimedOut(rows === undefined && !err);
 
   if (rows === undefined) {
@@ -142,23 +124,7 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
   );
 }
 
-function Bookings({ uid }: { uid: string }) {
-  const [bookings, setBookings] = useState<Booking[] | undefined>(undefined);
-  const [err, setErr] = useState<Error | null>(null);
-
-  useEffect(
-    () =>
-      watchOwnBookings(
-        uid,
-        (b) => setBookings(b),
-        (e) => {
-          setErr(e);
-          setBookings([]);
-        },
-      ),
-    [uid],
-  );
-
+function Bookings({ bookings, err }: { bookings: Booking[] | undefined; err: Error | null }) {
   const stuck = useTimedOut(bookings === undefined && !err);
 
   if (bookings === undefined) {
@@ -185,6 +151,46 @@ function Bookings({ uid }: { uid: string }) {
   );
 }
 
+/** Own-data fetches live here so each runs once per profile visit and feeds several sections. */
+function useOwnEntries(uid: string) {
+  const [rows, setRows] = useState<OwnEntryRow[] | undefined>(undefined);
+  const [err, setErr] = useState<Error | null>(null);
+  useEffect(() => {
+    let live = true;
+    setRows(undefined);
+    setErr(null);
+    listOwnEntries(uid)
+      .then((r) => live && setRows(r))
+      .catch((e: unknown) => {
+        if (!live) return;
+        setErr(e instanceof Error ? e : new Error('Could not load your quiz history.'));
+        setRows([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, [uid]);
+  return { rows, err };
+}
+
+function useOwnBookings(uid: string) {
+  const [bookings, setBookings] = useState<Booking[] | undefined>(undefined);
+  const [err, setErr] = useState<Error | null>(null);
+  useEffect(
+    () =>
+      watchOwnBookings(
+        uid,
+        (b) => setBookings(b),
+        (e) => {
+          setErr(e);
+          setBookings([]);
+        },
+      ),
+    [uid],
+  );
+  return { bookings, err };
+}
+
 /** Signed-in guest's own profile (R31): identity, own quiz history, own bookings — never another
  * guest's data (R15). Route itself redirects signed-out visitors home (no page-wide sign-in gate,
  * R28); the header's general sign-in button lands here afterwards. */
@@ -193,7 +199,12 @@ export default function ProfilePage() {
 
   if (!ready) return <PageSkeleton />;
   if (!user) return <Navigate to="/" replace />;
+  return <ProfileContent user={user} />;
+}
 
+function ProfileContent({ user }: { user: User }) {
+  const { rows, err: entriesErr } = useOwnEntries(user.uid);
+  const { bookings, err: bookingsErr } = useOwnBookings(user.uid);
   const name = accountName(user);
 
   return (
@@ -221,7 +232,7 @@ export default function ProfilePage() {
           <Trophy size={20} weight="regular" aria-hidden="true" />
           Quiz history
         </h2>
-        <QuizHistory uid={user.uid} />
+        <QuizHistory rows={rows} err={entriesErr} />
       </Reveal>
 
       <Divider className="mt-4" />
@@ -230,7 +241,7 @@ export default function ProfilePage() {
           <Medal size={20} weight="regular" aria-hidden="true" />
           Achievements
         </h2>
-        <AchievementsSection uid={user.uid} />
+        <AchievementsSection rows={rows} bookings={bookings} />
       </Reveal>
 
       <Divider className="mt-8" />
@@ -239,7 +250,7 @@ export default function ProfilePage() {
           <TicketIcon size={20} weight="regular" aria-hidden="true" />
           Bookings
         </h2>
-        <Bookings uid={user.uid} />
+        <Bookings bookings={bookings} err={bookingsErr} />
       </Reveal>
     </Shell>
   );
