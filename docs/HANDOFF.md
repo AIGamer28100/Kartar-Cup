@@ -36,6 +36,9 @@ every explicit constraint the user has given, near-verbatim.
 **B. Prediction game "Crowd vs reality"** (ask: "continue building" the prediction game)
 - Source: docs/research/fastf1-ideas.md section E #1 (C2+C3, D9+D11). Pure model `src/lib/crowd.ts` + host
   panel. See `git log` for how far it got.
+- Shipped: `src/lib/crowd.ts` (+tests) and host-only `src/host/CrowdReveal.tsx` (room accuracy bullet meter,
+  per-question top-3 pick bars with "Actual" marker, bold calls). Visual check at 390/1440px still to do.
+- Remaining from the research top-5: pick heat map, answers-resolve-live, broadcast-delay handling, replay.
 
 ## NOT yet done — the merge to main
 **Never merged this branch into `main`, and never will from here.** Unconditional rule in my own

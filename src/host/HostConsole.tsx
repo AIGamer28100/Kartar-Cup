@@ -8,6 +8,7 @@ import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
 import { rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
+import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
 import PodiumController from './screen/PodiumController';
 import ResultsForm from './ResultsForm';
@@ -75,6 +76,7 @@ export default function HostConsole() {
         overrideUid={overrideUid}
         revealed={event?.winnerRevealed ?? false}
       />
+      <CrowdReveal config={config} entries={entries} results={results} />
       <ResultsForm config={config} resultsDoc={resultsDoc} results={results} />
       <PodiumController />
       <div className="py-8">
