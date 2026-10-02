@@ -28,11 +28,14 @@ every explicit constraint the user has given, near-verbatim.
 - DONE + verified (tsc clean, vitest 206/206): `src/lib/roles.ts` (Role, Access, accessFor, grantableRoles,
   inviteRolesFor, toggleRole, invite token), `src/lib/users.ts` (users/invites Firestore API), `auth.tsx`
   exposes `access`, firestore.rules users/invites (c8d1f44), `tests/rules/roles.rules.test.ts`.
-- NOT DONE (UI only): (1) `/host/users` page (`watchAllUsers`, role chips via `toggleRole`/`setUserRoles`,
-  gated on `access`); (2) invite panel (`createInvite`/`watchInvites`/`revokeInvite`) with QR via the installed
-  `qrcode` dep; (3) public `/join/:token` route in `src/App.tsx` (`getInvite` -> sign in -> `redeemInvite`);
-  (4) nav link + route in `src/host/HostApp.tsx`; (5) `npm run test:rules` (not re-run) and deploy rules with
-  `--project kartar-cup`.
+- SHIPPED (UI): `/host/users` (`src/host/UsersAdmin.tsx`: admin people list, search + role filter, role chips with
+  remove-confirm; hosts see only the invite panel), `src/host/InvitePanel.tsx` (create link + copy + QR, list,
+  revoke), public `/join/:token` (`src/pages/JoinPage.tsx`), pure helpers `src/lib/userAdmin.ts` (+tests).
+  tsc clean, vitest 225/225, build ok, `npm run test:rules` passes.
+- REMAINS: deploy rules + hosting with `--project kartar-cup`; visual QA at 390/1440px (page, QR, join flow).
+  Known limits: other people's super-admin status is not visible to the client (hosts/{email} is get-own-only),
+  so only the signed-in super admin's own row carries the badge; invites are reusable until expiry/revoke (no
+  'used' state in the data).
 **B. Prediction game "Crowd vs reality"** (ask: "continue building" the prediction game)
 - Source: docs/research/fastf1-ideas.md section E #1 (C2+C3, D9+D11). Pure model `src/lib/crowd.ts` + host
   panel. See `git log` for how far it got.
