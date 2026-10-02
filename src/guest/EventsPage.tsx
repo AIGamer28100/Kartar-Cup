@@ -108,12 +108,13 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
     );
   }
   return (
-    <div className="track-tilt-stage flex aspect-square items-center justify-center overflow-hidden">
-      <div className={`h-full max-h-full w-3/5 ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
+    <div className="track-tilt-stage flex items-center justify-center overflow-hidden">
+      <div className={`h-full max-h-full ${featured ? 'track-tilt-featured' : 'track-tilt'}`}>
         {/* max-h-full caps the SVG's own aspect-ratio-driven height to the stage's fixed
            height (h-auto alone lets an unusually tall/narrow circuit exceed the box) — this
            is the real fix for cards overflowing their boundaries, independent of the 3D tilt. */}
         <TrackMap
+          animate
           raceId={race.id}
           title={`${race.name} circuit layout`}
           className="max-h-full"
@@ -444,7 +445,7 @@ export default function EventsPage() {
                   />
                 </div>
               )}
-              <div className="lg:basis-[65%]">
+              <div className="lg:basis">
                 <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">
                   Next
                 </p>

@@ -23,7 +23,7 @@ export default function TrackMap({ raceId, track, animate = false, className = '
       fill="none"
     >
       {animate && (
-        <style>{`@keyframes track-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}@media (prefers-reduced-motion:no-preference){.track-draw{stroke-dasharray:1;animation:track-draw 2.4s ease-out forwards}}`}</style>
+        <style>{`@keyframes track-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}@media (prefers-reduced-motion:no-preference){.track-draw{stroke-dasharray:1;animation:track-draw 25s ease-out forwards}}`}</style>
       )}
       <path
         d={t.d}

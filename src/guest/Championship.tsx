@@ -4,7 +4,7 @@ import { fetchConstructorStandings, fetchDriverStandings, type Standings } from 
 import { Eyebrow, H2, Reveal } from './parts';
 
 type Tab = 'drivers' | 'constructors';
-const SHOWN = 8;
+const SHOWN = 11;
 
 /** Counts up to `value` the first time it scrolls into view. Final number is rendered immediately
  * under reduced motion, and always as real text so it reads correctly with scripts or motion off. */
