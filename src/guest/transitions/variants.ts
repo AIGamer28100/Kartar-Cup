@@ -47,6 +47,7 @@ export function routeMeta(path: string): RouteMeta | null {
   if (p === '/events') return { sector: 'S2', label: 'EVENTS', title: 'Events' };
   if (/^\/events\/[^/]+$/.test(p)) return { sector: 'S3', label: 'CHECKOUT', title: 'Booking checkout' };
   if (p === '/gallery') return { sector: 'S2', label: 'GALLERY', title: 'Gallery' };
+  if (p === '/cup') return { sector: 'S2', label: 'CUP', title: 'Karter Cup' };
   if (p === '/about') return { sector: 'S2', label: 'ABOUT', title: 'About' };
   if (p === '/contact') return { sector: 'S2', label: 'CONTACT', title: 'Contact' };
   if (p === '/profile') return { sector: 'S3', label: 'PROFILE', title: 'Profile' };

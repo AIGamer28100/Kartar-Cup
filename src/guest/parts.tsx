@@ -150,6 +150,7 @@ const footLinkCls =
 const FOOT_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/events', label: 'Events', end: false },
+  { to: '/cup', label: 'Cup', end: false },
   { to: '/gallery', label: 'Gallery', end: false },
   { to: '/about', label: 'About', end: false },
   { to: '/contact', label: 'Contact', end: false },

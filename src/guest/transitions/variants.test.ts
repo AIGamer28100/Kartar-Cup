@@ -66,6 +66,8 @@ describe('helpers', () => {
       label: 'EVENTS',
     });
     expect(routeMeta('/about')?.label).toBe('ABOUT');
+    expect(routeMeta('/cup')).toMatchObject({ label: 'CUP', title: 'Karter Cup' });
+    expect(transitionFor('/', '/cup', 'PUSH', false)?.kind).toBe('flag-wipe');
     expect(routeMeta('/contact')?.title).toBe('Contact');
     expect(transitionFor('/', '/about', 'PUSH', false)?.kind).toBe('flag-wipe');
     expect(routeMeta('/events/x/y')).toBeNull();

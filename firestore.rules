@@ -430,5 +430,101 @@ service cloud.firestore {
 
       allow delete: if false;
     }
+
+    /* ---------- Karter Cup competitive layer (PRD s24) ----------
+     * Hosts (isHost: host, admin, super admin) write everything. The public reads only PUBLISHED
+     * seasons, their published rounds, and that season's drivers/results/standings. List queries
+     * on seasons and rounds must carry where('published','==',true). Standings are precomputed
+     * by the host app (no Cloud Functions). Validators are deliberately shallow (top-level shape,
+     * sizes, element checks only for the short points table) to stay inside the rules budget;
+     * writers are trusted hosts and the client sanitises on read. */
+    function cupSeasonPath(sid) { return /databases/$(database)/documents/cupSeasons/$(sid); }
+    function cupSeasonPublished(sid) { return get(cupSeasonPath(sid)).data.published == true; }
+    function ptOk(l, i) { return l.size() <= i || (l[i] is int && l[i] >= 0 && l[i] <= 1000); }
+    function validPoints(l) {
+      return l is list && l.size() >= 1 && l.size() <= 20
+        && ptOk(l, 0) && ptOk(l, 1) && ptOk(l, 2) && ptOk(l, 3) && ptOk(l, 4)
+        && ptOk(l, 5) && ptOk(l, 6) && ptOk(l, 7) && ptOk(l, 8) && ptOk(l, 9)
+        && ptOk(l, 10) && ptOk(l, 11) && ptOk(l, 12) && ptOk(l, 13) && ptOk(l, 14)
+        && ptOk(l, 15) && ptOk(l, 16) && ptOk(l, 17) && ptOk(l, 18) && ptOk(l, 19);
+    }
+    function validCupSeason() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'year', 'status', 'pointsTable', 'fastestLapBonus', 'published', 'updatedAt'])
+        && d.keys().hasAll(['name', 'year', 'status', 'pointsTable', 'fastestLapBonus', 'published', 'updatedAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.year is int && d.year >= 2000 && d.year <= 2100
+        && d.status in ['upcoming', 'active', 'completed']
+        && validPoints(d.pointsTable)
+        && d.fastestLapBonus is int && d.fastestLapBonus >= 0 && d.fastestLapBonus <= 10
+        && d.published is bool
+        && d.updatedAt == request.time;
+    }
+    function validCupDriver() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'number', 'team', 'active'])
+        && d.keys().hasAll(['name', 'active'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+        && (!('number' in d) || (d.number is int && d.number >= 0 && d.number <= 999))
+        && (!('team' in d) || (d.team is string && d.team.size() >= 1 && d.team.size() <= 60))
+        && d.active is bool;
+    }
+    function validCupRound() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'date', 'venue', 'order', 'status', 'published'])
+        && d.keys().hasAll(['name', 'date', 'order', 'status', 'published'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && (!('venue' in d) || (d.venue is string && d.venue.size() <= 80))
+        && d.order is int && d.order >= 0 && d.order <= 1000
+        && d.status in ['scheduled', 'completed']
+        && d.published is bool;
+    }
+    function validCupResult() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['order', 'dnf', 'fastestLap', 'updatedAt'])
+        && d.keys().hasAll(['order', 'updatedAt'])
+        && d.order is list && d.order.size() <= 100
+        && (!('dnf' in d) || (d.dnf is list && d.dnf.size() <= 100))
+        && (!('fastestLap' in d) || (d.fastestLap is string && d.fastestLap.size() <= 40))
+        && d.updatedAt == request.time;
+    }
+    function validCupStandings() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['drivers', 'teams', 'roundsCounted', 'updatedAt'])
+        && d.keys().hasAll(['drivers', 'teams', 'roundsCounted', 'updatedAt'])
+        && d.drivers is list && d.drivers.size() <= 100
+        && d.teams is list && d.teams.size() <= 100
+        && d.roundsCounted is int && d.roundsCounted >= 0 && d.roundsCounted <= 1000
+        && d.updatedAt == request.time;
+    }
+    match /cupSeasons/{sid} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validCupSeason();
+      allow delete: if false;
+
+      match /drivers/{did} {
+        allow read: if cupSeasonPublished(sid) || isHost();
+        allow create, update: if isHost() && validCupDriver();
+        allow delete: if isHost();
+      }
+      match /rounds/{rid} {
+        allow read: if (resource.data.published == true && cupSeasonPublished(sid)) || isHost();
+        allow create, update: if isHost() && validCupRound();
+        allow delete: if isHost();
+        match /results/{resId} {
+          allow read: if (resId == 'final' && cupSeasonPublished(sid)
+              && get(/databases/$(database)/documents/cupSeasons/$(sid)/rounds/$(rid)).data.published == true)
+            || isHost();
+          allow create, update: if isHost() && resId == 'final' && validCupResult();
+          allow delete: if isHost();
+        }
+      }
+      match /standings/{stId} {
+        allow read: if cupSeasonPublished(sid) || isHost();
+        allow create, update: if isHost() && stId == 'current' && validCupStandings();
+        allow delete: if isHost();
+      }
+    }
   }
 }
