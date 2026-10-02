@@ -14,6 +14,7 @@ import { TicketQr } from './TicketView';
 import TicketActions, { PolicyNote } from './TicketActions';
 import { maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
 import { formatInr } from './profileModel';
+import { usePageMeta } from '../lib/pageMeta';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
 /** Guest-side date formatter, kept local rather than importing from src/host/** (host code is
@@ -135,6 +136,7 @@ export default function BookingCheckout() {
   const { bookingEventId } = useParams<{ bookingEventId: string }>();
   const { ready, user } = useAuth();
   const [event, setEvent] = useState<BookingEvent | null | undefined>(undefined);
+  usePageMeta({ title: event?.title, description: event ? `${event.title} at ${event.venue.name}, ${event.venue.city} on ${fmtLocal(new Date(event.dateUtc).getTime())}. Book tickets with Kartar CUP.` : undefined });
 
   const [tierId, setTierId] = useState<string>('');
   const [qty, setQty] = useState(1);

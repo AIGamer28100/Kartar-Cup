@@ -12,6 +12,7 @@ import { useEventStatus } from '../lib/eventStatus';
 import { watchBookingEvents } from '../lib/bookings';
 import { nextSession, raceStartFor, type SessionTime } from '../lib/f1api';
 import { useSchedule } from '../lib/useSchedule';
+import { usePageMeta } from '../lib/pageMeta';
 import type { BookingEvent, EventConfig } from '../lib/types';
 import { groupByMonth, previousRace, ticketStatusFor, timelineEntries, upcomingRaces, upcomingSeasons } from './eventsModel';
 import { quizGateVariant } from './quizGate';
@@ -311,6 +312,7 @@ function RaceCard({
  * list, grouped by month) — not a flat multi-season dump. Ticket status is sourced only from
  * real BookingEvent docs (never invented) — R28 (browse without auth). */
 export default function EventsPage() {
+  usePageMeta({ title: 'Events', description: 'Upcoming race watch parties and karting events, with tickets.' });
   const [bookingEvents, setBookingEvents] = useState<BookingEvent[] | undefined>(undefined);
   const [loadError, setLoadError] = useState<Error | null>(null);
   const { raceId: quizRaceId, status: quizStatus } = useActiveQuizRace();

@@ -23,6 +23,7 @@ import { useGuestSession } from "./useGuestSession";
 import { useCountdown } from "../lib/useCountdown";
 import { nextSession, raceStartFor } from "../lib/f1api";
 import { useSchedule } from "../lib/useSchedule";
+import { usePageMeta } from "../lib/pageMeta";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -443,6 +444,7 @@ function CommunityFooter() {
 /** The Kartar CUP home page: a community/brand page. The quiz is demoted to a small, contextual
  * banner (see QuizBanner + quizGate) — never the hero's main CTA or its own headline section. */
 export default function HomePage() {
+  usePageMeta({});
   const s = useGuestSession();
   const [quizRevealed, setQuizRevealed] = useState(false);
 

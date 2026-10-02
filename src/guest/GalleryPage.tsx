@@ -1,4 +1,5 @@
 import Divider from '../components/Divider';
+import { usePageMeta } from '../lib/pageMeta';
 import { GALLERY_PLACEHOLDERS, gallerySrc } from './galleryData';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
@@ -7,6 +8,7 @@ import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
  * native overflow-x + CSS scroll-snap, no JS drag library, asymmetric card widths. Placeholder
  * images only (R26/R27) until real Karter Cup photos are supplied. */
 export default function GalleryPage() {
+  usePageMeta({ title: 'Gallery', description: 'Photos from past Karter Cup and Karter Club events.' });
   return (
     <Shell>
       <div className="max-w-[52ch]">

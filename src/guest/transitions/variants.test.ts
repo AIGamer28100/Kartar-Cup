@@ -65,6 +65,9 @@ describe('helpers', () => {
       sector: 'S2',
       label: 'EVENTS',
     });
+    expect(routeMeta('/about')?.label).toBe('ABOUT');
+    expect(routeMeta('/contact')?.title).toBe('Contact');
+    expect(transitionFor('/', '/about', 'PUSH', false)?.kind).toBe('flag-wipe');
     expect(routeMeta('/events/x/y')).toBeNull();
     expect(routeMeta('/host')).toBeNull();
     expect(routeMeta('/join/tok')?.title).toBe('Join');
