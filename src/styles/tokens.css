@@ -112,3 +112,16 @@
   background-blend-mode: overlay;
   opacity: 0.85;
 }
+
+/* Track outline draw-on (TrackMap). pathLength=1 on the path, so dash units are 0..1 of the lap.
+   Linear: ease-out front-loaded the motion. Reduced motion = no animation, fully drawn. */
+@keyframes track-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .track-draw {
+    stroke-dasharray: 1 1;
+    animation: track-draw 25s linear forwards;
+  }
+}

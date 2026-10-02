@@ -9,6 +9,10 @@ interface TrackMapProps {
   title?: string;
 }
 
+/** Stroke widths are in viewBox units (all outlines use a 1000x1000 box) so they scale with the
+ * SVG. Do NOT use vectorEffect="non-scaling-stroke" here: it makes dash lengths screen px while
+ * pathLength normalises in user units, so the draw-on animation finished long before its duration.
+ * The draw keyframes live in src/styles/tokens.css (.track-draw). */
 export default function TrackMap({ raceId, track, animate = false, className = '', title }: TrackMapProps) {
   const t = track ?? (raceId ? trackForRace(raceId) : null);
   if (!t) return null;
@@ -22,26 +26,21 @@ export default function TrackMap({ raceId, track, animate = false, className = '
       className={`block w-full h-auto ${className}`}
       fill="none"
     >
-      {animate && (
-        <style>{`@keyframes track-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}@media (prefers-reduced-motion:no-preference){.track-draw{stroke-dasharray:1;animation:track-draw 25s ease-out forwards}}`}</style>
-      )}
       <path
         d={t.d}
         pathLength={1}
         className="stroke-line"
-        strokeWidth={14}
+        strokeWidth={36}
         strokeLinecap="round"
         strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
       />
       <path
         d={t.d}
         pathLength={1}
         className={`stroke-accent ${draw}`}
-        strokeWidth={4}
+        strokeWidth={11}
         strokeLinecap="round"
         strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
       />
       {t.start && <circle cx={t.start.x} cy={t.start.y} r={9} className="fill-ink stroke-accent" strokeWidth={3} />}
     </svg>
