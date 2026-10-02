@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router';
+import { Link, NavLink, useNavigate } from 'react-router';
 import { Check, Gauge, Images, SignIn, SignOut, TicketIcon, User, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
@@ -9,6 +9,7 @@ import { signInError } from './SignIn';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
 import Divider from '../components/Divider';
+import { CONTACT } from '../config/contact';
 import type { PickMap } from './draft';
 import { formatRemaining, optionLabel, safeWhatsappUrl } from './model';
 
@@ -97,7 +98,8 @@ function HeaderSignIn() {
 export function Shell({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   const { ready, user, isHost } = useAuth();
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6 lg:px-16">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pt-4 md:px-10 md:pt-6 lg:px-16">
+    <main className="flex flex-1 flex-col pb-10 md:pb-12">
       <div className="mb-6 flex min-h-11 items-center justify-between gap-4 md:mb-2">
         {bare ? <span /> : <LogoMark />}
         <div className="flex items-center gap-4">
@@ -137,6 +139,64 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
       </div>
       {children}
     </main>
+    {!bare && <SiteFooter />}
+    </div>
+  );
+}
+
+const footLinkCls =
+  '-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-[current=page]:text-ink';
+
+const FOOT_LINKS = [
+  { to: '/', label: 'Home', end: true },
+  { to: '/events', label: 'Events', end: false },
+  { to: '/gallery', label: 'Gallery', end: false },
+  { to: '/about', label: 'About', end: false },
+  { to: '/contact', label: 'Contact', end: false },
+] as const;
+
+/** Public-site footer (non-bare pages only). Sits outside <main> so it is the page's contentinfo
+ * landmark. Own text wordmark only (R27). On phones App pads the page bottom to clear the fixed
+ * tab bar and race strip, so nothing here needs its own offset. */
+function SiteFooter() {
+  return (
+    <footer className="mt-auto border-t border-line py-8 md:py-10">
+      <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+        <div className="max-w-sm">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight text-ink">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+            Kartar CUP
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            Karting events and sim racing. Watch parties with The Karter Club.
+          </p>
+        </div>
+        <nav aria-label="Footer">
+          <ul className="m-0 flex list-none flex-wrap gap-x-6 gap-y-0 p-0">
+            {FOOT_LINKS.map((l) => (
+              <li key={l.to}>
+                <NavLink to={l.to} end={l.end} className={footLinkCls}>
+                  {l.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <ul aria-label="Instagram" className="m-0 flex list-none flex-row flex-wrap gap-x-6 p-0 md:flex-col md:items-end md:gap-x-0">
+          {CONTACT.instagram.map((i) => (
+            <li key={i.handle}>
+              <a href={i.url} target="_blank" rel="noopener noreferrer" className={`${footLinkCls} md:mx-0 md:px-0`}>
+                {i.handle}
+                <span className="sr-only"> on Instagram (opens in a new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="mt-6 text-xs text-muted">
+        &copy; {new Date().getFullYear()} Kartar CUP. The Karter Club is an initiative by The Karter Cup.
+      </p>
+    </footer>
   );
 }
 
