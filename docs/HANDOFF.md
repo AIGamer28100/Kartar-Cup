@@ -164,3 +164,9 @@ rules.md now has R1-R35 (R35 = this session's booking-UI-with-stubs instruction)
 every major architecture call plus this session's firebase-deploy incident, the guest/host code
 boundary note, and the booking-with-stub-data decision. Read both before proposing anything —
 several paths are already explicitly rejected and re-deriving them wastes time.
+
+## Booking cancel/refund + attendee roster (shipped, unreleased)
+- Guest/host cancel (mock refund label only, R23) as a transaction that releases seats (bookedCount -= qty); guest cancel gated by canGuestCancel (event not started); cancelled ticket shows CANCELLED panel, QR hidden.
+- Host: Attendees roster per booking event (search, status filter, tallies, per-row cancel, CSV export).
+- firestore.rules changed (booking cancel + capacityRelease on bookingEvents): MUST be deployed with `firebase deploy --only firestore:rules --project kartar-cup`. Not deployed yet.
+- Known gap: guest-cancel start-time gate is client-only (dateUtc is a string in rules); capacityRelease lets any signed-in user lower bookedCount by <=10 (mirror of capacityBump trust).

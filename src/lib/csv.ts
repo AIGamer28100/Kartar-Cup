@@ -18,3 +18,31 @@ export function toCsv(
   }
   return lines.join('\r\n');
 }
+
+export interface BookingCsvRow {
+  id: string;
+  name: string;
+  email: string;
+  tier: string;
+  qty: number;
+  status: string;
+  totalInr: number;
+  discountCode?: string;
+  paidAtIso?: string;
+  checkedInAtIso?: string;
+  cancelledAtIso?: string;
+  refund?: string;
+  createdAtIso?: string;
+}
+
+/** Host attendee export. Same injection-safe cell() as toCsv (formula-leading text is prefixed). */
+export function bookingsToCsv(rows: BookingCsvRow[]): string {
+  const lines = ['bookingId,name,email,tier,qty,status,totalInr,discountCode,paidAt,checkedInAt,cancelledAt,refund,createdAt'];
+  for (const r of rows) {
+    lines.push(
+      [r.id, r.name, r.email, r.tier, r.qty, r.status, r.totalInr, r.discountCode, r.paidAtIso,
+        r.checkedInAtIso, r.cancelledAtIso, r.refund, r.createdAtIso].map(cell).join(','),
+    );
+  }
+  return lines.join('\r\n');
+}

@@ -7,6 +7,7 @@ import type { BookingEvent } from '../../lib/types';
 import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { useSchedule } from '../../lib/useSchedule';
+import AttendeeRoster from './AttendeeRoster';
 import { DiscountsEditor, TiersEditor } from './Editors';
 import VenueSearch from './VenueSearch';
 import {
@@ -28,6 +29,7 @@ export default function BookingsAdmin() {
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [touched, setTouched] = useState(false);
+  const [rosterId, setRosterId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = watchAllBookingEvents(
@@ -260,6 +262,9 @@ export default function BookingsAdmin() {
     );
   }
 
+  const rosterEvent = rosterId ? events?.find((e) => e.id === rosterId) : undefined;
+  if (rosterEvent) return <AttendeeRoster event={rosterEvent} onBack={() => setRosterId(null)} />;
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
@@ -293,9 +298,14 @@ export default function BookingsAdmin() {
               >
                 {ev.salesOpen ? 'Open' : 'Closed'}
               </span>
-              <Button variant="secondary" onClick={() => openEdit(ev)}>
-                Edit
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setRosterId(ev.id)}>
+                  Attendees
+                </Button>
+                <Button variant="secondary" onClick={() => openEdit(ev)}>
+                  Edit
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
