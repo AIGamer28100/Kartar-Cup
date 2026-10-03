@@ -271,7 +271,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt',
-                'category','hosted','description'])
+                'category','hosted','description','cardSpec','cardSeq'])
         && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
@@ -290,6 +290,8 @@ service cloud.firestore {
         && (!('category' in d) || d.category in ['f1', 'cup', 'club'])
         && (!('hosted' in d) || d.hosted is bool)
         && (!('description' in d) || (d.description is string && d.description.size() <= 600))
+        && (!('cardSpec' in d) || (d.cardSpec is map && d.cardSpec.keys().hasOnly(['widthMm', 'heightMm', 'note'])))
+        && (!('cardSeq' in d) || (d.cardSeq is int && d.cardSeq >= 0 && d.cardSeq <= 100000))
         && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64));
     }
     // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
@@ -359,6 +361,46 @@ service cloud.firestore {
       allow create: if canRunBookings() && validBookingEvent(eventId);
       allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease(eventId);
       allow delete: if canRunBookings();
+
+      // R45: per-event card designs, stored as small compressed images (no Storage on this plan).
+      // The VIP design is the same for every attendee, so any signed-in guest may read it (their query
+      // must filter kind == 'vip'); Play-card designs reveal the whole deck, so they stay host-only.
+      // A guest sees only THEIR Play card, copied onto their own booking at check-in (R15).
+      match /cards/{cardId} {
+        allow read: if canRunBookings() || (signedIn() && resource.data.kind == 'vip');
+        allow create, update: if canRunBookings() && validCard();
+        allow delete: if canRunBookings();
+      }
+    }
+
+    function validCard() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['kind', 'title', 'driverName', 'code', 'number', 'points', 'image', 'imageUrl', 'width', 'height', 'order', 'updatedAt'])
+        && d.keys().hasAll(['kind', 'order', 'updatedAt'])
+        && d.kind in ['vip', 'play']
+        && ('image' in d || 'imageUrl' in d)
+        && (!('image' in d) || (d.image is string && d.image.size() <= 450000))
+        && (!('imageUrl' in d) || (d.imageUrl is string && d.imageUrl.matches('https://.*') && d.imageUrl.size() <= 500))
+        && d.order is int
+        && d.updatedAt == request.time
+        && (d.kind == 'vip' || ('points' in d && 'driverName' in d))
+        && (!('title' in d) || (d.title is string && d.title.size() <= 60))
+        && (!('driverName' in d) || (d.driverName is string && d.driverName.size() <= 60))
+        && (!('code' in d) || (d.code is string && d.code.size() <= 4))
+        && (!('points' in d) || (d.points is int && d.points >= 0 && d.points <= 1000));
+    }
+    // Host assigns the pass number + the drawn Play card onto the guest's booking (a snapshot copy).
+    function validAssignment(d) {
+      return (!('passNumber' in d) || (d.passNumber is int && d.passNumber >= 1 && d.passNumber <= 100000))
+        && (!('playCard' in d) || (d.playCard is map
+              && d.playCard.keys().hasOnly(['cardId', 'driverName', 'code', 'number', 'points', 'image', 'imageUrl'])
+              && d.playCard.keys().hasAll(['cardId', 'driverName', 'points'])
+              && ('image' in d.playCard || 'imageUrl' in d.playCard)
+              && (!('imageUrl' in d.playCard) || (d.playCard.imageUrl is string && d.playCard.imageUrl.matches('https://.*') && d.playCard.imageUrl.size() <= 500))
+              && d.playCard.cardId is string
+              && d.playCard.driverName is string && d.playCard.driverName.size() <= 60
+              && d.playCard.points is int && d.playCard.points >= 0 && d.playCard.points <= 1000
+              && (!('image' in d.playCard) || (d.playCard.image is string && d.playCard.image.size() <= 450000))));
     }
 
     function bookingEv(id) { return get(/databases/$(database)/documents/bookingEvents/$(id)).data; }
@@ -427,6 +469,10 @@ service cloud.firestore {
               && resource.data.status == 'reserved'
               && request.resource.data.status == 'paid_mock'
               && request.resource.data.paidAt == request.time)
+            || (canRunBookings()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passNumber', 'playCard'])
+              && (resource.data.status == 'paid_mock' || resource.data.status == 'checked_in')
+              && validAssignment(request.resource.data))
             || (canRunBookings()
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkedInAt', 'checkedInBy'])
               && resource.data.status == 'paid_mock'
