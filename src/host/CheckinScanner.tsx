@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import { checkIn, lookupBookingById, watchBookingEvent } from '../lib/bookings';
 import { useAuth } from '../lib/auth';
 import type { Booking, BookingEvent } from '../lib/types';
+import CardAssign from './CardAssign';
 import { inputCls } from './settings/ui';
 
 const formatInr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
@@ -302,6 +303,10 @@ function ResultCard({
         <p role="alert" className="mt-2 text-accent">
           {err}
         </p>
+      )}
+
+      {(booking.status === 'paid_mock' || booking.status === 'checked_in') && (
+        <CardAssign key={booking.id} booking={booking} event={event} />
       )}
 
       <div className="mt-5 flex flex-wrap gap-3">

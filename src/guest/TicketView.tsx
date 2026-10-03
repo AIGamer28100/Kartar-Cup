@@ -9,6 +9,7 @@ import { watchBooking, watchBookingEvent } from '../lib/bookings';
 import type { Booking, BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
 import CancelBooking from './CancelBooking';
+import MyCards from './MyCards';
 import TicketActions, { PolicyNote } from './TicketActions';
 import { bookingStatusLabel, formatInr } from './profileModel';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
@@ -162,6 +163,11 @@ export default function TicketPage() {
           </>
         )}
       </Reveal>
+      {!cancelled && !unpaid && (
+        <Reveal index={2} className="mt-8">
+          <MyCards booking={booking} />
+        </Reveal>
+      )}
       {event && !cancelled && (
         <Reveal index={2} className="mt-8">
           <TicketActions event={event} bookingId={booking.id} />
