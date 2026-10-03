@@ -14,11 +14,13 @@ import PodiumController from './screen/PodiumController';
 import ResultsForm from './ResultsForm';
 import RevealWinner from './RevealWinner';
 import StatusPanel from './StatusPanel';
+import { useCardBonus } from './useCardBonus';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
   const { loading, error, event, config, entries, resultsDoc, results } = useHostData();
   const stuck = useTimedOut(loading);
+  const cardBonus = useCardBonus(config?.raceId);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
   const overrideUid = localOverride !== undefined ? localOverride : (event?.tiebreakOverride ?? null);
 
@@ -30,8 +32,8 @@ export default function HostConsole() {
       submittedAtMs: e.submittedAt.toMillis(),
     }));
     // Without a config (nothing live) fall back to the defaults, exactly as before.
-    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined);
-  }, [entries, results, overrideUid, config]);
+    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, cardBonus);
+  }, [entries, results, overrideUid, config, cardBonus]);
 
   function exportCsv() {
     const byUid = new Map(entries.map((e) => [e.uid, e]));

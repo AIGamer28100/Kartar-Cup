@@ -80,6 +80,11 @@ export default function Leaderboard({
               </span>
               <span className="text-right font-mono text-3xl tabular-nums md:text-5xl 2xl:text-6xl">
                 {r.score}
+                {(r.bonus ?? 0) > 0 && (
+                  <span className="block text-xs text-muted md:text-sm 2xl:text-base">
+                    {r.quizScore ?? 0} + {r.bonus} card
+                  </span>
+                )}
               </span>
             </>
           );

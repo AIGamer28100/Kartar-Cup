@@ -9,6 +9,7 @@ import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { useSchedule } from '../../lib/useSchedule';
 import AttendeeRoster from './AttendeeRoster';
+import CardsAdmin from './CardsAdmin';
 import { DiscountsEditor, TiersEditor } from './Editors';
 import VenueSearch from './VenueSearch';
 import {
@@ -31,6 +32,7 @@ export default function BookingsAdmin() {
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [touched, setTouched] = useState(false);
   const [rosterId, setRosterId] = useState<string | null>(null);
+  const [cardsId, setCardsId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = watchAllBookingEvents(
@@ -306,6 +308,8 @@ export default function BookingsAdmin() {
 
   const rosterEvent = rosterId ? events?.find((e) => e.id === rosterId) : undefined;
   if (rosterEvent) return <AttendeeRoster event={rosterEvent} onBack={() => setRosterId(null)} />;
+  const cardsEvent = cardsId ? events?.find((e) => e.id === cardsId) : undefined;
+  if (cardsEvent) return <CardsAdmin event={cardsEvent} onBack={() => setCardsId(null)} />;
 
   return (
     <div>
@@ -346,6 +350,9 @@ export default function BookingsAdmin() {
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => setRosterId(ev.id)}>
                   Attendees
+                </Button>
+                <Button variant="secondary" onClick={() => setCardsId(ev.id)}>
+                  Cards
                 </Button>
                 <Button variant="secondary" onClick={() => openEdit(ev)}>
                   Edit

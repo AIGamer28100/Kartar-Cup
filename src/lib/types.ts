@@ -46,7 +46,12 @@ export interface ScreenState {
   updatedAt: Timestamp;
 }
 export interface RankedRow extends ScorableEntry {
+  /** Total = quiz points + Play-card bonus (R46). */
   score: number;
+  /** Points from correct picks alone; absent on rows built without card data. */
+  quizScore?: number;
+  /** Play-card points added to the total (R46); 0 or absent when the guest has no card. */
+  bonus?: number;
   ticks: Record<string, boolean>;
   rank: number;
   tiedOnScore: boolean;
@@ -168,6 +173,10 @@ export interface BookingEvent {
   description?: string;
   /** Host-written cancellation/refund wording shown before and after purchase. */
   policy?: string;
+  /** R45: print spec of this event's physical cards. */
+  cardSpec?: CardSpec;
+  /** R45: highest VIP pass number handed out so far (the next pass is cardSeq + 1). */
+  cardSeq?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -196,4 +205,45 @@ export interface Booking {
   cancelReason?: string;
   /** Mock payments only (R23): 'mock_refunded' = a paid_mock booking was cancelled; no real money moved. */
   refund?: 'mock_refunded' | 'none';
+  /** R45: the VIP pass number, assigned by the host at check-in (per event, counting up from 1). */
+  passNumber?: number;
+  /** R45: a snapshot copy of the Play card this guest drew, written by the host (R15: only the owner reads it). */
+  playCard?: PlayCardSnapshot;
+}
+
+/** R45/R46: one physical card design for an event. VIP = the pass; play = one driver with a points value. */
+export type CardKind = 'vip' | 'play';
+export interface CardDoc {
+  id: string;
+  kind: CardKind;
+  title?: string;
+  driverName?: string;
+  /** Three-letter timing code, e.g. LEC. */
+  code?: string;
+  number?: number;
+  /** Points the card adds to the holder's quiz score (R46). Play cards only. */
+  points?: number;
+  /** Inline compressed image (data URL) - used when no CDN link is given. */
+  image?: string;
+  /** https link to the design on a CDN (e.g. Cloudflare R2); preferred when present. */
+  imageUrl?: string;
+  width?: number;
+  height?: number;
+  order: number;
+  updatedAt?: Timestamp;
+}
+export interface PlayCardSnapshot {
+  cardId: string;
+  driverName: string;
+  code?: string;
+  number?: number;
+  points: number;
+  image?: string;
+  imageUrl?: string;
+}
+/** Physical card print spec for an event; sizes and designs differ race to race (R45). */
+export interface CardSpec {
+  widthMm?: number;
+  heightMm?: number;
+  note?: string;
 }

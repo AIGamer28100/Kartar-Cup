@@ -10,10 +10,11 @@ function cell(v: unknown): string {
 export function toCsv(
   rows: (RankedRow & { email?: string; phone?: string; submittedAtIso: string })[],
 ): string {
-  const lines = ['rank,name,email,phone,score,submittedAt'];
+  // score = total (quiz + Play-card bonus, R46); the split is appended so existing column order holds.
+  const lines = ['rank,name,email,phone,score,submittedAt,quizScore,cardBonus'];
   for (const r of rows) {
     lines.push(
-      [r.rank, r.name, r.email, r.phone, r.score, r.submittedAtIso].map(cell).join(','),
+      [r.rank, r.name, r.email, r.phone, r.score, r.submittedAtIso, r.quizScore ?? r.score, r.bonus ?? 0].map(cell).join(','),
     );
   }
   return lines.join('\r\n');

@@ -29,6 +29,9 @@ export type AuditAction =
   | 'cup.standings'
   | 'booking.check-in'
   | 'booking.cancel'
+  | 'card.save'
+  | 'card.delete'
+  | 'card.assign'
   | 'user.roles'
   | 'invite.create'
   | 'invite.revoke';

@@ -45,8 +45,14 @@ export function rankEntries(
   override?: string | null,
   ids?: string[],
   points?: PointsMap,
+  /** R46: Play-card points by guest uid, added on top of the quiz points (see cardBonusByUid). */
+  bonus?: Record<string, number>,
 ): RankedRow[] {
-  const scored = entries.map((e) => ({ ...e, ...scoreEntry(e.answers, r, ids, points) }));
+  const scored = entries.map((e) => {
+    const s = scoreEntry(e.answers, r, ids, points);
+    const b = Math.max(0, Math.trunc(bonus?.[e.uid] ?? 0));
+    return { ...e, ticks: s.ticks, quizScore: s.score, bonus: b, score: s.score + b };
+  });
   scored.sort(
     (x, y) =>
       y.score - x.score ||
@@ -68,6 +74,21 @@ export function rankEntries(
     rank: i + 1,
     tiedOnScore: (counts.get(e.score) ?? 0) > 1,
   }));
+}
+
+/** R46: each guest's Play-card points. A booking counts when it is not cancelled and carries a drawn
+ * card, and only for the given booking events (the ones that belong to the race being scored).
+ * One card per booking, so a multi-seat booking still adds the card's points once, to the buyer. */
+export function cardBonusByUid(
+  bookings: { buyerUid: string; status: string; bookingEventId: string; playCard?: { points: number } }[],
+  bookingEventIds: ReadonlySet<string>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of bookings) {
+    if (b.status === 'cancelled' || !b.playCard || !bookingEventIds.has(b.bookingEventId)) continue;
+    out[b.buyerUid] = (out[b.buyerUid] ?? 0) + Math.max(0, Math.trunc(b.playCard.points));
+  }
+  return out;
 }
 
 export function winner(rows: RankedRow[]): RankedRow | null {
