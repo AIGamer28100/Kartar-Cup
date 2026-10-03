@@ -35,7 +35,7 @@ export function Field({
       {children}
       {hint && !error && <p className="mt-1.5 text-sm text-muted">{hint}</p>}
       {error && (
-        <p id={`${id}-err`} role="alert" className="mt-1.5 text-sm text-accent">
+        <p id={`${id}-err`} role="alert" className="mt-1.5 text-sm text-accent-text">
           {error}
         </p>
       )}

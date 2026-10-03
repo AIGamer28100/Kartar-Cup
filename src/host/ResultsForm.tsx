@@ -191,7 +191,7 @@ export default function ResultsForm({
           <FloppyDisk size={20} weight="regular" /> Save results
         </Button>
         {msg && (
-          <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-muted' : 'text-accent'}>
+          <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-muted' : 'text-accent-text'}>
             {msg.text}
           </p>
         )}

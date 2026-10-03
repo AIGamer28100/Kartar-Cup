@@ -29,7 +29,7 @@ export function GridStatusBanner({ status }: { status: GridStatus }) {
     );
   }
   if (status.kind === 'error') {
-    return <p className="text-sm text-accent">Couldn&rsquo;t reach OpenF1 ({status.reason}) — showing the provisional grid.</p>;
+    return <p className="text-sm text-accent-text">Couldn&rsquo;t reach OpenF1 ({status.reason}) — showing the provisional grid.</p>;
   }
   return <p className="text-sm text-muted">As last saved. Refresh to check OpenF1 for updates.</p>;
 }

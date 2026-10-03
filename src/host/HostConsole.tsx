@@ -63,7 +63,7 @@ export default function HostConsole() {
   return (
     <div>
       {error && (
-        <p role="alert" className="border-b border-line py-3 text-accent">
+        <p role="alert" className="border-b border-line py-3 text-accent-text">
           Results feed hiccup: {error}
         </p>
       )}

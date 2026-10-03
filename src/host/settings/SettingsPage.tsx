@@ -165,7 +165,7 @@ export default function SettingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
         {backLink}
         <p className="font-mono text-sm" data-testid="dirty-indicator" role="status">
-          {dirty ? <span className="text-accent">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
+          {dirty ? <span className="text-accent-text">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
         </p>
       </div>
       <h2 className="text-2xl font-semibold md:text-3xl">Event settings</h2>
@@ -246,7 +246,7 @@ export default function SettingsPage() {
             </div>
           </div>
           {errors.window && (
-            <p role="alert" className="mt-4 text-sm text-accent">
+            <p role="alert" className="mt-4 text-sm text-accent-text">
               {errors.window}
             </p>
           )}
@@ -313,7 +313,7 @@ export default function SettingsPage() {
             <Broadcast size={20} weight="regular" /> {busy === 'live' ? 'Going live...' : 'Set as live event'}
           </Button>
           {banner && (
-            <p role={banner.ok ? 'status' : 'alert'} data-testid="save-banner" className={banner.ok ? 'text-ink' : 'text-accent'}>
+            <p role={banner.ok ? 'status' : 'alert'} data-testid="save-banner" className={banner.ok ? 'text-ink' : 'text-accent-text'}>
               {banner.msg}
             </p>
           )}

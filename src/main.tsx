@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
+import '@fontsource/barlow-condensed/800-italic.css';
 import './styles/index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';

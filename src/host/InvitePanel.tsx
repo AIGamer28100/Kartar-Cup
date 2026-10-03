@@ -171,7 +171,7 @@ export default function InvitePanel() {
           {busy ? 'Creating...' : 'Create invite link'}
         </Button>
         {err && (
-          <p role="alert" className="text-sm text-accent">
+          <p role="alert" className="text-sm text-accent-text">
             {err}
           </p>
         )}
@@ -202,7 +202,7 @@ export default function InvitePanel() {
       {invites === null ? (
         <Skeleton className="mt-3 h-16 w-full" />
       ) : listErr ? (
-        <p role="alert" className="mt-3 text-accent">
+        <p role="alert" className="mt-3 text-accent-text">
           Couldn&rsquo;t load invite links. Try refreshing.
         </p>
       ) : invites.length === 0 ? (
@@ -240,7 +240,7 @@ export default function InvitePanel() {
         </ul>
       )}
       {revokeErr && (
-        <p role="alert" className="mt-3 text-sm text-accent">
+        <p role="alert" className="mt-3 text-sm text-accent-text">
           {revokeErr}
         </p>
       )}

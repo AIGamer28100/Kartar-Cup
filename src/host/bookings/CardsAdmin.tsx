@@ -139,7 +139,7 @@ function CardForm({
         <Preview card={{ image: imageUrl.trim() ? undefined : image, imageUrl: imageUrl.trim() || undefined }} />
         {dims.w && dims.h && <p className={`${num} text-xs text-muted`}>{dims.w} x {dims.h}px</p>}
       </div>
-      {err && <p role="alert" className="text-sm text-accent">{err}</p>}
+      {err && <p role="alert" className="text-sm text-accent-text">{err}</p>}
       <div className="flex gap-2">
         <Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save'}</Button>
         <Button variant="ghost" onClick={onDone} disabled={busy}>Cancel</Button>
@@ -225,7 +225,7 @@ export default function CardsAdmin({ event, onBack }: { event: BookingEvent; onB
         {specMsg && <p role="status" className="text-sm text-muted sm:col-span-4">{specMsg}</p>}
       </form>
 
-      {loadErr && <p role="alert" className="mt-4 text-sm text-accent">{loadErr}</p>}
+      {loadErr && <p role="alert" className="mt-4 text-sm text-accent-text">{loadErr}</p>}
       {cards === null && !loadErr && <RowsSkeleton />}
 
       {cards !== null && (
@@ -249,7 +249,7 @@ export default function CardsAdmin({ event, onBack }: { event: BookingEvent; onB
               <CardForm key={editing.card?.id ?? 'new'} eventId={event.id} kind="play" card={editing.card} nextOrder={nextOrder} onDone={() => setEditing(null)} />
             </div>
           )}
-          {delErr && <p role="alert" className="mt-3 text-sm text-accent">{delErr}</p>}
+          {delErr && <p role="alert" className="mt-3 text-sm text-accent-text">{delErr}</p>}
           {plays.length === 0 && !editing ? (
             <p className="mt-3 text-sm text-muted">No Play cards yet. Add one per driver in the deck, with the points printed on it.</p>
           ) : (

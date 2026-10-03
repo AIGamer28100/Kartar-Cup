@@ -78,7 +78,7 @@ export default function LiveControls() {
         </>
       )}
       {err && (
-        <p role="alert" className="mt-4 text-accent">
+        <p role="alert" className="mt-4 text-accent-text">
           <Lightning size={16} weight="regular" className="mr-1 inline" />
           {err}
         </p>

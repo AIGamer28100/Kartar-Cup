@@ -111,7 +111,7 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
           <p className="font-mono text-xs uppercase tracking-widest text-muted">
             {bookingStatusLabel(booking.status)}
           </p>
-          <p className="inline-flex items-center gap-1 text-sm font-medium text-accent">
+          <p className="inline-flex items-center gap-1 text-sm font-medium text-accent-text">
             Show ticket
             <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition group-hover:translate-x-0.5" />
           </p>
@@ -222,7 +222,7 @@ function ProfileContent({ user }: { user: User }) {
         </div>
         <Link
           to="/logout"
-          className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-accent bg-raised px-4 text-sm font-medium text-accent transition hover:bg-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-accent bg-raised px-4 text-sm font-medium text-accent-text transition hover:bg-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <SignOut size={20} weight="regular" aria-hidden="true" />
           Sign out

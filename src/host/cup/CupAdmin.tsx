@@ -31,7 +31,7 @@ type Msg = { ok: boolean; text: string } | null;
 function Banner({ msg }: { msg: Msg }) {
   if (!msg) return null;
   return (
-    <p role={msg.ok ? 'status' : 'alert'} className={`text-sm ${msg.ok ? 'text-muted' : 'text-accent'}`}>
+    <p role={msg.ok ? 'status' : 'alert'} className={`text-sm ${msg.ok ? 'text-muted' : 'text-accent-text'}`}>
       {msg.text}
     </p>
   );
@@ -77,7 +77,7 @@ export default function CupAdmin() {
 
   if (failed) {
     return (
-      <p className="py-8 text-accent" role="alert">
+      <p className="py-8 text-accent-text" role="alert">
         Could not load Cup seasons. Check your connection and permissions, then reload.
       </p>
     );
@@ -108,7 +108,7 @@ export default function CupAdmin() {
                 <button
                   type="button"
                   onClick={() => setOpenId(s.id)}
-                  className="flex min-h-14 w-full items-center justify-between gap-3 py-2 text-left hover:text-accent"
+                  className="flex min-h-14 w-full items-center justify-between gap-3 py-2 text-left hover:text-accent-text"
                 >
                   <span className="min-w-0 truncate font-medium">{s.name}</span>
                   <span className="shrink-0 font-mono text-sm text-muted">
@@ -245,7 +245,7 @@ function useList<T>(sub: (cb: (v: T[]) => void, err: () => void) => () => void):
 }
 
 const LoadFail = ({ what }: { what: string }) => (
-  <p role="alert" className="text-accent">Could not load {what}.</p>
+  <p role="alert" className="text-accent-text">Could not load {what}.</p>
 );
 
 function DriversPanel({ seasonId }: { seasonId: string }) {

@@ -122,7 +122,7 @@ function SeasonView({ season }: { season: CupSeason }) {
                         <span className="block font-medium text-ink">{r.name}</span>
                         {r.team && <span className="block text-sm text-muted">{r.team}</span>}
                       </td>
-                      <td className={`py-3 pl-2 text-right text-[1rem] font-semibold text-ink ${num}`}>{r.points}</td>
+                      <td className={`py-3 pl-2 text-right text-[1.25rem] font-semibold text-gold ${num}`}>{r.points}</td>
                       <td className={`py-3 pl-2 text-right text-muted ${num}`}>{r.wins}</td>
                       <td className={`py-3 pl-2 text-right text-muted ${num}`}>{r.podiums}</td>
                     </tr>
@@ -211,7 +211,7 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((o) => !o)}
-            className="-mr-2 inline-flex min-h-11 items-center px-2 text-sm text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="-mr-2 inline-flex min-h-11 items-center px-2 text-sm text-ink underline underline-offset-4 hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {open ? 'Hide results' : 'Show results'}
           </button>

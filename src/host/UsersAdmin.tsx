@@ -150,7 +150,7 @@ function UserRow({ u, isSelf }: { u: UserRecord; isSelf: boolean }) {
         </p>
       )}
       {err && (
-        <p role="alert" className="mt-2 text-sm text-accent">
+        <p role="alert" className="mt-2 text-sm text-accent-text">
           {err}
         </p>
       )}
@@ -224,11 +224,11 @@ function UserList() {
       {users === null ? (
         <RowsSkeleton />
       ) : error === 'denied' ? (
-        <p role="alert" className="mt-6 text-accent">
+        <p role="alert" className="mt-6 text-accent-text">
           Your account is not allowed to list people.
         </p>
       ) : error ? (
-        <p role="alert" className="mt-6 text-accent">
+        <p role="alert" className="mt-6 text-accent-text">
           Couldn&rsquo;t load people. Try refreshing.
         </p>
       ) : shown.length === 0 ? (

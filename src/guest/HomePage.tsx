@@ -140,7 +140,7 @@ function HeroAndNextRace() {
               {hostedNext && hostedNext.id !== next.id && (
                 <p className="mt-2 text-sm text-muted">
                   Next watch party:{" "}
-                  <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent">
+                  <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent">
                     {hostedNext.name}
                   </Link>{" "}
                   · {istReadout(raceStartFor(hostedNext, null).ms).day} {istReadout(raceStartFor(hostedNext, null).ms).month}
@@ -282,7 +282,7 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
         <TimeSegment value={pad(hours)} label="Hrs" />
         <TimeSegment value={pad(minutes)} label="Min" />
         <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
-          <p className="font-mono text-stat font-semibold tabular-nums text-accent motion-safe:animate-pulse motion-reduce:animate-none">
+          <p className="font-mono text-stat font-semibold tabular-nums text-accent-text motion-safe:animate-pulse motion-reduce:animate-none">
             {pad(seconds)}
           </p>
           <p className="mt-2 font-mono text-label uppercase text-muted">

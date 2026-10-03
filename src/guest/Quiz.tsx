@@ -87,7 +87,7 @@ export default function Quiz({
                   <PicksList config={config} answers={answers} />
                 </div>
                 {error && (
-                  <p role="alert" className="mt-4 text-sm text-accent">
+                  <p role="alert" className="mt-4 text-sm text-accent-text">
                     {error}
                   </p>
                 )}
@@ -284,7 +284,7 @@ function Step({
                 </span>
                 {o.sub && <span className="block font-mono text-xs text-muted">{o.sub}</span>}
               </span>
-              {sel && <Check size={20} weight="regular" className="shrink-0 text-accent" aria-label="Selected" />}
+              {sel && <Check size={20} weight="regular" className="shrink-0 text-accent-text" aria-label="Selected" />}
             </li>
           );
         })}
@@ -333,7 +333,7 @@ function Rail({
               aria-current={i === step ? 'step' : undefined}
               className="grid min-h-14 w-full grid-cols-[2.5rem_1fr] items-baseline gap-3 py-3 text-left transition-colors duration-150 hover:text-ink aria-[current=step]:text-ink"
             >
-              <span className={`font-mono text-sm tabular-nums ${i === step ? 'text-accent' : 'text-muted'}`}>
+              <span className={`font-mono text-sm tabular-nums ${i === step ? 'text-accent-text' : 'text-muted'}`}>
                 {String(i + 1).padStart(2, '0')}
               </span>
               <span className="min-w-0">

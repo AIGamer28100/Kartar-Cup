@@ -151,7 +151,7 @@ function TicketReadout({ ticket, kind = 'f1', stretch = true }: { ticket: Ticket
     return (
       <Link
         to={`/events/${ticket.bookingEventId}`}
-        className={`inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           stretch ? "after:absolute after:inset-0 after:content-['']" : ''
         }`}
       >

@@ -110,7 +110,7 @@ export default function BookingsAdmin() {
         <div className="flex flex-wrap items-center justify-between gap-3 py-4">
           {backLink}
           <p className="font-mono text-sm" role="status">
-            {dirty ? <span className="text-accent">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
+            {dirty ? <span className="text-accent-text">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
           </p>
         </div>
         <h2 className="text-2xl font-semibold md:text-3xl">{form.id ? 'Edit booking event' : 'New booking event'}</h2>
@@ -296,7 +296,7 @@ export default function BookingsAdmin() {
               <FloppyDisk size={20} weight="regular" /> {busy ? 'Saving...' : 'Save event'}
             </Button>
             {banner && (
-              <p role={banner.ok ? 'status' : 'alert'} className={banner.ok ? 'text-ink' : 'text-accent'}>
+              <p role={banner.ok ? 'status' : 'alert'} className={banner.ok ? 'text-ink' : 'text-accent-text'}>
                 {banner.msg}
               </p>
             )}
@@ -342,7 +342,7 @@ export default function BookingsAdmin() {
               <p className="text-sm text-muted">{ev.venue.city}</p>
               <span
                 className={`inline-flex w-fit min-h-6 items-center rounded-full px-2.5 text-xs font-medium ${
-                  ev.salesOpen ? 'bg-accent/15 text-accent' : 'bg-raised text-muted'
+                  ev.salesOpen ? 'bg-accent/15 text-accent-text' : 'bg-raised text-muted'
                 }`}
               >
                 {ev.salesOpen ? 'Open' : 'Closed'}

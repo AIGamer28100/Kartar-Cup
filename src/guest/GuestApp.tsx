@@ -126,7 +126,7 @@ function EventFlow({
                       initial={reduce ? false : { opacity: 0, scale: 0.7 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={SPRING}
-                      className="font-mono text-[clamp(4rem,11vw,9.5rem)] font-semibold tabular-nums leading-none"
+                      className="font-num text-[clamp(5rem,13vw,11rem)] font-extrabold italic tabular-nums leading-none text-gold"
                     >
                       {sc.score + cardBonus}
                       <span className="text-[0.4em] text-muted"> / {maxScore(event.questions) + cardBonus}</span>

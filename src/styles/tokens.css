@@ -1,13 +1,27 @@
 @theme {
-  --color-base: hsl(220 8% 9%);
-  --color-raised: hsl(220 7% 13%);
-  --color-line: hsl(220 6% 22%);
-  --color-ink: hsl(40 10% 94%);
-  --color-muted: hsl(220 6% 64%);
-  --color-accent: hsl(356 72% 52%);
-  --color-accent-ink: hsl(0 0% 100%);
+  /* R42 / owner's pick (2026-10-03): "Palette B" - navy neutrals, red for actions, gold ONLY for rewards.
+   * Contrast (checked): ink on base 18:1, muted on base 8:1, white on accent 5.05:1, accent-text on base 6.1:1,
+   * gold on base 12.7:1. Never put plain `accent` (the fill red) on text over navy - use accent-text. */
+  --color-base: #070b14;
+  --color-raised: #0f1626;
+  --color-surface: #172138;
+  --color-line: #232b3d;
+  --color-ink: #f2f5fa;
+  --color-muted: #9aa6bd;
+  /* Action red: button fills, borders, bars, focus rings. */
+  --color-accent: #d81e36;
+  --color-accent-ink: #ffffff;
+  /* Action red as TEXT or icon on navy (links, labels, errors). */
+  --color-accent-text: #ff4d61;
+  /* Reward gold: points, badges, tiers, leaderboard numerals ONLY (never buttons, links or chrome). */
+  --color-gold: #ffc83d;
+  /* Semantic data colours, never chrome: info/tint and gain/success. */
+  --color-info: #6d92ff;
+  --color-ok: #3ddc97;
   --font-sans: "Geist Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  /* Condensed italic, used only for round numbers, points and big watermark numerals. */
+  --font-num: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
 
   --text-hero: clamp(2.75rem, 5.2vw, 4.75rem);
   --text-hero--line-height: 1;
@@ -62,7 +76,9 @@
   transform: rotateX(18deg) rotateZ(-1deg);
   transform-style: preserve-3d;
   filter: drop-shadow(0 14px 16px rgb(0 0 0 / 0.45));
-  transition: transform 400ms ease, filter 400ms ease;
+  transition:
+    transform 400ms ease,
+    filter 400ms ease;
   will-change: transform;
 }
 .group:hover .track-tilt {
@@ -106,9 +122,17 @@
 .divider-checker {
   height: 0.5rem;
   background-image:
-    repeating-linear-gradient(45deg, var(--color-line) 0, var(--color-line) 0.5rem, transparent 0.5rem, transparent 1rem),
+    repeating-linear-gradient(
+      45deg,
+      var(--color-line) 0,
+      var(--color-line) 0.5rem,
+      transparent 0.5rem,
+      transparent 1rem
+    ),
     var(--gradient-brand);
-  background-size: 1rem 1rem, 100% 100%;
+  background-size:
+    1rem 1rem,
+    100% 100%;
   background-blend-mode: overlay;
   opacity: 0.85;
 }
@@ -116,12 +140,16 @@
 /* Track outline draw-on (TrackMap). pathLength=1 on the path, so dash units are 0..1 of the lap.
    Linear: ease-out front-loaded the motion. Reduced motion = no animation, fully drawn. */
 @keyframes track-draw {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
   .track-draw {
     stroke-dasharray: 1 1;
-    animation: track-draw 25s linear forwards;
+    animation: track-draw 5s linear forwards;
   }
 }

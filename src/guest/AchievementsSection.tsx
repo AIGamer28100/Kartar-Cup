@@ -25,14 +25,14 @@ function Badge({ a }: { a: Achievement }) {
   return (
     <li
       className={`flex gap-3 rounded-lg border p-3 ${
-        a.earned ? 'border-accent bg-raised' : 'border-dashed border-line'
+        a.earned ? 'border-gold bg-raised' : 'border-dashed border-line'
       }`}
     >
       {/* Shape differs by state (filled disc vs hollow ring) so state never rests on colour alone. */}
       <span
         aria-hidden="true"
         className={`flex size-11 shrink-0 items-center justify-center ${
-          a.earned ? 'rounded-full bg-accent text-accent-ink' : 'rounded-md border border-line text-muted'
+          a.earned ? 'rounded-full bg-gold text-base' : 'rounded-md border border-line text-muted'
         }`}
       >
         <Glyph size={22} weight={a.earned ? 'fill' : 'regular'} />
@@ -75,7 +75,7 @@ function Badge({ a }: { a: Achievement }) {
                 initial={reduce ? false : { scaleX: 0.4, opacity: 0 }}
                 animate={{ scaleX: 1, opacity: 1 }}
                 transition={{ duration: reduce ? 0 : 0.25, delay: reduce ? 0 : i * 0.05 }}
-                className={`h-1.5 flex-1 origin-left rounded-sm ${i < have ? 'bg-accent' : 'border border-line'}`}
+                className={`h-1.5 flex-1 origin-left rounded-sm ${i < have ? 'bg-gold' : 'border border-line'}`}
               />
             ))}
           </div>

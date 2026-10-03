@@ -86,7 +86,7 @@ function QuestionRow({
                 <span className="flex items-center gap-2">
                   <Bar share={p.share} actual={actual} delay={reduce ? 0 : index * 0.05 + i * 0.04} reduce={reduce} />
                   {actual && (
-                    <span className="shrink-0 rounded-sm border border-accent px-1.5 py-0.5 text-xs uppercase tracking-widest text-accent">
+                    <span className="shrink-0 rounded-sm border border-accent px-1.5 py-0.5 text-xs uppercase tracking-widest text-accent-text">
                       Actual
                     </span>
                   )}
@@ -202,7 +202,7 @@ export default function CrowdReveal({
                 <span className="font-semibold">{c.name}</span> called {labelOf(c.questionId, c.optionId)}
                 <span className="text-muted"> on {qOf(c.questionId)?.prompt ?? c.questionId}</span>
               </span>
-              <span className="font-mono text-sm tabular-nums text-accent">only {pct(c.share)} of the room</span>
+              <span className="font-mono text-sm tabular-nums text-accent-text">only {pct(c.share)} of the room</span>
             </li>
           ))}
         </ul>

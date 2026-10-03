@@ -3,7 +3,7 @@ import { CONTACT } from '../config/contact';
 import { usePageMeta } from '../lib/pageMeta';
 import { Eyebrow, PageTitle, Reveal, Shell, WhatsAppCta } from './parts';
 
-const linkCls = 'text-ink underline underline-offset-4 hover:text-accent';
+const linkCls = 'text-ink underline underline-offset-4 hover:text-accent-text';
 
 function Pending({ children }: { children: string }) {
   return <span className="text-muted">{children}</span>;

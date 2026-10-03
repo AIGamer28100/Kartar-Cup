@@ -147,7 +147,7 @@ export default function TrackLayout({ profile, name }: { profile: TrackProfile; 
           max={n - 1}
           value={cursor ?? 0}
           onChange={(e) => setCursor(Number(e.target.value))}
-          className="mt-1 block w-full accent-[hsl(356_72%_52%)]"
+          className="mt-1 block w-full accent-[#d81e36]"
           aria-valuetext={cur ? `Lap point ${cursor}, ${cur.rel.toFixed(1)} metres above the lowest point` : 'Start of lap'}
         />
       </label>

@@ -100,7 +100,7 @@ export default function GoogleCta({ onGoogle }: CtaProps) {
         <ArrowRight size={20} weight="regular" aria-hidden="true" />
       </Button>
       {err && (
-        <p role="alert" className="text-sm text-accent">
+        <p role="alert" className="text-sm text-accent-text">
           {err}{' '}
           <button type="button" onClick={() => void go()} className={`min-h-11 font-medium underline ${focusCls}`}>
             Retry
@@ -167,7 +167,7 @@ export function Profile({ user, phone, onPhone, onContinue, onSwitch }: ProfileP
           placeholder="+91 98765 43210"
         />
         {phoneErr && (
-          <p id="g-phone-err" role="alert" className="mt-2 text-sm text-accent">
+          <p id="g-phone-err" role="alert" className="mt-2 text-sm text-accent-text">
             {phoneErr}
           </p>
         )}

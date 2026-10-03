@@ -165,7 +165,7 @@ export default function JoinPage() {
           {busy ? 'Joining...' : `Join as ${label}`}
         </Button>
         {err && (
-          <p role="alert" className="mt-3 text-sm text-accent">
+          <p role="alert" className="mt-3 text-sm text-accent-text">
             {err}
           </p>
         )}

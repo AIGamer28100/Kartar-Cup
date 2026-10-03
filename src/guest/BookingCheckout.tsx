@@ -34,7 +34,7 @@ const inputCls =
   'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
 const mapLinkCls =
-  '-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent';
+  '-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent';
 
 /** Google Maps for the venue: an embedded map plus open/directions links. Uses the host's pasted
  * link when it embeds, else a search for the venue's name and city, so every venue gets a map. */
@@ -80,7 +80,7 @@ function ClosedNotice({ event }: { event: BookingEvent | null }) {
         </p>
         <Link
           to="/events"
-          className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent"
+          className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent"
         >
           Back to events
         </Link>
@@ -229,7 +229,7 @@ export default function BookingCheckout() {
             <button
               type="button"
               onClick={() => setStep('choose')}
-              className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent"
+              className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent"
             >
               Edit
             </button>
@@ -263,7 +263,7 @@ export default function BookingCheckout() {
         )}
 
         {error && (
-          <p role="alert" className="mt-6 text-sm text-accent">
+          <p role="alert" className="mt-6 text-sm text-accent-text">
             {error}
           </p>
         )}
@@ -299,7 +299,7 @@ export default function BookingCheckout() {
         {event.description && <p className="mt-3 max-w-[60ch] text-pretty text-muted">{event.description}</p>}
         <p
           className={`mt-3 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${
-            soldOut ? 'text-accent' : 'text-muted'
+            soldOut ? 'text-accent-text' : 'text-muted'
           }`}
         >
           {seatsLabel(event)}
@@ -399,7 +399,7 @@ export default function BookingCheckout() {
 
       <Reveal index={6} className="mt-6">
         {soldOut ? (
-          <p className="text-accent">This watch party is sold out.</p>
+          <p className="text-accent-text">This watch party is sold out.</p>
         ) : (
           <Button
             onClick={() => {

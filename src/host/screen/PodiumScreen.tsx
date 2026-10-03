@@ -75,7 +75,7 @@ function Step({ place, row, revealed, active, totalQuestions, weighted, heightCl
               <p className="w-[clamp(6rem,16vw,12rem)] truncate text-[clamp(1.1rem,2.2vw,2.25rem)] font-semibold leading-tight">
                 {row.name}
               </p>
-              <p className="w-[clamp(6rem,16vw,12rem)] truncate font-mono text-[clamp(0.9rem,1.6vw,1.5rem)] tabular-nums text-accent">
+              <p className="w-[clamp(6rem,16vw,12rem)] truncate font-mono text-[clamp(0.9rem,1.6vw,1.5rem)] tabular-nums text-accent-text">
                 {row.score} of {totalQuestions} {weighted ? 'points' : 'correct'}
               </p>
             </motion.div>

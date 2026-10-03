@@ -56,7 +56,7 @@ export default function ActivityLog() {
       {rows === null ? (
         <RowsSkeleton />
       ) : failed ? (
-        <p role="alert" className="mt-6 text-accent">
+        <p role="alert" className="mt-6 text-accent-text">
           Couldn&rsquo;t load the activity log. Try refreshing.
         </p>
       ) : rows.length === 0 ? (

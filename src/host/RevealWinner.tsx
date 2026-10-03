@@ -53,7 +53,7 @@ export default function RevealWinner({
         {!winner && <p className="text-muted">Nobody to crown yet.</p>}
       </div>
       {err && (
-        <p role="alert" className="mt-3 text-accent">
+        <p role="alert" className="mt-3 text-accent-text">
           {err}
         </p>
       )}
@@ -82,7 +82,7 @@ export default function RevealWinner({
               </motion.p>
               <motion.p
                 {...item(1)}
-                className="mt-6 font-mono text-5xl tabular-nums text-accent md:text-6xl"
+                className="mt-6 font-mono text-5xl tabular-nums text-accent-text md:text-6xl"
               >
                 {winner.score} / {max}
               </motion.p>

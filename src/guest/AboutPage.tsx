@@ -38,7 +38,7 @@ export default function AboutPage() {
           <p className="mt-2 text-muted">
             Kartar CUP is where you find upcoming events, book tickets and, on race days, join the
             prediction quiz. Follow the real accounts for news and photos on the{' '}
-            <Link to="/contact" className="text-ink underline underline-offset-4 hover:text-accent">
+            <Link to="/contact" className="text-ink underline underline-offset-4 hover:text-accent-text">
               contact page
             </Link>
             .

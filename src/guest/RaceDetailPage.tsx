@@ -106,7 +106,7 @@ function SessionResults({ session }: { session: RaceSession }) {
   const teams = useMemo(() => (rows ? teamStandings(rows) : []), [rows]);
   const isRace = session.name === 'Race' || session.name === 'Sprint';
 
-  if (err) return <p role="alert" className="mt-3 text-sm text-accent">{err}</p>;
+  if (err) return <p role="alert" className="mt-3 text-sm text-accent-text">{err}</p>;
   if (!rows) return <p role="status" className="mt-3 text-sm text-muted">Loading results...</p>;
   if (!rows.length) return <p className="mt-3 text-sm text-muted">No classified results are available for this session.</p>;
 
@@ -213,7 +213,7 @@ function SessionRow({
       <p className="mt-1 text-sm text-muted">{weatherLine}</p>
       {phase === 'done' && !session.cancelled && (
         <details className="mt-2" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-accent underline decoration-line underline-offset-4">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-accent-text underline decoration-line underline-offset-4">
             Results and standings
           </summary>
           {open && <SessionResults session={session} />}
@@ -331,7 +331,7 @@ export default function RaceDetailPage() {
         <Reveal>
           <Eyebrow>Race</Eyebrow>
           <h1 className={`mt-3 ${PageTitle}`}>We could not find that race</h1>
-          <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-accent underline underline-offset-4">Back to events</Link>
+          <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-accent-text underline underline-offset-4">Back to events</Link>
         </Reveal>
       </Shell>
     );
@@ -443,7 +443,7 @@ export default function RaceDetailPage() {
           Wikipedia. Driver photos are loaded from Formula 1's media servers. This is an independent fan site and is not
           affiliated with Formula 1, its teams or its drivers.
         </p>
-        <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-sm text-accent underline decoration-line underline-offset-4">
+        <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-sm text-accent-text underline decoration-line underline-offset-4">
           Back to all events
         </Link>
       </Reveal>

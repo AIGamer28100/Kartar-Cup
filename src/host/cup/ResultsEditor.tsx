@@ -75,7 +75,7 @@ export default function ResultsEditor({
   if (state === 'loading') return <p className="py-6 text-muted" role="status">Loading results.</p>;
   if (state === 'failed')
     return (
-      <p className="py-6 text-accent" role="alert">
+      <p className="py-6 text-accent-text" role="alert">
         Could not load this round&rsquo;s results. Close and try again.
       </p>
     );
@@ -158,7 +158,7 @@ export default function ResultsEditor({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button onClick={save} disabled={busy || drivers.length === 0}>{busy ? 'Saving' : 'Save results'}</Button>
         {msg && (
-          <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-sm text-muted' : 'text-sm text-accent'}>
+          <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-sm text-muted' : 'text-sm text-accent-text'}>
             {msg.text}
           </p>
         )}

@@ -63,7 +63,7 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
         ))}
       </ol>
       {errors.questions && (
-        <p role="alert" className="mt-3 text-sm text-accent">
+        <p role="alert" className="mt-3 text-sm text-accent-text">
           {errors.questions}
         </p>
       )}

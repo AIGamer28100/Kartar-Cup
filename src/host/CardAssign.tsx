@@ -90,7 +90,7 @@ export default function CardAssign({ booking, event }: { booking: Booking; event
       <Button className="mt-3 min-h-11" disabled={busy || (pass != null && !pick)} onClick={() => void assign()}>
         {busy ? 'Saving...' : pass == null ? `Assign pass${next ? ` #${next}` : ''}${pick ? ' + card' : ''}` : 'Update Play card'}
       </Button>
-      {err && <p role="alert" className="mt-2 text-sm text-accent">{err}</p>}
+      {err && <p role="alert" className="mt-2 text-sm text-accent-text">{err}</p>}
     </div>
   );
 }

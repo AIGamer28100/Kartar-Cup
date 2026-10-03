@@ -52,14 +52,14 @@ export default function StandingsScreen({ config, ranked }: { config: EventConfi
                 <span
                   key={id}
                   className={`grid size-[clamp(1.5rem,2vw,2.25rem)] place-items-center rounded-md border ${
-                    r.ticks[id] ? 'border-accent text-accent' : 'border-line text-muted'
+                    r.ticks[id] ? 'border-accent text-accent-text' : 'border-line text-muted'
                   }`}
                 >
                   {r.ticks[id] ? <Check size={18} weight="regular" /> : <X size={14} weight="regular" />}
                 </span>
               ))}
             </span>
-            <span className="text-right font-mono text-[clamp(1.5rem,3vw,3.5rem)] tabular-nums text-accent">
+            <span className="text-right font-mono text-[clamp(1.5rem,3vw,3.5rem)] tabular-nums text-accent-text">
               {r.score}
             </span>
           </motion.li>

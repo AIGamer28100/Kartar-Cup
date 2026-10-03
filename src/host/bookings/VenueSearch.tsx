@@ -71,7 +71,7 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
                 onClick={() => pick(r)}
                 className="flex min-h-11 w-full items-start gap-3 px-3 py-2 text-left transition hover:bg-base focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
               >
-                <MapPin size={18} weight="regular" aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+                <MapPin size={18} weight="regular" aria-hidden="true" className="mt-0.5 shrink-0 text-accent-text" />
                 <span className="text-ink">{r.label}</span>
               </button>
             </li>

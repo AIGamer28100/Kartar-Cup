@@ -206,7 +206,7 @@ export default function CheckinScanner() {
 
       {state.kind === 'not-found' && (
         <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <XCircle size={32} weight="regular" className="text-accent" />
+          <XCircle size={32} weight="regular" className="text-accent-text" />
           <p className="font-medium">Booking not found.</p>
           <Button onClick={scanNext}>Scan again</Button>
         </div>
@@ -290,7 +290,7 @@ function ResultCard({
       ) : (
         <p
           role={copy.tone === 'ok' ? 'status' : 'alert'}
-          className={`mt-4 flex items-center gap-2 ${copy.tone === 'ok' ? 'text-ink' : 'text-accent'}`}
+          className={`mt-4 flex items-center gap-2 ${copy.tone === 'ok' ? 'text-ink' : 'text-accent-text'}`}
         >
           {copy.tone !== 'ok' && <Warning size={20} weight="regular" />}
           {booking.status === 'checked_in' && booking.checkedInBy
@@ -300,7 +300,7 @@ function ResultCard({
       )}
 
       {err && (
-        <p role="alert" className="mt-2 text-accent">
+        <p role="alert" className="mt-2 text-accent-text">
           {err}
         </p>
       )}

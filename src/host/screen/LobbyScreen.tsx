@@ -89,7 +89,7 @@ export default function LobbyScreen({ config, entryCount }: { config: EventConfi
             </p>
             <p
               aria-live="polite"
-              className="font-mono text-[clamp(3rem,9vw,7rem)] font-semibold leading-none tabular-nums text-accent"
+              className="font-mono text-[clamp(3rem,9vw,7rem)] font-semibold leading-none tabular-nums text-accent-text"
             >
               {entryCount}
             </p>

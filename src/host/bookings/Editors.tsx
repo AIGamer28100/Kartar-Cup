@@ -80,7 +80,7 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
         ))}
       </ul>
       {errors.tiers && (
-        <p role="alert" className="mt-3 text-sm text-accent">
+        <p role="alert" className="mt-3 text-sm text-accent-text">
           {errors.tiers}
         </p>
       )}
@@ -223,7 +223,7 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
         ))}
       </ul>
       {errors.discounts && (
-        <p role="alert" className="mt-3 text-sm text-accent">
+        <p role="alert" className="mt-3 text-sm text-accent-text">
           {errors.discounts}
         </p>
       )}

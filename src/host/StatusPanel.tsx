@@ -98,7 +98,7 @@ export default function StatusPanel({ event, count }: { event: EventDoc | null; 
         <p className="mt-4 text-muted">No event on the grid yet. Initialize it to open entries.</p>
       )}
       {err && (
-        <p role="alert" className="mt-4 text-accent">
+        <p role="alert" className="mt-4 text-accent-text">
           {err}
         </p>
       )}

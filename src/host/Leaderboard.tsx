@@ -50,7 +50,7 @@ export default function Leaderboard({
               <span className="min-w-0 truncate text-left text-[1.375rem] font-semibold leading-tight md:text-4xl 2xl:text-5xl">
                 {r.name}
                 {chosen && (
-                  <span className="ml-3 align-middle text-sm font-normal uppercase tracking-widest text-accent">
+                  <span className="ml-3 align-middle text-sm font-normal uppercase tracking-widest text-accent-text">
                     tiebreak
                   </span>
                 )}
@@ -67,7 +67,7 @@ export default function Leaderboard({
                     key={q.id}
                     title={pointsOf(q) > 1 ? `${q.prompt} (${pointsOf(q)} points)` : q.prompt}
                     className={`grid size-9 place-items-center rounded-md border ${
-                      r.ticks[q.id] ? 'border-accent text-accent' : 'border-line text-muted'
+                      r.ticks[q.id] ? 'border-accent text-accent-text' : 'border-line text-muted'
                     }`}
                   >
                     {r.ticks[q.id] ? (
@@ -78,7 +78,7 @@ export default function Leaderboard({
                   </span>
                 ))}
               </span>
-              <span className="text-right font-mono text-3xl tabular-nums md:text-5xl 2xl:text-6xl">
+              <span className="text-right font-num text-4xl font-extrabold italic tabular-nums text-gold md:text-6xl 2xl:text-7xl">
                 {r.score}
                 {(r.bonus ?? 0) > 0 && (
                   <span className="block text-xs text-muted md:text-sm 2xl:text-base">
