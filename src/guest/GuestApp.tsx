@@ -17,6 +17,7 @@ import GoogleCta, { Profile, accountName } from './SignIn';
 import { CloseTimer, Eyebrow, PageTitle, PicksList, Reveal, SPRING, Shell, Split, TickStrip, WhatsAppCta } from './parts';
 import { useTimedOut } from '../lib/useTimedOut';
 import { useGuestSession, type GuestSession } from './useGuestSession';
+import { useOwnCardBonus } from './useOwnCardBonus';
 
 const CLOSED_MSG = 'Pit lane closed: your picks arrived after the window shut.';
 
@@ -61,8 +62,10 @@ function EventFlow({
   const seeded = useRef(false);
   const wa = event.whatsappUrl;
   const reduce = useReducedMotion();
+  // R46: Play-card points drawn at the watch party count towards this guest's score.
+  const cardBonus = useOwnCardBonus(s.user?.uid, event.raceId);
 
-  const patch = (p: Partial<Draft>) =>
+  const patch =(p: Partial<Draft>) =>
     setDraft((d) => {
       const n = { ...d, ...p };
       saveDraft(event.id, n);
@@ -125,9 +128,14 @@ function EventFlow({
                       transition={SPRING}
                       className="font-mono text-[clamp(4rem,11vw,9.5rem)] font-semibold tabular-nums leading-none"
                     >
-                      {sc.score}
-                      <span className="text-[0.4em] text-muted"> / {maxScore(event.questions)}</span>
+                      {sc.score + cardBonus}
+                      <span className="text-[0.4em] text-muted"> / {maxScore(event.questions) + cardBonus}</span>
                     </motion.p>
+                    {cardBonus > 0 && (
+                      <p className="mt-2 font-mono text-sm tabular-nums text-muted">
+                        {sc.score} from picks + {cardBonus} from your Play card
+                      </p>
+                    )}
                     <div className="mt-8">
                       <TickStrip config={event} ticks={sc.ticks} />
                     </div>
