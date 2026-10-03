@@ -220,7 +220,10 @@ function ProfileContent({ user }: { user: User }) {
           <p className="truncate text-lg font-medium text-ink">{name}</p>
           {user.email && <p className="truncate font-mono text-sm text-muted">{user.email}</p>}
         </div>
-        <Link to="/logout" className="-mr-2 ml-auto inline-flex min-h-11 items-center gap-2 px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <Link
+          to="/logout"
+          className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-accent bg-raised px-4 text-sm font-medium text-accent transition hover:bg-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
           <SignOut size={20} weight="regular" aria-hidden="true" />
           Sign out
         </Link>

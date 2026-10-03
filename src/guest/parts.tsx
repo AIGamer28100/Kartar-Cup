@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
-import { Check, Gauge, Images, List, SignIn, SignOut, TicketIcon, User, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Check, Gauge, Images, List, SignIn, TicketIcon, User, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { isInAppBrowser } from '../lib/inAppBrowser';
@@ -187,12 +187,6 @@ function MobileMenu({ user, isHost, ready }: { user: unknown; isHost: boolean | 
                       Profile
                     </Link>
                   )}
-                  {ready && Boolean(user) && (
-                    <Link to="/logout" className={menuItemCls}>
-                      <SignOut size={20} weight="regular" aria-hidden="true" />
-                      Sign out
-                    </Link>
-                  )}
                   {showSignIn && (
                     <button type="button" className={menuItemCls} disabled={signIn.busy} onClick={() => void signIn.start()}>
                       <SignIn size={20} weight="regular" aria-hidden="true" />
@@ -247,14 +241,8 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
               Profile
             </Link>
           )}
-          {!bare && ready && (user ? (
-            <Link to="/logout" className={linkCls}>
-              <SignOut size={20} weight="regular" aria-hidden="true" />
-              Sign out
-            </Link>
-          ) : (
-            <HeaderSignIn />
-          ))}
+          {/* Sign out lives on the Profile page only (owner request); the navbar keeps just Sign in. */}
+          {!bare && ready && !user && <HeaderSignIn />}
         </div>
       </div>
       {children}
