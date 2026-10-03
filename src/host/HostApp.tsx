@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import ActivityLog from './ActivityLog';
 import BookingsAdmin from './bookings/BookingsAdmin';
 import CheckinScanner from './CheckinScanner';
+import ContentAdmin from './ContentAdmin';
 import CupAdmin from './cup/CupAdmin';
 import HostConsole from './HostConsole';
 import SettingsPage from './settings/SettingsPage';
@@ -39,6 +40,11 @@ export default function HostApp() {
           Activity
         </NavLink>
         {access?.isHost && (
+          <NavLink to="/host/content" className={tabCls}>
+            Content
+          </NavLink>
+        )}
+        {access?.isHost && (
           <NavLink to="/host/users" className={tabCls}>
             People
           </NavLink>
@@ -51,6 +57,7 @@ export default function HostApp() {
         {access?.isHost && <Route path="cup" element={<CupAdmin />} />}
         <Route path="checkin" element={<CheckinScanner />} />
         <Route path="activity" element={<ActivityLog />} />
+        {access?.isHost && <Route path="content" element={<ContentAdmin />} />}
         {access?.isHost && <Route path="users" element={<UsersAdmin />} />}
         <Route path="*" element={<Navigate to="/host" replace />} />
       </Routes>

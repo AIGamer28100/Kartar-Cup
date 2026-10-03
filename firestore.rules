@@ -483,6 +483,70 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /* ---------- Partners, stories and the legal-document register (R26/R27: only what the host enters) ----------
+     * partners + stories: the public reads PUBLISHED docs only (queries must filter published == true); hosts write.
+     * partnerPrivate: contact + contract notes for the same partner id, hosts only (never public).
+     * legalDocs: links to where each agreement/licence/permission is stored; admins only. */
+    function httpsUrl(u) { return u is string && u.matches('https://.*') && u.size() <= 500; }
+    function validPartner() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'kind', 'blurb', 'website', 'logoUrl', 'order', 'published', 'updatedAt'])
+        && d.keys().hasAll(['name', 'kind', 'published', 'updatedAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.kind in ['sponsor', 'venue', 'media', 'community', 'supplier']
+        && d.published is bool
+        && d.updatedAt == request.time
+        && (!('blurb' in d) || (d.blurb is string && d.blurb.size() <= 400))
+        && (!('website' in d) || httpsUrl(d.website))
+        && (!('logoUrl' in d) || httpsUrl(d.logoUrl))
+        && (!('order' in d) || d.order is int);
+    }
+    match /partners/{partnerId} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validPartner();
+      allow delete: if isHost();
+    }
+    match /partnerPrivate/{partnerId} {
+      allow read, delete: if isHost();
+      allow create, update: if isHost()
+        && request.resource.data.keys().hasOnly(['contactName', 'contactEmail', 'contactPhone', 'since', 'terms', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (!('terms' in request.resource.data) || (request.resource.data.terms is string && request.resource.data.terms.size() <= 1000));
+    }
+    function validStory() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['title', 'summary', 'body', 'coverUrl', 'date', 'tag', 'published', 'updatedAt'])
+        && d.keys().hasAll(['title', 'date', 'tag', 'published', 'updatedAt'])
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.date is string && d.date.size() == 10
+        && d.tag in ['recap', 'event', 'community']
+        && d.published is bool
+        && d.updatedAt == request.time
+        && (!('summary' in d) || (d.summary is string && d.summary.size() <= 300))
+        && (!('body' in d) || (d.body is string && d.body.size() <= 6000))
+        && (!('coverUrl' in d) || httpsUrl(d.coverUrl));
+    }
+    match /stories/{storyId} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validStory();
+      allow delete: if isHost();
+    }
+    function validLegalDoc() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['title', 'category', 'url', 'where', 'partnerId', 'signedOn', 'expiresOn', 'notes', 'updatedAt'])
+        && d.keys().hasAll(['title', 'category', 'url', 'updatedAt'])
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.category in ['agreement', 'licence', 'permission', 'policy', 'registration', 'other']
+        && httpsUrl(d.url)
+        && d.updatedAt == request.time
+        && (!('where' in d) || (d.where is string && d.where.size() <= 120))
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500));
+    }
+    match /legalDocs/{docId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && validLegalDoc();
+    }
+
     /* ---------- Karter Cup competitive layer (PRD s24) ----------
      * Hosts (isHost: host, admin, super admin) write everything. The public reads only PUBLISHED
      * seasons, their published rounds, and that season's drivers/results/standings. List queries

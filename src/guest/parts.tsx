@@ -99,6 +99,8 @@ const NAV_LINKS = [
   { to: '/events', label: 'Events', end: false },
   { to: '/cup', label: 'Cup', end: false },
   { to: '/gallery', label: 'Gallery', end: false },
+  { to: '/stories', label: 'Stories', end: false },
+  { to: '/partners', label: 'Partners', end: false },
   { to: '/about', label: 'About', end: false },
   { to: '/contact', label: 'Contact', end: false },
 ] as const;

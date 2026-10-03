@@ -32,6 +32,9 @@ export type AuditAction =
   | 'card.save'
   | 'card.delete'
   | 'card.assign'
+  | 'content.partner'
+  | 'content.story'
+  | 'content.legal'
   | 'user.roles'
   | 'invite.create'
   | 'invite.revoke';

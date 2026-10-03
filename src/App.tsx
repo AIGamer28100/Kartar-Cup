@@ -19,6 +19,8 @@ const ProfilePage = lazy(() => import('./guest/ProfilePage'));
 const TicketPage = lazy(() => import('./guest/TicketView'));
 const AboutPage = lazy(() => import('./guest/AboutPage'));
 const ContactPage = lazy(() => import('./guest/ContactPage'));
+const PartnersPage = lazy(() => import('./guest/ContentPages').then((m) => ({ default: m.PartnersPage })));
+const StoriesPage = lazy(() => import('./guest/ContentPages').then((m) => ({ default: m.StoriesPage })));
 const TermsPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.PrivacyPage })));
 const JoinPage = lazy(() => import('./pages/JoinPage'));
@@ -44,6 +46,9 @@ export default function App() {
               <Route path="/join/:token" element={<JoinPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/partners" element={<PartnersPage />} />
+              <Route path="/stories" element={<StoriesPage />} />
+              <Route path="/stories/:storyId" element={<StoriesPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route
