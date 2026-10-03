@@ -10,6 +10,7 @@ import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
 import Divider from '../components/Divider';
 import { CONTACT } from '../config/contact';
+import { DEVELOPER, OPERATOR } from '../config/legal';
 import type { PickMap } from './draft';
 import { formatRemaining, optionLabel, safeWhatsappUrl } from './model';
 
@@ -315,9 +316,25 @@ function SiteFooter() {
           </ul>
         </div>
       </div>
-      <p className="border-t border-line py-5 text-xs leading-relaxed text-muted">
-        &copy; {new Date().getFullYear()} Kartar CUP. The Karter Club is an initiative by The Karter Cup.
-      </p>
+      <div className="flex flex-col gap-3 border-t border-line py-5 text-xs leading-relaxed text-muted md:flex-row md:items-start md:justify-between">
+        <div className="grid gap-1">
+          <p>
+            Site design and software &copy; {DEVELOPER.year} {DEVELOPER.name}. All rights reserved.
+          </p>
+          <p>
+            Operated by {OPERATOR.legalName.trim() || OPERATOR.shortName}, not by {DEVELOPER.name}. The Karter Club is an
+            initiative by The Karter Cup. Independent fan site, not affiliated with Formula 1, its teams or drivers.
+          </p>
+        </div>
+        <nav aria-label="Legal" className="flex gap-4">
+          <Link to="/terms" className={footLinkCls}>
+            Terms
+          </Link>
+          <Link to="/privacy" className={footLinkCls}>
+            Privacy
+          </Link>
+        </nav>
+      </div>
     </footer>
   );
 }

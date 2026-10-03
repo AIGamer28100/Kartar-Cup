@@ -19,6 +19,8 @@ const ProfilePage = lazy(() => import('./guest/ProfilePage'));
 const TicketPage = lazy(() => import('./guest/TicketView'));
 const AboutPage = lazy(() => import('./guest/AboutPage'));
 const ContactPage = lazy(() => import('./guest/ContactPage'));
+const TermsPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.PrivacyPage })));
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HostApp = lazy(() => import('./host/HostApp'));
 const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
@@ -42,6 +44,8 @@ export default function App() {
               <Route path="/join/:token" element={<JoinPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
               <Route
                 path="/host/screen"
                 element={
