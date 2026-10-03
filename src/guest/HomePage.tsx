@@ -129,7 +129,9 @@ function HeroAndNextRace() {
                 {hostedNext?.id === next.id ? "watch-party night" : "next race"}
               </p>
               <p className="mt-1 text-h3 text-balance font-medium text-ink">
-                {next.name}
+                <Link to={`/races/${next.id}`} className="underline decoration-line underline-offset-4 hover:decoration-accent">
+                  {next.name}
+                </Link>
               </p>
               <p className="mt-1 text-sm text-muted lg:text-[1rem]">
                 {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
@@ -138,7 +140,7 @@ function HeroAndNextRace() {
               {hostedNext && hostedNext.id !== next.id && (
                 <p className="mt-2 text-sm text-muted">
                   Next watch party:{" "}
-                  <Link to="/events" className="font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent">
+                  <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent underline decoration-line underline-offset-4 hover:decoration-accent">
                     {hostedNext.name}
                   </Link>{" "}
                   · {istReadout(raceStartFor(hostedNext, null).ms).day} {istReadout(raceStartFor(hostedNext, null).ms).month}

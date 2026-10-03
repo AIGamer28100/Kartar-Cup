@@ -143,13 +143,17 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
 }
 
 /** R49: only HOSTED races/events get any watch-party wording. Not hosted -> nothing at all. */
-function TicketReadout({ ticket, kind = 'f1' }: { ticket: TicketStatus; kind?: EventCategory }) {
+/** `stretch` makes the whole card click through to checkout (host-created events). Race cards pass
+ * stretch={false}: the card itself opens the race page (R41) and this link stays its own target. */
+function TicketReadout({ ticket, kind = 'f1', stretch = true }: { ticket: TicketStatus; kind?: EventCategory; stretch?: boolean }) {
   if (ticket.state === 'none') return null;
   if (ticket.state === 'open' && ticket.bookingEventId) {
     return (
       <Link
         to={`/events/${ticket.bookingEventId}`}
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition after:absolute after:inset-0 after:content-[''] hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className={`inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline decoration-line underline-offset-4 transition hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+          stretch ? "after:absolute after:inset-0 after:content-['']" : ''
+        }`}
       >
         <TicketIcon size={18} weight="regular" aria-hidden="true" />
         Tickets available
@@ -265,15 +269,22 @@ function SeasonTimeline({
                 <p className="font-mono text-xs uppercase tracking-widest text-muted">
                   Round {String(race.round).padStart(2, '0')} · {range}
                 </p>
-                <p className="mt-1 font-medium text-ink">{race.name}</p>
+                <p className="mt-1 font-medium text-ink">
+                  <Link
+                    to={`/races/${race.id}`}
+                    className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    {race.name}
+                  </Link>
+                </p>
                 <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
                 {quizVisible && quizRaceId === race.id && (
                   <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
                     Predictions open at lights-out
                   </p>
                 )}
-                <div className="mt-2">
-                  <TicketReadout ticket={ticket} />
+                <div className="relative z-10 mt-2 w-fit">
+                  <TicketReadout ticket={ticket} stretch={false} />
                 </div>
               </div>
             </Reveal>
@@ -354,9 +365,9 @@ function RaceCard({
   return (
     <Reveal
       index={index}
-      className={`group relative overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-muted ${
-        ticket.available ? 'cursor-pointer hover:border-accent' : ''
-      } ${featured ? 'sm:col-span-2' : ''}`}
+      className={`group relative cursor-pointer overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-accent ${
+        featured ? 'sm:col-span-2' : ''
+      }`}
     >
       {/* Info on the left, square circuit box on the right, for every card size (was up/down
          for compact cards before — now consistent with the featured layout, per the user's
@@ -372,7 +383,15 @@ function RaceCard({
             Round {String(race.round).padStart(2, '0')} · {range}
             {featured && ' · next up'}
           </p>
-          <h3 className={`mt-2 text-pretty text-ink ${featured ? H2 : 'text-h3 font-medium'}`}>{race.name}</h3>
+          <h3 className={`mt-2 text-pretty text-ink ${featured ? H2 : 'text-h3 font-medium'}`}>
+            {/* R41: the whole card opens the race page; this link is its accessible name and focus target. */}
+            <Link
+              to={`/races/${race.id}`}
+              className="after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {race.name}
+            </Link>
+          </h3>
           <p className="mt-1 text-sm text-muted">{circuitLine(race)}</p>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             <CalendarBlank size={16} weight="regular" aria-hidden="true" />
@@ -387,8 +406,8 @@ function RaceCard({
               Predictions open at lights-out
             </p>
           )}
-          <div className="mt-4">
-            <TicketReadout ticket={ticket} />
+          <div className="relative z-10 mt-4 w-fit">
+            <TicketReadout ticket={ticket} stretch={false} />
           </div>
         </div>
         <CircuitVisual race={race} featured={featured} />
