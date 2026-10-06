@@ -94,7 +94,7 @@ export default function TransitionLayer({ children }: { children: (location: Loc
 
   useLayoutEffect(() => {
     const from = prev.current;
-    if (from === location) return;
+    if (!location || !from || from === location) return;
     scrollByKey.current.set(from.key, window.scrollY);
     prev.current = location;
 
@@ -125,11 +125,12 @@ export default function TransitionLayer({ children }: { children: (location: Loc
     }
 
     const t = forMotionPreference(base, reduceRef.current);
-    const id = ++seq.current;
-    setRun({ id, kind: t.kind, durationMs: t.durationMs, meta });
+    const runId = ++seq.current;
+    const enterId = ++seq.current;
+    setRun({ id: runId, kind: t.kind, durationMs: t.durationMs, meta });
     const swap = window.setTimeout(() => {
       setDisplayed(location);
-      setEnterId(id);
+      setEnterId(enterId);
       settle();
     }, t.durationMs * SWAP_AT[t.kind]);
     const end = window.setTimeout(() => {

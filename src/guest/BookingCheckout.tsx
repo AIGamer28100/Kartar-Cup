@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { TicketIcon } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import Divider from '../components/Divider';
 import { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { applyDiscount, createReservation, markPaidMock, watchBookingEvent } from '../lib/bookings';
-import { venueDirectionsUrl, venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
-import type { BookingEvent } from '../lib/types';
-import GoogleCta from './SignIn';
+import { venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
+import type { BookingEvent, PriceTier } from '../lib/types';
 import { TicketQr } from './TicketView';
 import TicketActions, { PolicyNote } from './TicketActions';
 import { maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
@@ -33,33 +31,28 @@ function fmtLocal(ms: number): string {
 const inputCls =
   'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
-const mapLinkCls =
-  '-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent';
-
 /** Google Maps for the venue: an embedded map plus open/directions links. Uses the host's pasted
  * link when it embeds, else a search for the venue's name and city, so every venue gets a map. */
 function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
   const embed = venueEmbedUrl(venue);
   return (
-    <div>
+    <div className="flex flex-col items-center">
       {embed && (
-        <iframe
-          src={embed}
-          className="w-full aspect-video rounded-lg border border-line"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-          title={`Map of ${venue.name}`}
-        />
+        <a
+          href={venueMapLink(venue)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full max-w-[280px] aspect-square rounded-lg border border-line m-4 overflow-hidden hover:opacity-90 transition"
+        >
+          <iframe
+            src={embed}
+            className="w-full h-full pointer-events-none"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title={`Map of ${venue.name}`}
+          />
+        </a>
       )}
-      <div className="mt-2 flex flex-wrap gap-x-6">
-        <a href={venueMapLink(venue)} target="_blank" rel="noopener noreferrer" className={mapLinkCls}>
-          Open in Google Maps
-        </a>
-        <a href={venueDirectionsUrl(venue)} target="_blank" rel="noopener noreferrer" className={mapLinkCls}>
-          Get directions
-        </a>
-      </div>
     </div>
   );
 }
@@ -68,7 +61,6 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
 const KIND_LABEL = { f1: 'Watch party', cup: 'Kartar Cup event', club: 'Kartar Club event' } as const;
 
 function ClosedNotice({ event }: { event: BookingEvent | null }) {
-  // A hosted event whose sales have not opened yet is publicly readable; say so honestly.
   const soon = !!event && event.hosted === true;
   return (
     <Shell>
@@ -135,6 +127,342 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
   );
 }
 
+/** Calculate remaining TICKETS for a specific tier.
+ * tier.capacity = max number of TICKETS (not seats) for this tier. 0 = unlimited.
+ */
+function getTierRemainingTickets(event: BookingEvent, tier: PriceTier): number {
+  const tierCapacity = tier.capacity && tier.capacity > 0 ? tier.capacity : Infinity;
+
+  if (!Number.isFinite(tierCapacity)) {
+    // Unlimited tier - limited only by event capacity
+    const eventLeft = seatsLeft(event);
+    const seatsPerTicket = tier.seatsPerTicket ?? 1;
+    return Math.floor(eventLeft / seatsPerTicket);
+  }
+
+  // Tier has a ticket limit - we estimate based on event's bookedCount
+  // Note: This is a client-side estimate. Server-side transaction does authoritative check.
+  const eventLeft = seatsLeft(event);
+  const seatsPerTicket = tier.seatsPerTicket ?? 1;
+  const maxByEvent = Math.floor(eventLeft / seatsPerTicket);
+
+  return Math.min(tierCapacity, maxByEvent);
+}
+
+/** Calculate max quantity (number of tickets) for a specific tier. */
+function getTierMaxQty(event: BookingEvent, tier: PriceTier): number {
+  return maxQtyFor(getTierRemainingTickets(event, tier));
+}
+
+/** Check if a tier is sold out. */
+function isTierSoldOut(event: BookingEvent, tier: PriceTier): boolean {
+  return getTierMaxQty(event, tier) <= 0;
+}
+
+/** Sticky order summary panel for desktop (sidebar). */
+function OrderSummary({
+  event,
+  tier,
+  qty,
+  discountCode,
+  preview,
+  onBuy,
+  busy,
+  user,
+  error,
+  tierSoldOut,
+}: {
+  event: BookingEvent;
+  tier: PriceTier | undefined;
+  qty: number;
+  discountCode: string;
+  preview: ReturnType<typeof applyDiscount>;
+  onBuy: () => void;
+  busy: boolean;
+  user: { uid: string; displayName?: string | null; email?: string | null } | null;
+  error: string;
+  tierSoldOut: boolean;
+}) {
+  const seatsPerTicket = tier?.seatsPerTicket ?? 1;
+
+  return (
+    <aside className="hidden lg:block lg:col-span-4 xl:col-span-3">
+      <div className="sticky top-24 space-y-6">
+        {/* Event quick info */}
+        <div className="rounded-lg border border-line bg-raised p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-ink truncate">{event.title}</p>
+              <p className="mt-1 text-sm text-muted">
+                {fmtLocal(new Date(event.dateUtc).getTime())}
+              </p>
+              <p className="text-sm text-muted">{event.venue.name}, {event.venue.city}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Order totals */}
+        <div className="rounded-lg border border-line bg-raised p-5">
+          <h3 className="font-medium text-ink">Order summary</h3>
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="flex justify-between text-muted">
+              <span>{tier?.label ?? 'Select tier'} × {qty}</span>
+              <span>{formatInr(preview.unitPriceInr * qty)}</span>
+            </div>
+            {preview.discountAmountInr > 0 && (
+              <div className="flex justify-between text-muted">
+                <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
+                <span className="text-green-600">-{formatInr(preview.discountAmountInr)}</span>
+              </div>
+            )}
+            {seatsPerTicket > 1 && (
+              <div className="flex justify-between text-muted">
+                <span>Seats used</span>
+                <span>{qty * seatsPerTicket}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-muted">
+              <span>Booking fee</span>
+              <span>None</span>
+            </div>
+            <div className="flex justify-between border-t border-line pt-3 text-lg font-semibold text-ink">
+              <span>Total</span>
+              <span>{formatInr(preview.totalInr)}</span>
+            </div>
+          </div>
+
+          {preview.rejectedReason && discountCode.trim() && (
+            <p className="mt-3 text-sm text-muted">{preview.rejectedReason}</p>
+          )}
+
+          {event.policy && (
+            <div className="mt-4">
+              <PolicyNote policy={event.policy} />
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-accent-text">
+              {error}
+            </p>
+          )}
+
+          {!user && (
+            <p className="mt-3 text-sm text-muted text-center">
+              Sign in to complete your booking
+            </p>
+          )}
+
+          <Button
+            onClick={onBuy}
+            disabled={busy || !tier || tierSoldOut}
+            className="w-full mt-4"
+          >
+            <TicketIcon size={20} weight="regular" aria-hidden="true" />
+            {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+          </Button>
+          <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
+        </div>
+
+        {/* Map below order summary */}
+        <div className="rounded-lg border border-line bg-raised overflow-hidden">
+          <VenueMap venue={event.venue} />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/** Main content area with event details and map. */
+function EventDetails({
+  event,
+  tier,
+  qty,
+  discountCode,
+  preview,
+  setTierId,
+  setQty,
+  setDiscountCode,
+  tierMaxQty,
+  tierSoldOut,
+  onBuy,
+  busy,
+  error,
+  eventSoldOut,
+}: {
+  event: BookingEvent;
+  tier: PriceTier | undefined;
+  qty: number;
+  discountCode: string;
+  preview: ReturnType<typeof applyDiscount>;
+  setTierId: (id: string) => void;
+  setQty: (q: number) => void;
+  setDiscountCode: (code: string) => void;
+  tierMaxQty: number;
+  tierSoldOut: boolean;
+  onBuy: () => void;
+  busy: boolean;
+  error: string;
+  eventSoldOut: boolean;
+}) {
+  const seatsPerTicket = tier?.seatsPerTicket ?? 1;
+
+  return (
+    <main className="lg:col-span-8 xl:col-span-9 space-y-6">
+      {/* Event header */}
+      <div className="space-y-3">
+        <Eyebrow>{KIND_LABEL[event.category ?? 'f1']}</Eyebrow>
+        <h1 className={PageTitle}>{event.title}</h1>
+        <div className="flex flex-wrap items-center gap-3 text-muted text-sm">
+          <span>{fmtLocal(new Date(event.dateUtc).getTime())}</span>
+          <span>·</span>
+          <span>{event.venue.name}</span>
+          <span>·</span>
+          <span>{event.venue.city}</span>
+        </div>
+        {event.description && <p className="text-pretty text-muted">{event.description}</p>}
+        <p className={`inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${eventSoldOut ? 'text-accent-text' : 'text-muted'}`}>
+          {seatsLabel(event)}
+        </p>
+      </div>
+
+      {/* Tier selection */}
+      <div className="rounded-lg border border-line bg-raised p-5">
+        <h3 className="font-medium text-ink">Select tier</h3>
+        <div role="radiogroup" aria-label="Price tier" className="mt-3 space-y-2">
+          {event.tiers.filter(t => !isTierSoldOut(event, t)).map((t) => {
+            const tSoldOut = isTierSoldOut(event, t);
+            const tRemaining = getTierRemainingTickets(event, t);
+            const tSeatsPerTicket = t.seatsPerTicket ?? 1;
+            return (
+              <label
+                key={t.id}
+                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg border p-3 transition ${tSoldOut
+                  ? 'border-line bg-base/50 opacity-50 cursor-not-allowed'
+                  : 'border-line bg-base hover:border-muted has-checked:border-accent has-checked:bg-accent/5'
+                  }`}
+              >
+                <span className="flex items-center gap-3 flex-1 min-w-0">
+                  <input
+                    type="radio"
+                    name="tier"
+                    value={t.id}
+                    checked={tier?.id === t.id}
+                    onChange={() => setTierId(t.id)}
+                    className="accent-accent"
+                    disabled={tSoldOut}
+                  />
+                  <div className="min-w-0">
+                    <span className="font-medium text-ink truncate block">{t.label}</span>
+                    {tSeatsPerTicket > 1 && (
+                      <span className="text-xs text-muted">Ticket for {tSeatsPerTicket} entries</span>
+                    )}
+                    {!tSoldOut && tRemaining < 100 && (
+                      <span className="text-xs text-accent-text">{tRemaining} tickets left</span>
+                    )}
+                    {tSoldOut && <span className="text-xs text-accent-text">Sold out</span>}
+                  </div>
+                </span>
+                <span className="font-mono text-sm text-muted whitespace-nowrap">{formatInr(t.priceInr)}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Qty & Discount */}
+      <div className="flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[140px]">
+          <label htmlFor="bc-qty" className="mb-1.5 block text-sm font-medium text-muted">
+            Quantity
+          </label>
+          <input
+            id="bc-qty"
+            type="number"
+            min={1}
+            max={tierMaxQty}
+            value={qty}
+            onChange={(e) => setQty(Math.min(tierMaxQty, Math.max(1, Number(e.target.value) || 1)))}
+            className={inputCls}
+            disabled={tierSoldOut}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label htmlFor="bc-discount" className="mb-1.5 block text-sm font-medium text-muted">
+            Discount code <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <input
+            id="bc-discount"
+            type="text"
+            value={discountCode}
+            onChange={(e) => setDiscountCode(e.target.value)}
+            placeholder="e.g. EARLYBIRD"
+            className={inputCls}
+            disabled={tierSoldOut}
+          />
+        </div>
+      </div>
+
+      {/* Order summary (mobile: full width, desktop: hidden - shown in sidebar) */}
+      <div className="lg:hidden">
+        <div className="rounded-lg border border-line bg-raised p-4">
+          <h3 className="font-medium text-ink">Order summary</h3>
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="flex justify-between text-muted">
+              <span>{tier?.label ?? 'Select tier'} × {qty}</span>
+              <span>{formatInr(preview.unitPriceInr * qty)}</span>
+            </div>
+            {preview.discountAmountInr > 0 && (
+              <div className="flex justify-between text-muted">
+                <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
+                <span className="text-green-600">-{formatInr(preview.discountAmountInr)}</span>
+              </div>
+            )}
+            {seatsPerTicket > 1 && (
+              <div className="flex justify-between text-muted">
+                <span>Seats used</span>
+                <span>{qty * seatsPerTicket}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-muted">
+              <span>Booking fee</span>
+              <span>None</span>
+            </div>
+            <div className="flex justify-between border-t border-line pt-3 text-lg font-semibold text-ink">
+              <span>Total</span>
+              <span>{formatInr(preview.totalInr)}</span>
+            </div>
+          </div>
+
+          {preview.rejectedReason && discountCode.trim() && (
+            <p className="mt-3 text-sm text-muted">{preview.rejectedReason}</p>
+          )}
+
+          {event.policy && (
+            <div className="mt-4">
+              <PolicyNote policy={event.policy} />
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-accent-text">{error}</p>
+          )}
+
+          <Button
+            onClick={onBuy}
+            disabled={busy || !tier || tierSoldOut}
+            className="w-full mt-4"
+          >
+            <TicketIcon size={20} weight="regular" aria-hidden="true" />
+            {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+          </Button>
+          <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 /** Guest purchase flow for a single booking event: pick tier + qty, preview a live discount
  * price via the pure `applyDiscount`, sign in only when actually reserving (R28: contextual
  * gate, not a page-wide one), then reserve + mock-pay (R23: no real payment provider) and show
@@ -163,13 +491,18 @@ export default function BookingCheckout() {
     if (event && !tierId && event.tiers.length > 0) setTierId(event.tiers[0].id);
   }, [event, tierId]);
 
-  const left = event ? seatsLeft(event) : 0;
-  const maxQty = maxQtyFor(left);
-  useEffect(() => {
-    setQty((q) => Math.min(q, maxQty));
-  }, [maxQty]);
-
+  // Calculate per-tier maxQty and soldOut
   const tier = event?.tiers.find((t) => t.id === tierId);
+  const tierMaxQty = tier && event ? getTierMaxQty(event, tier) : 0;
+  const tierSoldOut = tier && event ? isTierSoldOut(event, tier) : false;
+  const eventSoldOut = event ? seatsLeft(event) <= 0 : false;
+
+  useEffect(() => {
+    if (tier) {
+      setQty((q) => Math.min(q, tierMaxQty));
+    }
+  }, [tierMaxQty, tier]);
+
   const discount = useMemo(
     () =>
       event && discountCode.trim()
@@ -178,6 +511,14 @@ export default function BookingCheckout() {
     [event, discountCode],
   );
   const preview = useMemo(() => applyDiscount(tier, discount, qty), [tier, discount, qty]);
+
+  // Auto-reset tier selection if current tier becomes sold out
+  useEffect(() => {
+    if (tier && event && isTierSoldOut(event, tier)) {
+      setTierId('');
+      setQty(1);
+    }
+  }, [event?.bookedCount, tier]);
 
   const reserve = async () => {
     if (!event || !bookingEventId || !user || !tier) return;
@@ -202,218 +543,64 @@ export default function BookingCheckout() {
     }
   };
 
+  const handleBuy = () => {
+    if (step === 'choose') {
+      setError('');
+      setStep('review');
+      window.scrollTo({ top: 0 });
+    } else if (user) {
+      // User is logged in, proceed with reservation
+      reserve();
+    } else {
+      // User not logged in, trigger sign-in flow
+      signInGoogle().then(() => {
+        // signInGoogle redirects, so this callback won't run on the same page
+        // The page will reload with the user logged in, then they can click again
+      }).catch((e) => {
+        setError(e instanceof Error ? e.message : 'Sign in failed. Please try again.');
+      });
+    }
+  };
+
   if (!bookingEventId || !ready || event === undefined) return <PageSkeleton />;
   if (event === null || !event.salesOpen) return <ClosedNotice event={event} />;
   if (reservation) return <SuccessView event={event} reservation={reservation} />;
-  const soldOut = left === 0;
-
-  if (step === 'review' && tier) {
-    return (
-      <Shell>
-        <Reveal>
-          <Eyebrow>Review your order</Eyebrow>
-          <h1 className={`mt-3 ${PageTitle}`}>{event.title}</h1>
-          <p className="mt-2 text-muted">
-            {fmtLocal(new Date(event.dateUtc).getTime())} · {event.venue.name}, {event.venue.city}
-          </p>
-        </Reveal>
-
-        <Reveal index={1} className="mt-8 max-w-xl rounded-lg border border-line bg-raised p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-medium text-ink">{tier.label}</p>
-              <p className="text-sm text-muted">
-                {formatInr(preview.unitPriceInr)} × {qty}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStep('choose')}
-              className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent"
-            >
-              Edit
-            </button>
-          </div>
-          <div className="mt-4 space-y-1 border-t border-line pt-4 text-sm">
-            <div className="flex justify-between text-muted">
-              <span>Tickets</span>
-              <span>{formatInr(preview.unitPriceInr * qty)}</span>
-            </div>
-            {preview.discountAmountInr > 0 && (
-              <div className="flex justify-between text-muted">
-                <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
-                <span>-{formatInr(preview.discountAmountInr)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-muted">
-              <span>Booking fee</span>
-              <span>None</span>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-line pt-3 text-lg font-semibold text-ink">
-            <span>Total</span>
-            <span>{formatInr(preview.totalInr)}</span>
-          </div>
-        </Reveal>
-
-        {event.policy && (
-          <Reveal index={2} className="mt-4 max-w-xl">
-            <PolicyNote policy={event.policy} />
-          </Reveal>
-        )}
-
-        {error && (
-          <p role="alert" className="mt-6 text-sm text-accent-text">
-            {error}
-          </p>
-        )}
-
-        <Reveal index={3} className="mt-6 max-w-xl">
-          {!user ? (
-            <>
-              <p className="mb-3 text-sm text-muted">
-                Sign in with Google to confirm. Your ticket is saved to your account so you can reopen it any time.
-              </p>
-              <GoogleCta onGoogle={() => signInGoogle().then(() => undefined)} />
-            </>
-          ) : (
-            <Button onClick={() => void reserve()} disabled={busy} className="w-full md:w-auto">
-              <TicketIcon size={20} weight="regular" aria-hidden="true" />
-              {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
-            </Button>
-          )}
-          <p className="mt-3 text-xs text-muted">Payment is a sample for now: nothing is charged.</p>
-        </Reveal>
-      </Shell>
-    );
-  }
 
   return (
     <Shell>
-      <Reveal>
-        <Eyebrow>{KIND_LABEL[event.category ?? 'f1']}</Eyebrow>
-        <h1 className={`mt-3 ${PageTitle}`}>{event.title}</h1>
-        <p className="mt-2 text-muted">
-          {fmtLocal(new Date(event.dateUtc).getTime())} · {event.venue.name}, {event.venue.city}
-        </p>
-        {event.description && <p className="mt-3 max-w-[60ch] text-pretty text-muted">{event.description}</p>}
-        <p
-          className={`mt-3 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${
-            soldOut ? 'text-accent-text' : 'text-muted'
-          }`}
-        >
-          {seatsLabel(event)}
-        </p>
-      </Reveal>
+      <div className="grid grid-cols-12 gap-6">
+        {/* Sticky order summary sidebar (desktop only) */}
+        <OrderSummary
+          event={event}
+          tier={tier}
+          qty={qty}
+          discountCode={discountCode}
+          preview={preview}
+          onBuy={handleBuy}
+          busy={busy}
+          user={user}
+          error={error}
+          tierSoldOut={tierSoldOut}
+        />
 
-      <Reveal index={1} className="mt-6">
-        <VenueMap venue={event.venue} />
-      </Reveal>
-
-      <Reveal index={2} className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Choose a tier</h2>
-        <div role="radiogroup" aria-label="Price tier" className="mt-3 flex flex-col gap-2">
-          {event.tiers.map((t) => (
-            <label
-              key={t.id}
-              className="flex min-h-12 cursor-pointer items-center justify-between gap-4 rounded-lg border border-line bg-raised px-4 transition hover:border-muted has-checked:border-accent"
-            >
-              <span className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="tier"
-                  value={t.id}
-                  checked={tierId === t.id}
-                  onChange={() => setTierId(t.id)}
-                  className="accent-accent"
-                />
-                {t.label}
-              </span>
-              <span className="font-mono text-sm text-muted">{formatInr(t.priceInr)}</span>
-            </label>
-          ))}
-        </div>
-      </Reveal>
-
-      <Reveal index={3} className="mt-6 flex flex-wrap gap-6">
-        <div>
-          <label htmlFor="bc-qty" className="mb-1.5 block text-sm font-medium text-muted">
-            Quantity
-          </label>
-          <input
-            id="bc-qty"
-            type="number"
-            min={1}
-            max={maxQty}
-            value={qty}
-            onChange={(e) => setQty(Math.min(maxQty, Math.max(1, Number(e.target.value) || 1)))}
-            className={`${inputCls} w-28`}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <label htmlFor="bc-discount" className="mb-1.5 block text-sm font-medium text-muted">
-            Discount code <span className="font-normal text-muted">(optional)</span>
-          </label>
-          <input
-            id="bc-discount"
-            type="text"
-            value={discountCode}
-            onChange={(e) => setDiscountCode(e.target.value)}
-            placeholder="e.g. EARLYBIRD"
-            className={inputCls}
-          />
-        </div>
-      </Reveal>
-
-      <Reveal index={4} className="mt-6">
-        <Divider />
-        <div className="flex flex-col gap-1 py-4">
-          <div className="flex items-center justify-between text-sm text-muted">
-            <span>
-              {formatInr(preview.unitPriceInr)} × {qty}
-            </span>
-            <span>{formatInr(preview.unitPriceInr * qty)}</span>
-          </div>
-          {preview.discountAmountInr > 0 && (
-            <div className="flex items-center justify-between text-sm text-muted">
-              <span>Discount</span>
-              <span>-{formatInr(preview.discountAmountInr)}</span>
-            </div>
-          )}
-          <div className="mt-1 flex items-center justify-between text-lg font-semibold text-ink">
-            <span>Total</span>
-            <span>{formatInr(preview.totalInr)}</span>
-          </div>
-          {preview.rejectedReason && discountCode.trim() && (
-            <p className="mt-1 text-sm text-muted">{preview.rejectedReason}</p>
-          )}
-        </div>
-        <Divider />
-      </Reveal>
-
-      {event.policy && (
-        <Reveal index={5} className="mt-6 max-w-xl">
-          <PolicyNote policy={event.policy} />
-        </Reveal>
-      )}
-
-      <Reveal index={6} className="mt-6">
-        {soldOut ? (
-          <p className="text-accent-text">This watch party is sold out.</p>
-        ) : (
-          <Button
-            onClick={() => {
-              setError('');
-              setStep('review');
-              window.scrollTo({ top: 0 });
-            }}
-            disabled={!tier}
-            className="w-full md:w-auto"
-          >
-            Review order
-          </Button>
-        )}
-      </Reveal>
+        {/* Main content */}
+        <EventDetails
+          event={event}
+          tier={tier}
+          qty={qty}
+          discountCode={discountCode}
+          preview={preview}
+          setTierId={setTierId}
+          setQty={setQty}
+          setDiscountCode={setDiscountCode}
+          tierMaxQty={tierMaxQty}
+          tierSoldOut={tierSoldOut}
+          onBuy={handleBuy}
+          busy={busy}
+          error={error}
+          eventSoldOut={eventSoldOut}
+        />
+      </div>
     </Shell>
   );
 }

@@ -36,7 +36,7 @@ function makeEvent(): BookingEvent {
 describe('bookings model', () => {
   it('blankForm starts with one placeholder tier and no discounts', () => {
     const f = blankForm();
-    expect(f.tiers).toEqual([{ id: 'tier-1', label: 'General admission', priceInr: 0 }]);
+    expect(f.tiers).toEqual([{ id: 'tier-1', label: 'General admission', priceInr: 0, capacity: 0, seatsPerTicket: 1 }]);
     expect(f.discounts).toEqual([]);
   });
 
@@ -53,7 +53,9 @@ describe('bookings model', () => {
     expect(out.capacity).toBe(100);
     expect(out.venue.name).toBe('The Pit');
     expect(out.venue.mapUrl).toBe('https://maps.example/x');
-    expect(out.tiers).toEqual(ev.tiers);
+    expect(out.tiers).toEqual([
+      { id: 'tier-1', label: 'General', priceInr: 500, capacity: 0, seatsPerTicket: 1 }
+    ]);
     expect(out.discounts[0].code).toBe('EARLY10');
     expect(out.discounts[0].validFromUtc?.toMillis()).toBe(1_700_000_040_000);
   });

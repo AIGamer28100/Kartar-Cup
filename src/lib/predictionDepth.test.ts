@@ -94,7 +94,7 @@ describe('weighted CSV', () => {
   it('writes the weighted score', () => {
     const rows = rankEntries([e('a', 1, A)], R, null, undefined, { q2: 3 });
     const out = toCsv(rows.map((r) => ({ ...r, submittedAtIso: '2026-01-01T00:00:00Z' })));
-    expect(out.split('\r\n')[1]).toBe('1,a,,,7,2026-01-01T00:00:00Z');
+    expect(out.split('\r\n')[1]).toBe('1,a,,,7,2026-01-01T00:00:00Z,7,0');
   });
 });
 

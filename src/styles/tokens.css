@@ -153,3 +153,167 @@
     animation: track-draw 5s linear forwards;
   }
 }
+
+@keyframes track-chequered {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.track-chequered {
+  stroke-dasharray: 20 20;
+  animation: track-chequered 1s linear infinite;
+}
+
+.race-state-backdrop {
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+.race-state-backdrop::before {
+  position: absolute;
+  inset: -35% -40%;
+  content: "";
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgb(255 255 255 / 0.035) 47%,
+    rgb(255 255 255 / 0.14) 50%,
+    rgb(255 255 255 / 0.035) 53%,
+    transparent 60%
+  );
+  transform: translate3d(-22%, 0, 0) skewX(-8deg);
+}
+.race-state-backdrop--wave::before {
+  opacity: 1;
+  animation: race-flag-wave 4.2s cubic-bezier(0.77, 0, 0.175, 1) infinite
+    alternate;
+}
+.race-state-backdrop--start::before {
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgb(248 113 113 / 0.16),
+    transparent 66%
+  );
+  opacity: 1;
+  transform: none;
+  animation: race-start-glow 1.2s ease-in-out infinite alternate;
+}
+.race-state-backdrop--chequered::before {
+  inset: 0;
+  opacity: 0.32;
+  background-image: repeating-conic-gradient(
+    rgb(255 255 255 / 0.2) 0% 25%,
+    transparent 0% 50%,
+    rgb(0 0 0 / 0.22) 0% 75%,
+    transparent 0%
+  );
+  background-size: 12px 12px;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0 14px,
+    transparent 14px calc(100% - 14px),
+    #000 calc(100% - 14px)
+  );
+  transform: translate3d(-10px, 0, 0);
+  animation: race-checker-wave 5.5s cubic-bezier(0.77, 0, 0.175, 1) infinite
+    alternate;
+}
+
+@keyframes race-flag-wave {
+  from {
+    transform: translate3d(-22%, -1%, 0) skewX(-8deg);
+  }
+  to {
+    transform: translate3d(22%, 1%, 0) skewX(-3deg);
+  }
+}
+@keyframes race-start-glow {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+@keyframes race-checker-wave {
+  from {
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    transform: translate3d(10px, 0, 0);
+  }
+}
+
+.green-flag-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    rgb(61 220 151 / 0.1) 22%,
+    rgb(61 220 151 / 0.22) 52%,
+    rgb(61 220 151 / 0.34) 100%
+  );
+  animation: green-flag-fade 10s ease-out forwards;
+}
+.green-flag-transition--viewport {
+  position: fixed;
+  z-index: 50;
+}
+@keyframes green-flag-fade {
+  from {
+    opacity: 0.82;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.lights-out-phase-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: radial-gradient(
+    circle at center,
+    rgb(248 113 113 / 0.2),
+    rgb(127 29 29 / 0.1) 42%,
+    transparent 76%
+  );
+  pointer-events: none;
+  animation: lights-out-phase 900ms ease-out forwards;
+}
+@keyframes lights-out-phase {
+  0% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-state-backdrop--wave::before,
+  .race-state-backdrop--start::before,
+  .race-state-backdrop--chequered::before,
+  .green-flag-transition {
+    animation: none;
+  }
+  .green-flag-transition {
+    opacity: 0.28;
+  }
+  .lights-out-phase-transition {
+    animation: none;
+    opacity: 0.18;
+  }
+}

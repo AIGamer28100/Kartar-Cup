@@ -12,7 +12,7 @@ export interface RaceInfo {
   raceDate: string;
   hasSprint: boolean;
   themeId: string;
-  status: 'scheduled' | 'cancelled-by-host';
+  status: 'scheduled' | 'cancelled-by-host' | 'in-progress' | 'yellow-flag' | 'red-flag' | 'last-lap' | 'completed';
 }
 
 export function nextRace(now: Date, races: RaceInfo[]): RaceInfo | null {

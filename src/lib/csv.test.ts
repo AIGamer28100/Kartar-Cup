@@ -10,7 +10,7 @@ const row = (name: string) => ({
 
 describe('toCsv', () => {
   it('has header', () => {
-    expect(toCsv([]).split('\r\n')[0]).toBe('rank,name,email,phone,score,submittedAt');
+    expect(toCsv([]).split('\r\n')[0]).toBe('rank,name,email,phone,score,submittedAt,quizScore,cardBonus');
   });
   it('quotes commas, quotes and newlines', () => {
     const out = toCsv([row('a,b "c"\nd')]);

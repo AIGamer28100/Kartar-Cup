@@ -13,14 +13,14 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
     patch((f) => {
       let n = f.tiers.length + 1;
       while (f.tiers.some((t) => t.id === `tier-${n}`)) n++;
-      return { tiers: [...f.tiers, { id: `tier-${n}`, label: '', priceInr: 0 }] };
+      return { tiers: [...f.tiers, { id: `tier-${n}`, label: '', priceInr: 0, capacity: 0, seatsPerTicket: 1 }] };
     });
   }
   return (
     <Section title="Price tiers" intro="Up to 10 tiers. New events start with one placeholder tier at ₹0 — set real prices before opening sales.">
       <ul className="divide-y divide-line border-y border-line">
         {form.tiers.map((t, i) => (
-          <li key={t.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[1fr_10rem_10rem_auto] md:items-end">
+          <li key={t.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[1fr_10rem_10rem_8rem_8rem_auto] md:items-end">
             <Field id={`tier-label-${t.id}`} label={`Tier ${i + 1} label`}>
               <input
                 id={`tier-label-${t.id}`}
@@ -43,6 +43,36 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
                 onChange={(e) =>
                   patch((f) => ({
                     tiers: f.tiers.map((x) => (x.id === t.id ? { ...x, priceInr: Number(e.target.value) || 0 } : x)),
+                  }))
+                }
+              />
+            </Field>
+            <Field id={`tier-capacity-${t.id}`} label="Tier capacity (0 = unlimited)">
+              <input
+                id={`tier-capacity-${t.id}`}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                className={`${inputCls} font-mono`}
+                value={t.capacity ?? ''}
+                onChange={(e) =>
+                  patch((f) => ({
+                    tiers: f.tiers.map((x) => (x.id === t.id ? { ...x, capacity: e.target.value === '' ? 0 : Number(e.target.value) } : x)),
+                  }))
+                }
+              />
+            </Field>
+            <Field id={`tier-seats-${t.id}`} label="Seats per ticket" hint="1 = standard, 2 = ticket for 2 entries, etc.">
+              <input
+                id={`tier-seats-${t.id}`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                className={`${inputCls} font-mono w-20`}
+                value={t.seatsPerTicket ?? 1}
+                onChange={(e) =>
+                  patch((f) => ({
+                    tiers: f.tiers.map((x) => (x.id === t.id ? { ...x, seatsPerTicket: Number(e.target.value) || 1 } : x)),
                   }))
                 }
               />

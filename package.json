@@ -7,10 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run -c vitest.rules.config.ts\"",
-    "emu": "firebase emulators:start --only auth,firestore",
-    "seed": "node scripts/seed-emulator.mjs",
-    "e2e": "playwright test"
+    "deploy": "firebase deploy --project kartar-cup --only hosting,firestore:rules",
+    "deploy:all": "firebase deploy --project kartar-cup",
+    "deploy:functions": "firebase deploy --project kartar-cup --only functions"
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",

@@ -8,7 +8,7 @@ import { signInGoogle } from '../lib/firebase';
 import { watchBooking, watchBookingEvent } from '../lib/bookings';
 import type { Booking, BookingEvent } from '../lib/types';
 import GoogleCta from './SignIn';
-import CancelBooking from './CancelBooking';
+
 import MyCards from './MyCards';
 import TicketActions, { PolicyNote } from './TicketActions';
 import { bookingStatusLabel, formatInr } from './profileModel';
@@ -173,9 +173,6 @@ export default function TicketPage() {
           <TicketActions event={event} bookingId={booking.id} />
         </Reveal>
       )}
-      <Reveal index={3} className="mt-6">
-        <CancelBooking booking={booking} event={event} />
-      </Reveal>
       {event?.policy && (
         <Reveal index={3} className="mt-6 max-w-xl">
           <PolicyNote policy={event.policy} />

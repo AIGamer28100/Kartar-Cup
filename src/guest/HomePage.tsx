@@ -8,6 +8,10 @@ import {
   InstagramLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
+import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from "../components/RaceStateDisplay";
+import { computeRaceState } from "../lib/raceState";
+import { raceStartFor } from "../lib/f1api";
+import { fetchLineupForRace, findSessionKey } from "../lib/openf1";
 import Divider from "../components/Divider";
 import Skeleton, { PageSkeleton } from "../components/Skeleton";
 import TrackMap from "../components/TrackMap";
@@ -21,12 +25,13 @@ import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { useGuestSession } from "./useGuestSession";
 import { useCountdown } from "../lib/useCountdown";
-import { nextSession, raceStartFor } from "../lib/f1api";
+import { nextSession } from "../lib/f1api";
 import { useSchedule } from "../lib/useSchedule";
 import { usePageMeta } from "../lib/pageMeta";
 import { watchBookingEvents } from "../lib/bookings";
 import type { BookingEvent } from "../lib/types";
 import { nextHostedRace } from "./eventsModel";
+import type { LineupResult } from "../lib/openf1";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -74,7 +79,7 @@ function PlainDivider() {
  * height-matched to the hero's own natural height (the right column scales its content down to
  * fit, never the other way around). QuizBanner is NOT inside this row (kept below, full-width)
  * so height-matching stays predictable regardless of quiz state. */
-function HeroAndNextRace() {
+function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: RaceState | null) => void }) {
   const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
   // R47: "next watch party" is the next HOSTED race, which can be later than the next race
   // on the calendar (e.g. Malaysia is not hosted, Singapore is). Until booking events load, or if
@@ -85,6 +90,29 @@ function HeroAndNextRace() {
   const track = next ? trackForRace(next.id) : null;
   const { schedule, settled } = useSchedule(next?.season);
   const targetMs = next ? raceStartFor(next, schedule).ms : 0;
+
+  // Compute race state for live flag display
+  const raceStateInfo = useMemo(
+    () => (next ? computeRaceState(targetMs, next.id) : null),
+    [next, targetMs]
+  );
+  const raceState = raceStateInfo?.state ?? null;
+  useEffect(() => onRaceStateChange(raceState), [onRaceStateChange, raceState]);
+
+  // Fetch and cache the driver lineup once the race has ended
+  const [lineup, setLineup] = useState<LineupResult | null>(null);
+  useEffect(() => {
+    if (!raceStateInfo?.isEnded) return;
+    ; (async () => {
+      const year = next?.season ?? new Date().getFullYear();
+      const country = next?.country;
+      const sessionResult = await findSessionKey(year, country, next?.round ?? 1);
+      if (!sessionResult.ok) return;
+      const data = await fetchLineupForRace(sessionResult.sessionKey);
+      setLineup(data);
+    })();
+  }, [next?.season, next?.country, next?.round, raceStateInfo?.isEnded]);
+
   const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
   const desktopMotion = useDesktopMotion();
@@ -149,8 +177,8 @@ function HeroAndNextRace() {
               {upNext && upNext.key !== "race" && (
                 <p className="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
                   <span className="relative flex size-2" aria-hidden="true">
-                    <span className="absolute inline-flex size-full rounded-full bg-accent opacity-60 motion-safe:animate-ping" />
-                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                    <span className="absolute inline-flex size-full rounded-full bg-info opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-info" />
                   </span>
                   Next on track: {upNext.label} · {istReadout(upNext.startMs).day}{" "}
                   {istReadout(upNext.startMs).month} {istReadout(upNext.startMs).time} IST
@@ -158,16 +186,28 @@ function HeroAndNextRace() {
               )}
             </Reveal>
             <Reveal index={2} className="mt-5">
-              <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                Lights out in
-              </p>
-              <div className="mt-2">
-                {settled ? (
-                  <CountdownReadout targetMs={targetMs} />
-                ) : (
-                  <Skeleton className="h-16 w-72 max-w-full" />
-                )}
-              </div>
+              {raceStateInfo ? (
+                <RaceStateDisplay
+                  state={raceStateInfo.state}
+                  raceStartMs={targetMs}
+                  onDisplayStateChange={onRaceStateChange}
+                  showTimer={true}
+                  drivers={lineup?.ok ? lineup.drivers.slice(0, 3) : undefined}
+                />
+              ) : (
+                <div className="text-center py-4">
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                    Lights out in
+                  </p>
+                  <div className="mt-2">
+                    {settled ? (
+                      <CountdownReadout targetMs={targetMs} />
+                    ) : (
+                      <Skeleton className="h-16 w-72 max-w-full" />
+                    )}
+                  </div>
+                </div>
+              )}
             </Reveal>
           </div>
           {track && (
@@ -211,7 +251,7 @@ function AboutSection() {
   );
 }
 
-/** Five dots that light up red one per hour through the final 5 hours before lights out —
+/** Five dots that light up info one per hour through the final 5 hours before lights out —
  * echoes F1's real start-light sequence (5 lights build up, then go out together), repurposed
  * here as an hour-by-hour countdown rather than the pre-race few seconds. Only rendered inside
  * that final 5h window. CSS glow only, no new dependency. */
@@ -225,11 +265,10 @@ function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
           <span
             key={i}
             aria-hidden="true"
-            className={`h-3 w-3 rounded-full border transition-colors duration-500 ${
-              on
-                ? "border-accent bg-accent shadow-[0_0_10px_2px_var(--color-accent)]"
-                : "border-line bg-raised"
-            }`}
+            className={`h-3 w-3 rounded-full border transition-colors duration-500 ${on
+              ? "border-info bg-info shadow-[0_0_10px_2px_var(--color-info)]"
+              : "border-line bg-raised"
+              }`}
           />
         );
       })}
@@ -282,7 +321,7 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
         <TimeSegment value={pad(hours)} label="Hrs" />
         <TimeSegment value={pad(minutes)} label="Min" />
         <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
-          <p className="font-mono text-stat font-semibold tabular-nums text-accent-text motion-safe:animate-pulse motion-reduce:animate-none">
+          <p className="font-mono text-stat font-semibold tabular-nums text-ink motion-safe:animate-pulse motion-reduce:animate-none">
             {pad(seconds)}
           </p>
           <p className="mt-2 font-mono text-label uppercase text-muted">
@@ -292,6 +331,7 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
       </div>
       {hoursRemaining <= 5 && (
         <div className="mt-4">
+          {/* Five lights countdown — uses --color-info (blue) instead of --color-accent (red) to avoid translucent red overlay */}
           <FiveLightsStrip hoursRemaining={hoursRemaining} />
         </div>
       )}
@@ -441,6 +481,7 @@ export default function HomePage() {
   usePageMeta({});
   const s = useGuestSession();
   const [quizRevealed, setQuizRevealed] = useState(false);
+  const [raceState, setRaceState] = useState<RaceState | null>(null);
   // The mobile tab bar's Predict tab (and its Home tab, to leave the quiz) navigate here with
   // router state; same-path navigations get a fresh key, so key drives the sync.
   const location = useLocation();
@@ -469,27 +510,30 @@ export default function HomePage() {
   return (
     <>
       <ScrollProgressPath />
-      <Shell>
-        <HeroAndNextRace />
-        <div className="mt-10">
-          <QuizBannerSection
-            event={s.event}
-            status={s.status}
-            quizRevealed={quizRevealed}
-            onReveal={() => setQuizRevealed(true)}
-          />
-        </div>
-        <CheckerDivider />
-        <AboutSection />
-        <PlainDivider />
-        <ChampionshipSection season={nextRace(new Date(), ALL_RACES)?.season ?? 2026} />
-        <PlainDivider />
-        <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
-        <CheckerDivider />
-        <GallerySection />
-        <PlainDivider />
-        <PartnershipsSection />
-      </Shell>
+      {raceState && <RaceStateBackdrop state={raceState} className="fixed inset-0 z-0" />}
+      <div className="relative z-10">
+        <Shell>
+          <HeroAndNextRace onRaceStateChange={setRaceState} />
+          <div className="mt-10">
+            <QuizBannerSection
+              event={s.event}
+              status={s.status}
+              quizRevealed={quizRevealed}
+              onReveal={() => setQuizRevealed(true)}
+            />
+          </div>
+          <CheckerDivider />
+          <AboutSection />
+          <PlainDivider />
+          <ChampionshipSection season={nextRace(new Date(), ALL_RACES)?.season ?? 2026} />
+          <PlainDivider />
+          <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
+          <CheckerDivider />
+          <GallerySection />
+          <PlainDivider />
+          <PartnershipsSection />
+        </Shell>
+      </div>
     </>
   );
 }

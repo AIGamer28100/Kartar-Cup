@@ -6,6 +6,8 @@ export interface DiscountResult {
   unitPriceInr: number;
   discountAmountInr: number;
   totalInr: number;
+  /** How many seats this quantity consumes (qty * seatsPerTicket). */
+  totalSeats: number;
   /** non-null only when the discount could NOT be applied and we fell back to no discount. */
   rejectedReason: string | null;
 }
@@ -19,11 +21,14 @@ export function applyDiscount(
   nowMs: number = Date.now(),
 ): DiscountResult {
   const unitPriceInr = tier?.priceInr ?? 0;
+  const seatsPerTicket = tier?.seatsPerTicket ?? 1;
   const grossInr = unitPriceInr * qty;
+  const totalSeats = qty * seatsPerTicket;
   const noDiscount = (reason: string | null): DiscountResult => ({
     unitPriceInr,
     discountAmountInr: 0,
     totalInr: grossInr,
+    totalSeats,
     rejectedReason: reason,
   });
 
@@ -66,6 +71,7 @@ export function applyDiscount(
     unitPriceInr,
     discountAmountInr,
     totalInr: grossInr - discountAmountInr,
+    totalSeats,
     rejectedReason: null,
   };
 }

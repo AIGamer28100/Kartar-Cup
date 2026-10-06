@@ -407,16 +407,17 @@ service cloud.firestore {
     function validBooking() {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
-                'qty','unitPriceInr','discountCode','discountAmountInr','totalInr','status','qrToken',
+                'qty','seatsPerTicket','unitPriceInr','discountCode','discountAmountInr','totalInr','status','qrToken',
                 'createdAt','paidAt','checkedInAt','checkedInBy'])
         && d.keys().hasAll(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
-                'qty','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
+                'qty','seatsPerTicket','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
         && d.id == d.qrToken
         && d.buyerUid == request.auth.uid
         && d.buyerName is string && d.buyerName.size() >= 1 && d.buyerName.size() <= 80
         && d.buyerEmail is string && d.buyerEmail.lower() == request.auth.token.email.lower()
         && d.tierId is string
         && d.qty is int && d.qty > 0 && d.qty <= 10
+        && d.seatsPerTicket is int && d.seatsPerTicket > 0 && d.seatsPerTicket <= 10
         && d.unitPriceInr is number && d.unitPriceInr >= 0
         && d.discountAmountInr is number && d.discountAmountInr >= 0
         && d.totalInr is number && d.totalInr >= 0

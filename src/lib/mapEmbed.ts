@@ -33,6 +33,7 @@ export interface VenueLike {
   name: string;
   city: string;
   mapUrl?: string;
+  place_id?: string;
 }
 
 const placeQuery = (v: VenueLike) => [v.name.trim(), v.city.trim()].filter(Boolean).join(', ');
@@ -44,6 +45,10 @@ export function venueEmbedUrl(v: VenueLike): string | null {
   const fromLink = v.mapUrl ? toMapEmbedUrl(v.mapUrl) : null;
   if (fromLink) return fromLink;
   if (!v.name.trim()) return null;
+  // Use place_id for exact venue embed if available
+  if (v.place_id) {
+    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyCcUnPz_Ic1KWIPjH0uRbgCB39tUKr9NDk&q=place_id:${v.place_id}`;
+  }
   return `https://www.google.com/maps?q=${encodeURIComponent(placeQuery(v))}&output=embed`;
 }
 
@@ -51,10 +56,17 @@ export function venueEmbedUrl(v: VenueLike): string | null {
 export function venueMapLink(v: VenueLike): string {
   const own = v.mapUrl?.trim();
   if (own && /^https?:\/\//i.test(own)) return own;
+  // Use place_id for exact place link if available
+  if (v.place_id) {
+    return `https://www.google.com/maps/place/?q=place_id:${v.place_id}`;
+  }
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery(v))}`;
 }
 
 /** Turn-by-turn directions from wherever the guest is (Google fills in their location). */
 export function venueDirectionsUrl(v: VenueLike): string {
+  if (v.place_id) {
+    return `https://www.google.com/maps/dir/?api=1&destination=place_id:${v.place_id}`;
+  }
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(placeQuery(v))}`;
 }

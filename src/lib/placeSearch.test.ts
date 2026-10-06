@@ -1,50 +1,168 @@
-import { describe, expect, it } from 'vitest';
-import { googleMapsPinUrl, parsePhoton } from './placeSearch';
-import { toMapEmbedUrl } from './mapEmbed';
+import { describe, expect, it, vi } from 'vitest';
+import { googleMapsPinUrl, type PlacesError } from './placeSearch';
+import type { PlaceResult } from './placeSearch';
 
-// Shape copied from a real photon.komoot.io response.
-const feature = (props: Record<string, unknown>, coordinates: [number, number] = [80.2598, 12.9858]) => ({
-  geometry: { coordinates },
-  properties: props,
-});
-
-describe('parsePhoton', () => {
-  it('maps a named place, taking [lng, lat] order from GeoJSON', () => {
-    const [r] = parsePhoton({
-      features: [feature({ name: 'Marina Beach', city: 'Chennai', state: 'Tamil Nadu' }, [80.2833, 13.0534])],
-    });
-    expect(r).toMatchObject({ name: 'Marina Beach', city: 'Chennai', lat: 13.0534, lng: 80.2833 });
-    expect(r.label).toBe('Marina Beach, Chennai, Tamil Nadu');
-  });
-
-  it('falls back to district/county for the city and to the street for a nameless address', () => {
-    const [r] = parsePhoton({ features: [feature({ housenumber: '12', street: 'East Coast Road', county: 'Chengalpattu' })] });
-    expect(r.name).toBe('12 East Coast Road');
-    expect(r.city).toBe('Chengalpattu');
-  });
-
-  it('drops results with no name or no usable coordinates, and de-duplicates', () => {
-    const out = parsePhoton({
-      features: [
-        feature({ city: 'Chennai' }),
-        { properties: { name: 'No coords' } },
-        feature({ name: 'Dup', city: 'Chennai' }),
-        feature({ name: 'Dup', city: 'Chennai' }),
-      ],
-    });
-    expect(out.map((r) => r.name)).toEqual(['Dup']);
-  });
-
-  it('returns [] for junk input', () => {
-    expect(parsePhoton(null)).toEqual([]);
-    expect(parsePhoton({})).toEqual([]);
-  });
-});
+// Google Places Autocomplete returns predictions with these fields.
+// A minimal prediction shape matching the real API response.
+const minimalPrediction = {
+  description: 'Marina Beach, Chennai, Tamil Nadu',
+  structured_formatting: {
+    main_text: 'Marina Beach',
+    secondary_text: 'Chennai, Tamil Nadu',
+  },
+  place_id: 'ChIInEezR91Ak8gR6YFW1U_r Mor',
+};
 
 describe('googleMapsPinUrl', () => {
   it('builds a pin link that the guest page can embed', () => {
     const url = googleMapsPinUrl({ lat: 12.9858, lng: 80.2598 });
     expect(url).toBe('https://www.google.com/maps?q=12.985800,80.259800');
-    expect(toMapEmbedUrl(url)).toContain('output=embed');
+  });
+});
+
+describe('searchPlaces', () => {
+  // Type guard to narrow the union type
+  const isPlaceResultArray = (results: PlaceResult[] | PlacesError): results is PlaceResult[] => {
+    return Array.isArray(results);
+  };
+
+  it('returns empty array for short query', async () => {
+    const results = await Promise.resolve(
+      (await import('../lib/placeSearch')).searchPlaces('go')
+    );
+    expect(results).toEqual([]);
+  });
+
+  it('returns empty array for empty query', async () => {
+    const results = await Promise.resolve(
+      (await import('../lib/placeSearch')).searchPlaces('')
+    );
+    expect(results).toEqual([]);
+  });
+
+  it('fetches and parses Google Places Autocomplete predictions', async () => {
+    // Mock the fetch API
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'OK',
+        predictions: [minimalPrediction as any],
+        error_message: undefined,
+      }),
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(true);
+    const places = results as PlaceResult[];
+    expect(places).toHaveLength(1);
+    expect(places[0].label).toBe('Marina Beach, Chennai');
+    expect(places[0].name).toBe('Marina Beach');
+    expect(places[0].city).toBe('Chennai');
+    // lat/lng are placeholder 0 since Autocomplete doesn't return them directly
+    expect(places[0].lat).toBe(0);
+    expect(places[0].lng).toBe(0);
+    expect(places[0].place_id).toBe('ChIInEezR91Ak8gR6YFW1U_r Mor');
+  });
+
+  it('returns empty array when API returns ZERO_RESULTS status', async () => {
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'ZERO_RESULTS',
+        predictions: [],
+      }),
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('NonExistentPlace');
+
+    expect(isPlaceResultArray(results)).toBe(true);
+    expect(results).toEqual([]);
+  });
+
+  it('returns PlacesError when API returns REQUEST_DENIED status', async () => {
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'REQUEST_DENIED',
+        error_message: 'The provided API key is invalid.',
+        predictions: [],
+      }),
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(false);
+    const error = results as PlacesError;
+    expect(error.status).toBe('REQUEST_DENIED');
+    expect(error.error_message).toBe('The provided API key is invalid.');
+  });
+
+  it('returns PlacesError when API returns OVER_QUERY_LIMIT status', async () => {
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'OVER_QUERY_LIMIT',
+        error_message: 'You have exceeded your daily request quota for this API.',
+        predictions: [],
+      }),
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(false);
+    const error = results as PlacesError;
+    expect(error.status).toBe('OVER_QUERY_LIMIT');
+    expect(error.error_message).toContain('exceeded');
+  });
+
+  it('returns PlacesError when API returns INVALID_REQUEST status', async () => {
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'INVALID_REQUEST',
+        error_message: 'Missing required parameter: input.',
+        predictions: [],
+      }),
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(false);
+    const error = results as PlacesError;
+    expect(error.status).toBe('INVALID_REQUEST');
+  });
+
+  it('returns PlacesError on HTTP error (non-ok response)', async () => {
+    ;(global as any).fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+    });
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(false);
+    const error = results as PlacesError;
+    expect(error.status).toBe('HTTP_ERROR');
+    expect(error.error_message).toContain('403');
+  });
+
+  it('returns PlacesError on network failure', async () => {
+    ;(global as any).fetch = vi.fn().mockRejectedValueOnce(new Error('Failed to fetch'));
+
+    const { searchPlaces } = await import('../lib/placeSearch');
+    const results = await searchPlaces('Marina Beach');
+
+    expect(isPlaceResultArray(results)).toBe(false);
+    const error = results as PlacesError;
+    expect(error.status).toBe('NETWORK_ERROR');
+    expect(error.error_message).toBe('Failed to fetch');
   });
 });

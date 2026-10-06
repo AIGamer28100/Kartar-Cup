@@ -6,11 +6,10 @@ const FS = `http://127.0.0.1:8080`;
 const AUTH = `http://127.0.0.1:9099`;
 export const SCREENS = 'test-results/screens';
 
-/** Wipe both emulators and re-run the seed script. Emulator only. */
-export async function resetAndSeed(): Promise<void> {
+/** Wipe both emulators for a clean test state. */
+export async function resetEmulators(): Promise<void> {
   await fetch(`${FS}/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
   await fetch(`${AUTH}/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
-  execFileSync('node', ['scripts/seed-emulator.mjs'], { stdio: 'pipe' });
 }
 
 async function adminPatch(path: string, fields: Record<string, unknown>, mask: string[]): Promise<void> {

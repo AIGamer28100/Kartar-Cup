@@ -454,6 +454,8 @@ function LegalTab() {
 
 type Tab = 'partners' | 'stories' | 'legal';
 
+export { PartnerForm, StoryForm, LegalForm };
+
 export default function ContentAdmin() {
   const { access } = useAuth();
   const [tab, setTab] = useState<Tab>('partners');

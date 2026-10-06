@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   runTransaction,
@@ -138,16 +139,38 @@ export async function createReservation(input: CreateReservationInput): Promise<
     if (!evSnap.exists()) throw new Error('Booking event not found.');
     const ev = evSnap.data() as BookingEvent;
     if (!ev.salesOpen) throw new Error('Sales are closed for this event.');
-    const nextCount = (ev.bookedCount ?? 0) + qty;
-    if (nextCount > ev.capacity) throw new Error('Sold out — not enough seats left.');
 
     const tier = ev.tiers.find((t) => t.id === tierId);
+    if (!tier) throw new Error('Price tier not found.');
+
+    const seatsPerTicket = tier.seatsPerTicket ?? 1;
+    const seatsRequested = qty * seatsPerTicket;
+
+    // Check event-level capacity
+    const nextEventCount = (ev.bookedCount ?? 0) + seatsRequested;
+    if (nextEventCount > ev.capacity) throw new Error('Sold out — not enough seats left.');
+
+    // Check tier-level capacity
+    if (tier.capacity && tier.capacity > 0) {
+      // tier.capacity = max number of TICKETS for this tier (not seats)
+      // We need to check existing bookings for this tier
+      const bookingsSnap = await getDocs(query(bookingsCol(), where('bookingEventId', '==', bookingEventId), where('tierId', '==', tierId), where('status', '!=', 'cancelled')));
+      let tierBookedTickets = 0;
+      bookingsSnap.docs.forEach((doc) => {
+        const b = doc.data() as Booking;
+        tierBookedTickets += b.qty;
+      });
+      if (tierBookedTickets + qty > tier.capacity) {
+        throw new Error(`Tier "${tier.label}" is sold out.`);
+      }
+    }
+
     const discount = discountCode
       ? ev.discounts.find((d) => d.code?.toLowerCase() === discountCode.toLowerCase()) ?? null
       : null;
     const { unitPriceInr, discountAmountInr, totalInr } = applyDiscount(tier, discount, qty);
 
-    tx.update(evRef, { bookedCount: nextCount, updatedAt: serverTimestamp() });
+    tx.update(evRef, { bookedCount: nextEventCount, updatedAt: serverTimestamp() });
     tx.set(bookingRef(bookingId), {
       id: bookingId,
       bookingEventId,
@@ -156,6 +179,7 @@ export async function createReservation(input: CreateReservationInput): Promise<
       buyerEmail,
       tierId,
       qty,
+      seatsPerTicket,
       unitPriceInr,
       ...(discountCode ? { discountCode } : {}),
       discountAmountInr,
@@ -213,25 +237,49 @@ export function watchAllBookings(
   );
 }
 
-/** Host only. paid_mock -> checked_in; rejects if already checked in or not paid. */
-export async function checkIn(bookingId: string, hostEmail: string): Promise<void> {
+/** Host only. paid_mock -> checked_in; rejects if already fully checked in or not paid. 
+ * Supports partial check-in for bundled tickets: pass `count` to check in a specific number of seats. */
+export async function checkIn(
+  bookingId: string,
+  hostEmail: string,
+  count?: number
+): Promise<void> {
   const ref = bookingRef(bookingId);
+  let loggedCount = 0;
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error('Booking not found.');
     const b = snap.data() as Booking;
-    if (b.status === 'checked_in') throw new Error('Already checked in.');
+    
+    const seatsPerTicket = b.seatsPerTicket ?? 1;
+    const totalSeats = b.qty * seatsPerTicket;
+    const alreadyCheckedIn = b.checkedInCount ?? 0;
+    
+    // If no count specified, check in all remaining
+    const toCheckIn = count ?? (totalSeats - alreadyCheckedIn);
+    const newCheckedInCount = alreadyCheckedIn + toCheckIn;
+    
+    if (newCheckedInCount > totalSeats) {
+      throw new Error(`Cannot check in ${toCheckIn} seats: only ${totalSeats - alreadyCheckedIn} remaining.`);
+    }
+    
     if (b.status !== 'paid_mock') throw new Error('Booking has not been paid yet.');
+    if (alreadyCheckedIn >= totalSeats) throw new Error('Already fully checked in.');
+    
+    const isFullyCheckedIn = newCheckedInCount >= totalSeats;
+    
+    loggedCount = toCheckIn;
     tx.update(ref, {
-      status: 'checked_in',
-      checkedInAt: serverTimestamp(),
+      checkedInCount: newCheckedInCount,
+      status: isFullyCheckedIn ? 'checked_in' : 'paid_mock',
+      checkedInAt: isFullyCheckedIn ? serverTimestamp() : b.checkedInAt,
       checkedInBy: hostEmail,
     });
   });
-  logAudit('booking.check-in', bookingId);
+  logAudit('booking.check-in', bookingId, `count=${loggedCount}`);
 }
 
-export type CancelErrorCode = 'not-found' | 'checked-in' | 'already-cancelled' | 'not-owner';
+export type CancelErrorCode = 'not-found' | 'checked-in' | 'already-cancelled' | 'not-host';
 export class CancelBookingError extends Error {
   constructor(public readonly code: CancelErrorCode, message: string) {
     super(message);
@@ -239,13 +287,13 @@ export class CancelBookingError extends Error {
   }
 }
 
-/** Cancel a booking (guest: own, host: any) in ONE transaction: flips status to 'cancelled' and
+/** Cancel a booking (host only) in ONE transaction: flips status to 'cancelled' and
  * releases the seats by decrementing the event's bookedCount by qty. Only reserved/paid_mock can be
  * cancelled; checked_in and already-cancelled throw a typed CancelBookingError, so seats can never
  * be released twice. R23: mock payments only, so refund 'mock_refunded' is a label, no money moves. */
 export async function cancelBooking(
   bookingId: string,
-  by: 'guest' | 'host',
+  hostEmail: string,
   reason?: string,
 ): Promise<void> {
   const ref = bookingRef(bookingId);
@@ -261,21 +309,22 @@ export async function cancelBooking(
     tx.update(ref, {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
-      cancelledBy: by,
+      cancelledBy: hostEmail,
       ...(trimmed ? { cancelReason: trimmed } : {}),
       refund: b.status === 'paid_mock' ? 'mock_refunded' : 'none',
     });
     if (evSnap.exists()) {
       const ev = evSnap.data() as BookingEvent;
+      const seatsToRelease = b.qty * (b.seatsPerTicket ?? 1);
       tx.update(evRef, {
-        bookedCount: Math.max(0, (ev.bookedCount ?? 0) - b.qty),
+        bookedCount: Math.max(0, (ev.bookedCount ?? 0) - seatsToRelease),
         // Names the booking so firestore.rules can verify this decrease belongs to exactly this cancel.
         lastReleaseBookingId: bookingId,
         updatedAt: serverTimestamp(),
       });
     }
   });
-  if (by === 'host') logAudit('booking.cancel', bookingId, reason?.trim() || undefined);
+  logAudit('booking.cancel', bookingId, reason?.trim() || undefined);
 }
 
 /** Host only. For scanner/manual search by booking id (== qrToken). */

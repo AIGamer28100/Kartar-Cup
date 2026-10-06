@@ -263,11 +263,17 @@ function ResultCard({
   busy: boolean;
   err: string | null;
   ok: boolean;
-  onCheckIn: () => void;
+  onCheckIn: (count?: number) => void;
   onNext: () => void;
 }) {
   const tier = event?.tiers.find((t) => t.id === booking.tierId);
   const copy = statusCopy(booking.status);
+  const seatsPerTicket = booking.seatsPerTicket ?? 1;
+  const totalSeats = booking.qty * seatsPerTicket;
+  const checkedInCount = booking.checkedInCount ?? 0;
+  const isBundled = seatsPerTicket > 1;
+  const remainingSeats = totalSeats - checkedInCount;
+  const isPartiallyCheckedIn = checkedInCount > 0 && checkedInCount < totalSeats;
 
   return (
     <div className="rounded-lg border border-line bg-raised p-5">
@@ -277,9 +283,18 @@ function ResultCard({
         <dt className="text-muted">Tier</dt>
         <dd className="text-right">
           {tier?.label ?? booking.tierId} × {booking.qty}
+          {isBundled && <span className="ml-2 text-xs text-muted">({seatsPerTicket} entries/ticket)</span>}
         </dd>
         <dt className="text-muted">Total paid</dt>
         <dd className="text-right font-mono">{formatInr(booking.totalInr)}</dd>
+        {isBundled && (
+          <>
+            <dt className="text-muted">Seats</dt>
+            <dd className="text-right font-mono">
+              {checkedInCount} / {totalSeats}
+            </dd>
+          </>
+        )}
       </dl>
 
       {ok ? (
@@ -295,7 +310,9 @@ function ResultCard({
           {copy.tone !== 'ok' && <Warning size={20} weight="regular" />}
           {booking.status === 'checked_in' && booking.checkedInBy
             ? `Already checked in by ${booking.checkedInBy}.`
-            : copy.msg}
+            : isPartiallyCheckedIn
+              ? `Partially checked in ({checkedInCount}/{totalSeats}).`
+              : copy.msg}
         </p>
       )}
 
@@ -305,15 +322,35 @@ function ResultCard({
         </p>
       )}
 
-      {(booking.status === 'paid_mock' || booking.status === 'checked_in') && (
+      {(booking.status === 'paid_mock' || isPartiallyCheckedIn) && (
         <CardAssign key={booking.id} booking={booking} event={event} />
       )}
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {!ok && booking.status === 'paid_mock' && (
-          <Button disabled={busy} onClick={onCheckIn}>
-            {busy ? 'Checking in...' : 'Check in'}
-          </Button>
+        {!ok && (booking.status === 'paid_mock' || isPartiallyCheckedIn) && (
+          <>
+            {isBundled && remainingSeats > 1 && (
+              <div className="flex-1 min-w-[120px]">
+                <label className="mb-1 block text-sm font-medium text-muted">
+                  Seats to check in (1-{remainingSeats})
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={remainingSeats}
+                  defaultValue={remainingSeats}
+                  className={inputCls}
+                  onChange={(e) => {
+                    const val = Math.min(remainingSeats, Math.max(1, Number(e.target.value) || 1));
+                    onCheckIn(val);
+                  }}
+                />
+              </div>
+            )}
+            <Button disabled={busy} onClick={() => onCheckIn(isBundled ? remainingSeats : undefined)}>
+              {busy ? 'Checking in...' : isPartiallyCheckedIn ? `Check in remaining (${remainingSeats})` : 'Check in'}
+            </Button>
+          </>
         )}
         <Button variant="secondary" onClick={onNext}>
           Scan next

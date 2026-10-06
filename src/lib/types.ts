@@ -126,12 +126,18 @@ export interface Venue {
   city: string;
   mapUrl?: string;
   capacityDefault?: number;
+  /** Google Places place_id for exact location linking. */
+  place_id?: string;
 }
 export interface PriceTier {
   id: string;
   label: string;
   priceInr: number;
   perTicketDiscountPct?: number;
+  /** Maximum seats this tier can sell. 0 = unlimited (subject to event capacity). */
+  capacity?: number;
+  /** How many seats one ticket consumes. 1 = standard, 2 = "ticket for 2 entries", etc. */
+  seatsPerTicket?: number;
 }
 export type DiscountKind = 'percent' | 'flat' | 'group' | 'earlybird';
 export interface Discount {
@@ -190,6 +196,10 @@ export interface Booking {
   buyerEmail: string;
   tierId: string;
   qty: number;
+  /** How many seats one ticket consumes. 1 = standard, 2 = "ticket for 2 entries", etc. */
+  seatsPerTicket?: number;
+  /** How many seats have been checked in so far (for bundled tickets). */
+  checkedInCount?: number;
   unitPriceInr: number;
   discountCode?: string;
   discountAmountInr: number;

@@ -35,6 +35,7 @@ export interface FormState {
   venueName: string;
   venueCity: string;
   venueMapUrl: string;
+  venuePlaceId: string;
   venueCapacityDefault: string;
   tiers: PriceTier[];
   discounts: DiscountForm[];
@@ -55,8 +56,9 @@ export function blankForm(): FormState {
     venueName: '',
     venueCity: '',
     venueMapUrl: '',
+    venuePlaceId: '',
     venueCapacityDefault: '',
-    tiers: [{ id: 'tier-1', label: 'General admission', priceInr: 0 }],
+    tiers: [{ id: 'tier-1', label: 'General admission', priceInr: 0, capacity: 0, seatsPerTicket: 1 }],
     discounts: [],
   };
 }
@@ -92,8 +94,13 @@ export function eventToForm(e: BookingEvent): FormState {
     venueName: e.venue.name,
     venueCity: e.venue.city,
     venueMapUrl: e.venue.mapUrl ?? '',
+    venuePlaceId: e.venue.place_id ?? '',
     venueCapacityDefault: e.venue.capacityDefault != null ? String(e.venue.capacityDefault) : '',
-    tiers: e.tiers,
+    tiers: e.tiers.map((t) => ({
+      ...t,
+      capacity: t.capacity ?? 0,
+      seatsPerTicket: t.seatsPerTicket ?? 1,
+    })),
     discounts: e.discounts.map(discountToForm),
   };
 }
@@ -124,6 +131,7 @@ export function formToEvent(f: FormState): NewBookingEvent {
     city: f.venueCity.trim(),
   };
   if (f.venueMapUrl.trim()) venue.mapUrl = f.venueMapUrl.trim();
+  if (f.venuePlaceId.trim()) venue.place_id = f.venuePlaceId.trim();
   if (f.venueCapacityDefault.trim()) venue.capacityDefault = Number(f.venueCapacityDefault);
 
   const ev: NewBookingEvent = {
@@ -179,7 +187,7 @@ export function validate(f: FormState): Errors {
 
   if (f.description.trim().length > 600) errs.description = 'Keep the description to 600 characters or fewer.';
 
-  if (f.policy.trim().length > 300) errs.policy = 'Keep the policy to 300 characters or fewer.';
+  if (f.policy.trim().length > 3000) errs.policy = 'Keep the policy to 3000 characters or fewer.';
 
   const cap = Number(f.capacity);
   if (!f.capacity.trim() || !Number.isInteger(cap) || cap <= 0) {
@@ -193,6 +201,16 @@ export function validate(f: FormState): Errors {
 
   if (f.tiers.length === 0) errs.tiers = 'At least one price tier is required.';
   else if (f.tiers.length > MAX_TIERS) errs.tiers = `At most ${MAX_TIERS} tiers.`;
+
+  // Check that sum of tier capacities (with seatsPerTicket) doesn't exceed event capacity
+  const totalTierSeats = f.tiers.reduce((sum, t) => {
+    const tierCap = t.capacity && t.capacity > 0 ? t.capacity : Infinity;
+    const seatsPerTicket = t.seatsPerTicket ?? 1;
+    return sum + tierCap * seatsPerTicket;
+  }, 0);
+  if (Number.isFinite(totalTierSeats) && totalTierSeats < cap) {
+    errs.tiers = `Sum of tier capacities (${totalTierSeats} seats) is less than event capacity (${cap}). Some seats cannot be sold.`;
+  }
 
   if (f.discounts.length > MAX_DISCOUNTS) errs.discounts = `At most ${MAX_DISCOUNTS} discounts.`;
 

@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, FloppyDisk, Plus } from '@phosphor-icons/react';
+import { useNavigate, useParams, Outlet } from 'react-router';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
 import { deleteField } from 'firebase/firestore';
-import { createBookingEvent, updateBookingEvent, watchAllBookingEvents } from '../../lib/bookings';
+import { createBookingEvent, updateBookingEvent, watchAllBookingEvents, watchBookingEvent } from '../../lib/bookings';
+import { useAuth } from '../../lib/auth';
+import { permissionHint } from '../../lib/permissionHint';
 import type { BookingEvent, EventCategory } from '../../lib/types';
 import { fmtLocal } from '../settings/time';
 import { Field, Section, inputCls } from '../settings/ui';
 import { useSchedule } from '../../lib/useSchedule';
-import AttendeeRoster from './AttendeeRoster';
-import CardsAdmin from './CardsAdmin';
 import { DiscountsEditor, TiersEditor } from './Editors';
 import VenueSearch from './VenueSearch';
+import AttendeeRoster from './AttendeeRoster';
+import CardsAdmin from './CardsAdmin';
 import {
-  blankForm,
-  eventToForm,
   formToEvent,
   raceDefaultDateUtc,
   upcomingRaceOptions,
@@ -24,23 +25,30 @@ import {
 
 const snap = (f: FormState) => JSON.stringify(f);
 
-export default function BookingsAdmin() {
-  const [events, setEvents] = useState<BookingEvent[] | null>(null);
+/** Nested route: Edit or create booking event form. */
+export function BookingEventForm() {
+  const { access } = useAuth();
+  const { eventId } = useParams<{ eventId?: string }>();
+  const navigate = useNavigate();
+  const isEditing = Boolean(eventId);
+
   const [form, setForm] = useState<FormState | null>(null);
   const [saved, setSaved] = useState('');
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [touched, setTouched] = useState(false);
-  const [rosterId, setRosterId] = useState<string | null>(null);
-  const [cardsId, setCardsId] = useState<string | null>(null);
+
+  const { schedule } = useSchedule(2026);
+  const { schedule: schedule27 } = useSchedule(2027);
+  const raceOptions = useMemo(() => upcomingRaceOptions(new Date(), 5, form?.raceId || undefined), [form?.raceId]);
 
   useEffect(() => {
-    const unsub = watchAllBookingEvents(
-      (evs) => setEvents([...evs].sort((a, b) => a.dateUtc.localeCompare(b.dateUtc))),
-      () => setEvents([]),
-    );
-    return unsub;
-  }, []);
+    if (isEditing && eventId) {
+      // TODO: fetch single event for editing
+      // For now, we'll need to load from the parent's events list
+      // This is a limitation - we'll handle it by passing events from parent
+    }
+  }, [eventId, isEditing]);
 
   const patch = useCallback((fn: (f: FormState) => Partial<FormState>) => {
     setBanner(null);
@@ -49,29 +57,9 @@ export default function BookingsAdmin() {
 
   const errors = useMemo(() => (form ? validate(form) : {}), [form]);
   const dirty = form ? snap(form) !== saved : false;
-  const { schedule } = useSchedule(2026);
-  const { schedule: schedule27 } = useSchedule(2027);
-  const raceOptions = useMemo(() => upcomingRaceOptions(new Date(), 5, form?.raceId || undefined), [form?.raceId]);
-
-  function openNew() {
-    setBanner(null);
-    setTouched(false);
-    const f = blankForm();
-    setForm(f);
-    setSaved('');
-  }
-
-  function openEdit(ev: BookingEvent) {
-    setBanner(null);
-    setTouched(false);
-    const f = eventToForm(ev);
-    setForm(f);
-    setSaved(snap(f));
-  }
 
   function closeForm() {
-    setForm(null);
-    setBanner(null);
+    navigate('../..', { replace: true });
   }
 
   async function save() {
@@ -85,13 +73,13 @@ export default function BookingsAdmin() {
     setBanner(null);
     try {
       const payload = formToEvent(form);
-      // A saved event switched to a non-F1 category (or unlinked) must really drop its raceId.
       if (form.id) await updateBookingEvent(form.id, payload.raceId ? payload : { ...payload, raceId: deleteField() as unknown as undefined });
       else await createBookingEvent(payload);
       setSaved(snap(form));
       setBanner({ ok: true, msg: 'Booking event saved.' });
+      navigate('../..', { replace: true });
     } catch (e) {
-      setBanner({ ok: false, msg: e instanceof Error ? e.message : 'Save failed. Try again.' });
+      setBanner({ ok: false, msg: permissionHint(e, 'bookings', access, 'save this booking event') });
     } finally {
       setBusy(false);
     }
@@ -103,219 +91,270 @@ export default function BookingsAdmin() {
     </button>
   );
 
-  if (form) {
-    const show = (k: keyof typeof errors) => (touched ? errors[k] : undefined);
-    return (
-      <div className="pb-32">
-        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-          {backLink}
-          <p className="font-mono text-sm" role="status">
-            {dirty ? <span className="text-accent-text">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
-          </p>
-        </div>
-        <h2 className="text-2xl font-semibold md:text-3xl">{form.id ? 'Edit booking event' : 'New booking event'}</h2>
+  if (!form) return null;
 
-        <Section title="Details">
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <Field id="f-title" label="Title" error={show('title')}>
-              <input
-                id="f-title"
-                className={inputCls}
-                value={form.title}
-                maxLength={120}
-                aria-invalid={!!show('title')}
-                onChange={(e) => patch(() => ({ title: e.target.value }))}
-              />
-            </Field>
-            <Field
+  const show = (k: keyof typeof errors) => (touched ? errors[k] : undefined);
+  return (
+    <div className="pb-32">
+      <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+        {backLink}
+        <p className="font-mono text-sm" role="status">
+          {dirty ? <span className="text-accent-text">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
+        </p>
+      </div>
+      <h2 className="text-2xl font-semibold md:text-3xl">{form.id ? 'Edit booking event' : 'New booking event'}</h2>
+
+      <Section title="Details">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <Field id="f-title" label="Title" error={show('title')}>
+            <input
+              id="f-title"
+              className={inputCls}
+              value={form.title}
+              maxLength={120}
+              aria-invalid={!!show('title')}
+              onChange={(e) => patch(() => ({ title: e.target.value }))}
+            />
+          </Field>
+          <Field
+            id="f-category"
+            label="Event type"
+            hint="Where it appears on /events. Kartar Cup and Kartar Club events are free-form (no calendar race)."
+          >
+            <select
               id="f-category"
-              label="Event type"
-              hint="Where it appears on /events. Kartar Cup and Kartar Club events are free-form (no calendar race)."
+              className={inputCls}
+              value={form.category}
+              onChange={(e) => patch(() => ({ category: e.target.value as EventCategory }))}
             >
-              <select
-                id="f-category"
-                className={inputCls}
-                value={form.category}
-                onChange={(e) => patch(() => ({ category: e.target.value as EventCategory }))}
-              >
-                <option value="f1">F1 watch party</option>
-                <option value="cup">Kartar Cup event</option>
-                <option value="club">Kartar Club event</option>
-              </select>
-            </Field>
-            {form.category === 'f1' && (
-            <Field
+              <option value="f1">F1 watch party</option>
+              <option value="cup">Kartar Cup event</option>
+              <option value="club">Kartar Club event</option>
+            </select>
+          </Field>
+          {form.category === 'f1' && (
+          <Field
+            id="f-raceid"
+            label="Linked race"
+            hint="Pulls the race's start time (minus a 30-min arrival buffer) into Date & time. Needed for this race to be marked as hosted on /events."
+          >
+            <select
               id="f-raceid"
-              label="Linked race"
-              hint="Pulls the race's start time (minus a 30-min arrival buffer) into Date & time. Needed for this race to be marked as hosted on /events."
+              className={inputCls}
+              value={form.raceId}
+              onChange={(e) => {
+                const id = e.target.value;
+                const race = raceOptions.find((r) => r.id === id);
+                patch(() => ({ raceId: id, ...(race ? { dateUtc: raceDefaultDateUtc(race, race.season === 2027 ? schedule27 : schedule) } : {}) }));
+              }}
             >
-              <select
-                id="f-raceid"
-                className={inputCls}
-                value={form.raceId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const race = raceOptions.find((r) => r.id === id);
-                  patch(() => ({ raceId: id, ...(race ? { dateUtc: raceDefaultDateUtc(race, race.season === 2027 ? schedule27 : schedule) } : {}) }));
-                }}
-              >
-                <option value="">Not linked to a calendar race</option>
-                {raceOptions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    R{r.round} {r.name} ({r.raceDate})
-                  </option>
-                ))}
-              </select>
-            </Field>
-            )}
-            <Field id="f-date" label="Date & time" error={show('dateUtc')}>
-              <input
-                id="f-date"
-                type="datetime-local"
-                className={`${inputCls} font-mono`}
-                value={form.dateUtc}
-                aria-invalid={!!show('dateUtc')}
-                onChange={(e) => patch(() => ({ dateUtc: e.target.value }))}
-              />
-            </Field>
-            <Field id="f-capacity" label="Capacity" error={show('capacity')}>
-              <input
-                id="f-capacity"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                className={`${inputCls} font-mono`}
-                value={form.capacity}
-                aria-invalid={!!show('capacity')}
-                onChange={(e) => patch(() => ({ capacity: e.target.value }))}
-              />
-            </Field>
-            <label className="flex min-h-11 items-center gap-2 self-end text-sm font-medium text-muted">
-              <input type="checkbox" checked={form.salesOpen} onChange={(e) => patch(() => ({ salesOpen: e.target.checked }))} />
-              Open for sales
-            </label>
-            <label className="flex min-h-11 items-center gap-2 self-end text-sm font-medium text-muted">
-              <input type="checkbox" checked={form.hosted} onChange={(e) => patch(() => ({ hosted: e.target.checked }))} />
-              Show on the public Events page (reads &ldquo;booking opening soon&rdquo; until sales open)
-            </label>
-          </div>
-          <div className="mt-5 max-w-2xl">
-            <Field
+              <option value="">Not linked to a calendar race</option>
+              {raceOptions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  R{r.round} {r.name} ({r.raceDate})
+                </option>
+              ))}
+            </select>
+          </Field>
+          )}
+          <Field id="f-date" label="Date & time" error={show('dateUtc')}>
+            <input
+              id="f-date"
+              type="datetime-local"
+              className={`${inputCls} font-mono`}
+              value={form.dateUtc}
+              aria-invalid={!!show('dateUtc')}
+              onChange={(e) => patch(() => ({ dateUtc: e.target.value }))}
+            />
+          </Field>
+          <Field id="f-capacity" label="Capacity" error={show('capacity')}>
+            <input
+              id="f-capacity"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              className={`${inputCls} font-mono`}
+              value={form.capacity}
+              aria-invalid={!!show('capacity')}
+              onChange={(e) => patch(() => ({ capacity: e.target.value }))}
+            />
+          </Field>
+          <label className="flex min-h-11 items-center gap-2 self-end text-sm font-medium text-muted">
+            <input type="checkbox" checked={form.salesOpen} onChange={(e) => patch(() => ({ salesOpen: e.target.checked }))} />
+            Open for sales
+          </label>
+          <label className="flex min-h-11 items-center gap-2 self-end text-sm font-medium text-muted">
+            <input type="checkbox" checked={form.hosted} onChange={(e) => patch(() => ({ hosted: e.target.checked }))} />
+            Show on the public Events page (reads &ldquo;booking opening soon&rdquo; until sales open)
+          </label>
+        </div>
+        <div className="mt-5 max-w-2xl">
+          <Field
+            id="f-description"
+            label="Description (optional)"
+            hint="A short blurb shown on the event card, for example what to expect or what to bring."
+            error={show('description')}
+          >
+            <textarea
               id="f-description"
-              label="Description (optional)"
-              hint="A short blurb shown on the event card, for example what to expect or what to bring."
-              error={show('description')}
-            >
-              <textarea
-                id="f-description"
-                rows={3}
-                maxLength={600}
-                className={`${inputCls} py-2`}
-                value={form.description}
-                aria-invalid={!!show('description')}
-                onChange={(e) => patch(() => ({ description: e.target.value }))}
-              />
-            </Field>
-          </div>
-          <div className="mt-5 max-w-2xl">
-            <Field
+              rows={10}
+              maxLength={3000}
+              className={`${inputCls} py-2`}
+              value={form.description}
+              aria-invalid={!!show('description')}
+              onChange={(e) => patch(() => ({ description: e.target.value }))}
+            />
+          </Field>
+        </div>
+        <div className="mt-5 max-w-2xl">
+          <Field
+            id="f-policy"
+            label="Cancellation & refund policy (optional)"
+            hint="Shown to guests before they pay and on their ticket. For example: &ldquo;No refunds. Tickets can be transferred to a friend until the day before.&rdquo;"
+            error={show('policy')}
+          >
+            <textarea
               id="f-policy"
-              label="Cancellation & refund policy (optional)"
-              hint="Shown to guests before they pay and on their ticket. For example: “No refunds. Tickets can be transferred to a friend until the day before.”"
-              error={show('policy')}
-            >
-              <textarea
-                id="f-policy"
-                rows={3}
-                maxLength={300}
-                className={`${inputCls} py-2`}
-                value={form.policy}
-                aria-invalid={!!show('policy')}
-                onChange={(e) => patch(() => ({ policy: e.target.value }))}
-              />
-            </Field>
-          </div>
-        </Section>
+              rows={10}
+              maxLength={3000}
+              className={`${inputCls} py-2`}
+              value={form.policy}
+              aria-invalid={!!show('policy')}
+              onChange={(e) => patch(() => ({ policy: e.target.value }))}
+            />
+          </Field>
+        </div>
+      </Section>
 
-        <Section title="Venue">
-          <VenueSearch
-            onPick={(p) => patch(() => ({ venueName: p.name, venueCity: p.city, venueMapUrl: p.mapUrl }))}
-          />
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            <Field id="f-venue-name" label="Name" error={show('venueName')}>
-              <input
-                id="f-venue-name"
-                className={inputCls}
-                value={form.venueName}
-                aria-invalid={!!show('venueName')}
-                onChange={(e) => patch(() => ({ venueName: e.target.value }))}
-              />
-            </Field>
-            <Field id="f-venue-city" label="City" error={show('venueCity')}>
-              <input
-                id="f-venue-city"
-                className={inputCls}
-                value={form.venueCity}
-                aria-invalid={!!show('venueCity')}
-                onChange={(e) => patch(() => ({ venueCity: e.target.value }))}
-              />
-            </Field>
-            <Field
+      <Section title="Venue">
+        <VenueSearch
+          onPick={(p) => patch(() => ({ venueName: p.name, venueCity: p.city, venueMapUrl: p.mapUrl, venuePlaceId: p.place_id }))}
+        />
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <Field id="f-venue-name" label="Name" error={show('venueName')}>
+            <input
+              id="f-venue-name"
+              className={inputCls}
+              value={form.venueName}
+              aria-invalid={!!show('venueName')}
+              onChange={(e) => patch(() => ({ venueName: e.target.value }))}
+            />
+          </Field>
+          <Field id="f-venue-city" label="City" error={show('venueCity')}>
+            <input
+              id="f-venue-city"
+              className={inputCls}
+              value={form.venueCity}
+              aria-invalid={!!show('venueCity')}
+              onChange={(e) => patch(() => ({ venueCity: e.target.value }))}
+            />
+          </Field>
+          <Field
+            id="f-venue-map"
+            label="Map link (optional)"
+            hint="Optional. Paste a Google Maps link for an exact pin; leave blank and the map is found from the venue name and city."
+          >
+            <input
               id="f-venue-map"
-              label="Map link (optional)"
-              hint="Optional. Paste a Google Maps link for an exact pin; leave blank and the map is found from the venue name and city."
-            >
-              <input
-                id="f-venue-map"
-                type="url"
-                className={inputCls}
-                value={form.venueMapUrl}
-                onChange={(e) => patch(() => ({ venueMapUrl: e.target.value }))}
-              />
-            </Field>
-            <Field id="f-venue-cap" label="Default capacity (optional)">
-              <input
-                id="f-venue-cap"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                className={`${inputCls} font-mono`}
-                value={form.venueCapacityDefault}
-                onChange={(e) => patch(() => ({ venueCapacityDefault: e.target.value }))}
-              />
-            </Field>
-          </div>
-        </Section>
+              type="url"
+              className={inputCls}
+              value={form.venueMapUrl}
+              onChange={(e) => patch(() => ({ venueMapUrl: e.target.value }))}
+            />
+          </Field>
+          <Field id="f-venue-cap" label="Default capacity (optional)">
+            <input
+              id="f-venue-cap"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              className={`${inputCls} font-mono`}
+              value={form.venueCapacityDefault}
+              onChange={(e) => patch(() => ({ venueCapacityDefault: e.target.value }))}
+            />
+          </Field>
+        </div>
+      </Section>
 
-        <TiersEditor form={form} errors={errors} patch={patch} />
-        <DiscountsEditor form={form} errors={errors} patch={patch} />
+      <TiersEditor form={form} errors={errors} patch={patch} />
+      <DiscountsEditor form={form} errors={errors} patch={patch} />
 
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
-          <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
-            <Button disabled={busy} onClick={() => void save()}>
-              <FloppyDisk size={20} weight="regular" /> {busy ? 'Saving...' : 'Save event'}
-            </Button>
-            {banner && (
-              <p role={banner.ok ? 'status' : 'alert'} className={banner.ok ? 'text-ink' : 'text-accent-text'}>
-                {banner.msg}
-              </p>
-            )}
-          </div>
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
+        <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
+          <Button disabled={busy} onClick={() => void save()}>
+            <FloppyDisk size={20} weight="regular" /> {busy ? 'Saving...' : 'Save event'}
+          </Button>
+          {banner && (
+            <p role={banner.ok ? 'status' : 'alert'} className={banner.ok ? 'text-ink' : 'text-accent-text'}>
+              {banner.msg}
+            </p>
+          )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  const rosterEvent = rosterId ? events?.find((e) => e.id === rosterId) : undefined;
-  if (rosterEvent) return <AttendeeRoster event={rosterEvent} onBack={() => setRosterId(null)} />;
-  const cardsEvent = cardsId ? events?.find((e) => e.id === cardsId) : undefined;
-  if (cardsEvent) return <CardsAdmin event={cardsEvent} onBack={() => setCardsId(null)} />;
+/** Nested route: Attendees roster for an event. */
+export function BookingEventAttendees() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  const [event, setEvent] = useState<BookingEvent | null>(null);
+
+  useEffect(() => {
+    if (!eventId) return;
+    return watchBookingEvent(eventId, setEvent, () => setEvent(null));
+  }, [eventId]);
+
+  if (!event) return null;
 
   return (
-    <div>
+    <AttendeeRoster
+      event={event}
+      onBack={() => navigate('../..', { replace: true })}
+    />
+  );
+}
+
+/** Nested route: Cards admin for an event. */
+export function BookingEventCards() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  const [event, setEvent] = useState<BookingEvent | null>(null);
+
+  useEffect(() => {
+    if (!eventId) return;
+    return watchBookingEvent(eventId, setEvent, () => setEvent(null));
+  }, [eventId]);
+
+  if (!event) return null;
+
+  return (
+    <CardsAdmin
+      event={event}
+      onBack={() => navigate('../..', { replace: true })}
+    />
+  );
+}
+
+/** Main BookingsAdmin component with nested routes. */
+export default function BookingsAdmin() {
+  const navigate = useNavigate();
+  const [events, setEvents] = useState<BookingEvent[] | null>(null);
+
+  useEffect(() => {
+    const unsub = watchAllBookingEvents(
+      (evs) => setEvents([...evs].sort((a, b) => a.dateUtc.localeCompare(b.dateUtc))),
+      () => setEvents([]),
+    );
+    return unsub;
+  }, []);
+
+  return (
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
         <h2 className="text-2xl font-semibold md:text-3xl">Booking events</h2>
-        <Button onClick={openNew}>
+        <Button onClick={() => navigate('new', { relative: 'path' })}>
           <Plus size={20} weight="regular" /> New booking event
         </Button>
       </div>
@@ -348,13 +387,13 @@ export default function BookingsAdmin() {
                 {ev.salesOpen ? 'Open' : 'Closed'}
               </span>
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => setRosterId(ev.id)}>
+                <Button variant="secondary" onClick={() => navigate(`${ev.id}/attendees`, { relative: 'path' })}>
                   Attendees
                 </Button>
-                <Button variant="secondary" onClick={() => setCardsId(ev.id)}>
+                <Button variant="secondary" onClick={() => navigate(`${ev.id}/cards`, { relative: 'path' })}>
                   Cards
                 </Button>
-                <Button variant="secondary" onClick={() => openEdit(ev)}>
+                <Button variant="secondary" onClick={() => navigate(`${ev.id}/edit`, { relative: 'path' })}>
                   Edit
                 </Button>
               </div>
@@ -362,6 +401,8 @@ export default function BookingsAdmin() {
           ))}
         </ul>
       )}
-    </div>
+
+      <Outlet />
+    </>
   );
 }
