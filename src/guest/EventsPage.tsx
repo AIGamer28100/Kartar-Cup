@@ -487,7 +487,7 @@ function TabBar({ tab, onChange }: { tab: EventsTab; onChange: (t: EventsTab) =>
           tabIndex={tab === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`min-h-11 flex-1 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex-none sm:px-4 ${
+          className={`min-h-11 min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 text-xs font-medium sm:text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex-none sm:px-4 ${
             tab === t.id ? 'bg-raised text-ink' : 'text-muted hover:text-ink'
           }`}
         >
@@ -565,15 +565,14 @@ export default function EventsPage() {
         marked below, and the All tab lists just those, not the rest of the calendar.
       </p>
       {seasons.length > 1 && (
-        <div className="mt-6 inline-flex rounded-lg border border-line p-1" role="tablist" aria-label="Season">
+        <div className="mt-6 inline-flex rounded-lg border border-line p-1" role="group" aria-label="Season">
           {seasons.map((s) => (
             <button
               key={s}
               type="button"
-              role="tab"
-              aria-selected={activeSeason === s}
+              aria-pressed={activeSeason === s}
               onClick={() => setSeason(s)}
-              className={`min-h-9 rounded-md px-4 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 activeSeason === s ? 'bg-raised text-ink' : 'text-muted hover:text-ink'
               }`}
             >

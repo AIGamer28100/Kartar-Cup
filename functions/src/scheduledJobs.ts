@@ -16,7 +16,7 @@ const db = admin.firestore();
 // Runs every 5 minutes during race hours (Fri-Sun 10:00-22:00 IST)
 export const raceWindowJobs = onSchedule(
   { 
-    schedule: '*/5 10-22 * * 5-7', // Fri-Sun 10:00-22:00 IST
+    schedule: '*/5 10-22 * * 5,6,0', // Fri-Sun 10:00-22:00 IST
     region: 'asia-south1',
     timeZone: 'Asia/Kolkata',
   },

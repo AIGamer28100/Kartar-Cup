@@ -11,7 +11,6 @@ import {
 import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from "../components/RaceStateDisplay";
 import { computeRaceState } from "../lib/raceState";
 import { raceStartFor } from "../lib/f1api";
-import { fetchLineupForRace, findSessionKey } from "../lib/openf1";
 import Divider from "../components/Divider";
 import Skeleton, { PageSkeleton } from "../components/Skeleton";
 import TrackMap from "../components/TrackMap";
@@ -31,7 +30,6 @@ import { usePageMeta } from "../lib/pageMeta";
 import { watchBookingEvents } from "../lib/bookings";
 import type { BookingEvent } from "../lib/types";
 import { nextHostedRace } from "./eventsModel";
-import type { LineupResult } from "../lib/openf1";
 
 const GuestApp = lazy(() => import("./GuestApp"));
 
@@ -92,26 +90,17 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
   const targetMs = next ? raceStartFor(next, schedule).ms : 0;
 
   // Compute race state for live flag display
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
   const raceStateInfo = useMemo(
-    () => (next ? computeRaceState(targetMs, next.id) : null),
-    [next, targetMs]
+    () => (next ? computeRaceState(targetMs, next.id, nowMs) : null),
+    [next, targetMs, nowMs]
   );
   const raceState = raceStateInfo?.state ?? null;
   useEffect(() => onRaceStateChange(raceState), [onRaceStateChange, raceState]);
-
-  // Fetch and cache the driver lineup once the race has ended
-  const [lineup, setLineup] = useState<LineupResult | null>(null);
-  useEffect(() => {
-    if (!raceStateInfo?.isEnded) return;
-    ; (async () => {
-      const year = next?.season ?? new Date().getFullYear();
-      const country = next?.country;
-      const sessionResult = await findSessionKey(year, country, next?.round ?? 1);
-      if (!sessionResult.ok) return;
-      const data = await fetchLineupForRace(sessionResult.sessionKey);
-      setLineup(data);
-    })();
-  }, [next?.season, next?.country, next?.round, raceStateInfo?.isEnded]);
 
   const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
@@ -191,8 +180,6 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                   state={raceStateInfo.state}
                   raceStartMs={targetMs}
                   onDisplayStateChange={onRaceStateChange}
-                  showTimer={true}
-                  drivers={lineup?.ok ? lineup.drivers.slice(0, 3) : undefined}
                 />
               ) : (
                 <div className="text-center py-4">
@@ -217,7 +204,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                   desktopMotion ? { y: trackY, opacity: trackOpacity } : undefined
                 }
               >
-                <TrackMap track={track} animate className="mx-auto max-h-56 max-w-xs lg:max-h-64" />
+                <TrackMap track={track} state={raceState ?? undefined} animate className="mx-auto max-h-56 max-w-xs lg:max-h-64" />
               </motion.div>
             </Reveal>
           )}
@@ -450,7 +437,7 @@ function GallerySection() {
   return (
     <div>
       <SectionHeading eyebrow="Past events">Gallery</SectionHeading>
-      <Reveal index={1} className="mt-6 grid grid-cols-4 gap-3">
+      <Reveal index={1} className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {preview.map((g) => (
           <img
             key={g.seed}

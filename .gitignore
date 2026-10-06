@@ -155,3 +155,6 @@ docs/
 .claude/
 # Local-only folders (never committed)
 brand/
+
+# tsc emit artifacts (project is noEmit; stale .js shadows .ts in Vite resolution)
+src/**/*.js

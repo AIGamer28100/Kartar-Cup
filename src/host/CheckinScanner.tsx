@@ -274,6 +274,7 @@ function ResultCard({
   const isBundled = seatsPerTicket > 1;
   const remainingSeats = totalSeats - checkedInCount;
   const isPartiallyCheckedIn = checkedInCount > 0 && checkedInCount < totalSeats;
+  const [seats, setSeats] = useState(remainingSeats);
 
   return (
     <div className="rounded-lg border border-line bg-raised p-5">
@@ -311,7 +312,7 @@ function ResultCard({
           {booking.status === 'checked_in' && booking.checkedInBy
             ? `Already checked in by ${booking.checkedInBy}.`
             : isPartiallyCheckedIn
-              ? `Partially checked in ({checkedInCount}/{totalSeats}).`
+              ? `Partially checked in (${checkedInCount}/${totalSeats}).`
               : copy.msg}
         </p>
       )}
@@ -331,23 +332,21 @@ function ResultCard({
           <>
             {isBundled && remainingSeats > 1 && (
               <div className="flex-1 min-w-[120px]">
-                <label className="mb-1 block text-sm font-medium text-muted">
+                <label htmlFor="checkin-seats" className="mb-1 block text-sm font-medium text-muted">
                   Seats to check in (1-{remainingSeats})
                 </label>
                 <input
+                  id="checkin-seats"
                   type="number"
                   min={1}
                   max={remainingSeats}
-                  defaultValue={remainingSeats}
+                  value={seats}
                   className={inputCls}
-                  onChange={(e) => {
-                    const val = Math.min(remainingSeats, Math.max(1, Number(e.target.value) || 1));
-                    onCheckIn(val);
-                  }}
+                  onChange={(e) => setSeats(Math.min(remainingSeats, Math.max(1, Number(e.target.value) || 1)))}
                 />
               </div>
             )}
-            <Button disabled={busy} onClick={() => onCheckIn(isBundled ? remainingSeats : undefined)}>
+            <Button disabled={busy} onClick={() => onCheckIn(isBundled ? seats : undefined)}>
               {busy ? 'Checking in...' : isPartiallyCheckedIn ? `Check in remaining (${remainingSeats})` : 'Check in'}
             </Button>
           </>

@@ -212,7 +212,7 @@ function OrderSummary({
             {preview.discountAmountInr > 0 && (
               <div className="flex justify-between text-muted">
                 <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
-                <span className="text-green-600">-{formatInr(preview.discountAmountInr)}</span>
+                <span className="text-ok">-{formatInr(preview.discountAmountInr)}</span>
               </div>
             )}
             {seatsPerTicket > 1 && (
@@ -259,7 +259,7 @@ function OrderSummary({
             className="w-full mt-4"
           >
             <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : `Reserve & pay ${formatInr(preview.totalInr)}`}
           </Button>
           <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
         </div>
@@ -289,7 +289,9 @@ function EventDetails({
   busy,
   error,
   eventSoldOut,
+  user,
 }: {
+  user: { uid: string } | null;
   event: BookingEvent;
   tier: PriceTier | undefined;
   qty: number;
@@ -308,7 +310,7 @@ function EventDetails({
   const seatsPerTicket = tier?.seatsPerTicket ?? 1;
 
   return (
-    <main className="lg:col-span-8 xl:col-span-9 space-y-6">
+    <div className="lg:col-span-8 xl:col-span-9 space-y-6">
       {/* Event header */}
       <div className="space-y-3">
         <Eyebrow>{KIND_LABEL[event.category ?? 'f1']}</Eyebrow>
@@ -330,7 +332,10 @@ function EventDetails({
       <div className="rounded-lg border border-line bg-raised p-5">
         <h3 className="font-medium text-ink">Select tier</h3>
         <div role="radiogroup" aria-label="Price tier" className="mt-3 space-y-2">
-          {event.tiers.filter(t => !isTierSoldOut(event, t)).map((t) => {
+          {event.tiers.filter((t) => !isTierSoldOut(event, t)).length === 0 && (
+            <p className="text-sm text-accent-text">All tiers are sold out.</p>
+          )}
+          {event.tiers.filter((t) => !isTierSoldOut(event, t)).map((t) => {
             const tSoldOut = isTierSoldOut(event, t);
             const tRemaining = getTierRemainingTickets(event, t);
             const tSeatsPerTicket = t.seatsPerTicket ?? 1;
@@ -415,7 +420,7 @@ function EventDetails({
             {preview.discountAmountInr > 0 && (
               <div className="flex justify-between text-muted">
                 <span>Discount {discountCode.trim() ? `(${discountCode.trim().toUpperCase()})` : ''}</span>
-                <span className="text-green-600">-{formatInr(preview.discountAmountInr)}</span>
+                <span className="text-ok">-{formatInr(preview.discountAmountInr)}</span>
               </div>
             )}
             {seatsPerTicket > 1 && (
@@ -454,12 +459,12 @@ function EventDetails({
             className="w-full mt-4"
           >
             <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            {busy ? 'Reserving...' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : `Reserve & pay ${formatInr(preview.totalInr)}`}
           </Button>
           <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -479,7 +484,6 @@ export default function BookingCheckout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reservation, setReservation] = useState<Reservation | null>(null);
-  const [step, setStep] = useState<'choose' | 'review'>('choose');
 
   useEffect(() => {
     if (!bookingEventId) return;
@@ -544,19 +548,11 @@ export default function BookingCheckout() {
   };
 
   const handleBuy = () => {
-    if (step === 'choose') {
-      setError('');
-      setStep('review');
-      window.scrollTo({ top: 0 });
-    } else if (user) {
-      // User is logged in, proceed with reservation
+    if (user) {
       reserve();
     } else {
-      // User not logged in, trigger sign-in flow
-      signInGoogle().then(() => {
-        // signInGoogle redirects, so this callback won't run on the same page
-        // The page will reload with the user logged in, then they can click again
-      }).catch((e) => {
+      // Popup sign-in; the guest then presses the (relabelled) button again to reserve.
+      signInGoogle().then(() => setError('')).catch((e) => {
         setError(e instanceof Error ? e.message : 'Sign in failed. Please try again.');
       });
     }
@@ -599,6 +595,7 @@ export default function BookingCheckout() {
           busy={busy}
           error={error}
           eventSoldOut={eventSoldOut}
+          user={user}
         />
       </div>
     </Shell>

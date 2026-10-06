@@ -99,11 +99,6 @@ export function computeRaceState(
   const raceEndMs = raceStartMs + RACE_DURATION_MS;
   const timeToEnd = raceEndMs - nowMs;
 
-  // Race cancelled by host
-  if (manual === 'cancelled-by-host') {
-    return stateInfo('cancelled-by-host');
-  }
-
   // Before race start
   if (timeToStart > PRE_RACE_WINDOW_MS) {
     return stateInfo('scheduled');

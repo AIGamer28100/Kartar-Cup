@@ -331,7 +331,7 @@ export default function RaceDetailPage() {
         <Reveal>
           <Eyebrow>Race</Eyebrow>
           <h1 className={`mt-3 ${PageTitle}`}>We could not find that race</h1>
-          <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-accent-text underline underline-offset-4">Back to events</Link>
+          <Link to="/events" className="mt-4 inline-flex min-h-11 items-center text-sm text-accent-text underline decoration-line underline-offset-4">Back to events</Link>
         </Reveal>
       </Shell>
     );
@@ -415,8 +415,8 @@ export default function RaceDetailPage() {
             <p className="mt-2 text-sm text-muted">Pirelli compounds nominated for this weekend.</p>
             <div className="mt-3 grid max-w-md grid-cols-3 gap-3">
               <TyreChip label="Hard" c={nomination.hard} tone="border-ink" />
-              <TyreChip label="Medium" c={nomination.medium} tone="border-[#ffc83d]" />
-              <TyreChip label="Soft" c={nomination.soft} tone="border-[#ff4d61]" />
+              <TyreChip label="Medium" c={nomination.medium} tone="border-gold" />
+              <TyreChip label="Soft" c={nomination.soft} tone="border-accent-text" />
             </div>
           </>
         ) : (

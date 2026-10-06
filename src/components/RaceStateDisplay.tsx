@@ -160,7 +160,7 @@ export function getRaceStateInfo(state: RaceState): RaceStateInfo {
 
   const info = configs[type] || configs.unknown;
 
-  if (type === 'red-flag' && typeof state === 'object') {
+  if (typeof state === 'object' && state.type === 'red-flag') {
     const procedure = state.resumeProcedure === 'rolling' ? 'Rolling' : 'Standing';
     return {
       ...info,
@@ -169,7 +169,7 @@ export function getRaceStateInfo(state: RaceState): RaceStateInfo {
     };
   }
 
-  if (type === 'safety-car' && typeof state === 'object' && state.isRollingRestart) {
+  if (typeof state === 'object' && state.type === 'safety-car' && state.isRollingRestart) {
     return {
       ...info,
       label: 'Rolling Restart',
@@ -237,7 +237,7 @@ export function RaceStateBackdrop({ state, className = '' }: { state: RaceState;
     ? 'race-state-backdrop--start'
     : type === 'chequered-flag' || type === 'completed'
       ? 'race-state-backdrop--chequered'
-    : type === 'yellow-flag' || type === 'yellow-flag-sector' || type === 'safety-car' || type === 'safety-car-ending' || type === 'red-flag' || type === 'virtual-safety-car' || type === 'chequered-flag'
+    : type === 'yellow-flag' || type === 'yellow-flag-sector' || type === 'safety-car' || type === 'safety-car-ending' || type === 'red-flag' || type === 'virtual-safety-car'
       ? 'race-state-backdrop--wave'
       : '';
 
@@ -305,8 +305,8 @@ function PodiumCard({ driver }: { driver: PodiumDriver }) {
 
       {driver.points > 0 && (
         <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base border border-line/50">
-          <Trophy className="w-3 h-3 text-yellow-500" />
-          <span className="font-mono text-xs font-semibold text-yellow-500">
+          <Trophy className="w-3 h-3 text-gold" />
+          <span className="font-mono text-xs font-semibold text-gold">
             {driver.points} pts
           </span>
         </div>
@@ -321,7 +321,7 @@ function PodiumDisplay({ drivers }: { drivers: PodiumDriver[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-ink uppercase tracking-wider">
-        <Trophy className="w-4 h-4 text-yellow-500" />FINAL CLASSIFICATION
+        <Trophy className="w-4 h-4 text-gold" />FINAL CLASSIFICATION
       </div>
       <div className="grid grid-cols-3 gap-2">
         {sorted.map((driver) => (
@@ -409,15 +409,15 @@ function IceCrystals({ state }: { state: RaceState }) {
 
 function StatusBadge({ text, variant }: { text: string; variant: string }) {
   const toneClasses: Record<string, string> = {
-    muted: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
-    accent: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    warn: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    ok: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    bad: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    muted: 'bg-raised text-muted border-line',
+    accent: 'bg-info/10 text-info border-info/30',
+    warn: 'bg-warn/10 text-warn border-warn/30',
+    ok: 'bg-ok/10 text-ok border-ok/30',
+    bad: 'bg-accent/10 text-accent-text border-accent/40',
   };
 
   return (
-    <div className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-widest ${toneClasses[variant] || toneClasses.muted}`}>
+    <div className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold uppercase tracking-widest ${toneClasses[variant] || toneClasses.muted}`}>
       {text}
     </div>
   );
@@ -440,7 +440,7 @@ function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: nu
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className={`h-8 w-8 rounded-full transition-colors duration-200 ${(i % 2 !== 0 && isFlash) ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]' : 'bg-zinc-800'
+            className={`h-8 w-8 rounded-full transition-colors duration-200 ${(i % 2 !== 0 && isFlash) ? 'bg-accent shadow-[0_0_15px_var(--color-accent)]' : 'bg-raised'
               }`}
           />
         ))}
@@ -461,10 +461,10 @@ function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: nu
             className={`
               h-8 w-8 rounded-full transition-colors duration-300 
               ${greenLight
-                ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)]'
+                ? 'bg-ok shadow-[0_0_15px_var(--color-ok)]'
                 : i <= lightsOn
-                  ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]'
-                  : 'bg-zinc-800'
+                  ? 'bg-accent shadow-[0_0_15px_var(--color-accent)]'
+                  : 'bg-raised'
               }`}
           />
         ))}
@@ -781,7 +781,7 @@ export function RaceStateDisplay({
         {showRaceStartMessage
           ? <div className="font-mono text-2xl font-bold uppercase text-ink">And away we go</div>
           : <RaceTimer raceStartMs={displayRaceStartMs} state={displayState} />}
-        {drivers && (typeof state === 'string' ? (state === 'completed' || state === 'chequered-flag') : false) && (
+        {drivers && (displayState === 'completed' || displayState === 'chequered-flag') && (
           <PodiumDisplay drivers={drivers} />
         )}
       </div>

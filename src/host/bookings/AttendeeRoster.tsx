@@ -57,7 +57,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
     setBusyId(id);
     setActionError('');
     try {
-      await cancelBooking(id, 'host');
+      await cancelBooking(id);
       setConfirmId(null);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Could not cancel the booking.');
@@ -94,7 +94,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
       </div>
 
       {loadError && (
-        <p role="alert" className="mt-2 text-ink">Error: {loadError}</p>
+        <p role="alert" className="mt-2 text-accent-text">Error: {loadError}</p>
       )}
       {!loadError && bookings === null && <RowsSkeleton />}
 
@@ -141,7 +141,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
             </label>
           </div>
 
-          {actionError && <p role="alert" className="mt-3 text-ink">Error: {actionError}</p>}
+          {actionError && <p role="alert" className="mt-3 text-accent-text">Error: {actionError}</p>}
 
           {bookings.length === 0 && <p className="mt-6 text-muted">No bookings for this event yet.</p>}
           {bookings.length > 0 && shown.length === 0 && (

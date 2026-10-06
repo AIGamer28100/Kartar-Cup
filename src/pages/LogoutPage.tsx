@@ -3,7 +3,7 @@ import { House } from '@phosphor-icons/react';
 import { Link, useNavigate } from 'react-router';
 import { buttonCls } from '../components/Button';
 import { PageSkeleton } from '../components/Skeleton';
-import { Eyebrow, H1, Reveal, Shell, Split } from '../guest/parts';
+import { Eyebrow, PageTitle, Reveal, Shell, Split } from '../guest/parts';
 import { signOutUser } from '../lib/firebase';
 
 const SECONDS = 5;
@@ -41,7 +41,7 @@ export default function LogoutPage() {
         left={
           <Reveal>
             <Eyebrow>Session ended</Eyebrow>
-            <h1 className={`mt-3 ${H1}`}>You are signed out</h1>
+            <h1 className={`mt-3 ${PageTitle}`}>You are signed out</h1>
             <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
               Car in the garage, engine off. Your picks stay saved for next time.
             </p>

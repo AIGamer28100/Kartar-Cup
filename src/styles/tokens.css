@@ -18,6 +18,11 @@
   /* Semantic data colours, never chrome: info/tint and gain/success. */
   --color-info: #6d92ff;
   --color-ok: #3ddc97;
+  /* Yellow-flag / caution data colour (race state), not a reward colour. */
+  --color-warn: #f5b942;
+  /* Chequered-flag racing line squares (TrackMap). */
+  --color-chequer-light: #ffffff;
+  --color-chequer-dark: #000000;
   --font-sans: "Geist Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   /* Condensed italic, used only for round numbers, points and big watermark numerals. */
@@ -154,18 +159,23 @@
   }
 }
 
+/* Chequered racing line (TrackMap ChequeredLine): 10-unit squares, 20-unit period, so offsetting
+   by one period per cycle loops seamlessly. Static (still a chequered line) under reduced motion. */
 @keyframes track-chequered {
   from {
-    stroke-dashoffset: 40;
-  }
-  to {
     stroke-dashoffset: 0;
   }
+  to {
+    stroke-dashoffset: -20;
+  }
 }
-
 .track-chequered {
-  stroke-dasharray: 20 20;
-  animation: track-chequered 1s linear infinite;
+  stroke-dasharray: 10 10;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .track-chequered {
+    animation: track-chequered 0.5s linear infinite;
+  }
 }
 
 .race-state-backdrop {

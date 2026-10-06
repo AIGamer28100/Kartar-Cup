@@ -1,6 +1,6 @@
 import { ArrowClockwise, House } from '@phosphor-icons/react';
 import Button, { buttonCls } from './Button';
-import { Eyebrow, H1, Reveal, Shell, Split } from '../guest/parts';
+import { Eyebrow, PageTitle, Reveal, Shell, Split } from '../guest/parts';
 
 /**
  * Reusable failure screen. Router-free on purpose (plain anchor + reload) so the top-level
@@ -14,7 +14,7 @@ export default function FailurePage({ error, onRetry }: { error?: unknown; onRet
         left={
           <Reveal>
             <Eyebrow>Red flag</Eyebrow>
-            <h1 className={`mt-3 ${H1}`} role="alert">
+            <h1 className={`mt-3 ${PageTitle}`} role="alert">
               Red flag. Something broke.
             </h1>
             <p className="mt-3 max-w-[40ch] text-muted md:text-lg">

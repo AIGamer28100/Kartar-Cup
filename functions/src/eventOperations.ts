@@ -35,7 +35,7 @@ export const onEventOperations = onCall<EventOperationInput>(
     const userData = userSnap.data();
     const isAdmin = userData?.roles?.includes('admin') ?? false;
     const isHost = userData?.roles?.includes('host') ?? false;
-    const canRunBookings = isAdmin || isHost || userData?.roles?.includes('venue_host') ?? false;
+    const canRunBookings = isAdmin || isHost || (userData?.roles?.includes('venue_host') ?? false);
 
     const { operation, eventId, data } = request.data;
 

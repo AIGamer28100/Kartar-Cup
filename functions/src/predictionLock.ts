@@ -140,7 +140,7 @@ export const onPredictionLock = onCall<{ force?: boolean }>(
     const isAdmin = userData?.roles?.includes('admin') ?? false;
     const isHost = userData?.roles?.includes('host') ?? false;
 
-    if (!isAdmin && !isHost && !request.data?.force) {
+    if (!isAdmin && !isHost) {
       throw new HttpsError('permission-denied', 'Only admins/hosts can manually trigger lock check');
     }
 

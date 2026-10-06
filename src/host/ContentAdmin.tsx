@@ -37,7 +37,7 @@ import { inputCls } from './settings/ui';
 
 const lbl = 'block text-sm text-muted';
 const mono = 'font-mono tabular-nums';
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

@@ -16,7 +16,7 @@ export interface RaceInfo {
 }
 
 export function nextRace(now: Date, races: RaceInfo[]): RaceInfo | null {
-  const today = now.toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
   return (
     [...races]
       .sort((a, b) => a.raceDate.localeCompare(b.raceDate))

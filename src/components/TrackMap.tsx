@@ -1,5 +1,7 @@
+import { useId } from 'react';
 import { trackForRace } from '../config/tracks';
 import type { TrackData } from '../config/tracks/types';
+import type { RaceState } from './RaceStateDisplay';
 
 interface TrackMapProps {
   raceId?: string;
@@ -30,6 +32,7 @@ export default function TrackMap({ raceId, track, animate = false, className = '
 
   const isChequered = stateKey === 'chequered-flag' || stateKey === 'completed';
   const trackColor = getTrackColor();
+  const maskId = `track-reveal-${useId().replace(/:/g, '')}`;
   const draw = animate ? 'track-draw' : '';
   const label = title ?? `Circuit layout: ${t.name}`;
   return (
@@ -48,16 +51,53 @@ export default function TrackMap({ raceId, track, animate = false, className = '
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d={t.d}
-        pathLength={1}
-        className={`stroke-accent ${draw} ${isChequered ? 'track-chequered' : ''}`}
-        strokeWidth={11}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ stroke: isChequered ? undefined : trackColor }}
-      />
+      {isChequered ? (
+        <ChequeredLine d={t.d} maskId={maskId} reveal={animate} />
+      ) : (
+        <path
+          d={t.d}
+          pathLength={1}
+          className={`stroke-accent ${draw}`}
+          strokeWidth={11}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ stroke: trackColor }}
+        />
+      )}
       {t.start && <circle cx={t.start.x} cy={t.start.y} r={9} className="fill-ink stroke-accent" strokeWidth={3} />}
     </svg>
+  );
+}
+
+/** Chequered-flag racing line: three rows of alternating black/white squares (the centre row is
+ * phase-shifted, so it reads as a flag, not stripes). The group is revealed by a mask path that
+ * draws on exactly like the normal track outline (.track-draw), then the squares keep running
+ * round the lap (.track-chequered). Dashes use real user units (no pathLength) so square size
+ * does not depend on circuit length. Remounts, and so replays the draw, when the state changes
+ * to chequered. */
+function ChequeredLine({ d, maskId, reveal }: { d: string; maskId: string; reveal: boolean }) {
+  const join = { strokeLinejoin: 'round' as const };
+  return (
+    <>
+      {reveal && (
+        <mask id={maskId} maskUnits="userSpaceOnUse" x={-2000} y={-2000} width={5000} height={5000}>
+          <path
+            d={d}
+            pathLength={1}
+            className="track-draw"
+            stroke="#fff"
+            strokeWidth={44}
+            strokeLinecap="round"
+            {...join}
+          />
+        </mask>
+      )}
+      <g mask={reveal ? `url(#${maskId})` : undefined} {...join}>
+        <path d={d} stroke="var(--color-chequer-dark)" strokeWidth={30} />
+        <path d={d} className="track-chequered" stroke="var(--color-chequer-light)" strokeWidth={30} />
+        <path d={d} stroke="var(--color-chequer-light)" strokeWidth={10} />
+        <path d={d} className="track-chequered" stroke="var(--color-chequer-dark)" strokeWidth={10} />
+      </g>
+    </>
   );
 }

@@ -272,7 +272,7 @@ export async function checkIn(
     tx.update(ref, {
       checkedInCount: newCheckedInCount,
       status: isFullyCheckedIn ? 'checked_in' : 'paid_mock',
-      checkedInAt: isFullyCheckedIn ? serverTimestamp() : b.checkedInAt,
+      ...(isFullyCheckedIn ? { checkedInAt: serverTimestamp() } : {}),
       checkedInBy: hostEmail,
     });
   });
@@ -293,7 +293,6 @@ export class CancelBookingError extends Error {
  * be released twice. R23: mock payments only, so refund 'mock_refunded' is a label, no money moves. */
 export async function cancelBooking(
   bookingId: string,
-  hostEmail: string,
   reason?: string,
 ): Promise<void> {
   const ref = bookingRef(bookingId);
@@ -309,7 +308,7 @@ export async function cancelBooking(
     tx.update(ref, {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
-      cancelledBy: hostEmail,
+      cancelledBy: 'host',
       ...(trimmed ? { cancelReason: trimmed } : {}),
       refund: b.status === 'paid_mock' ? 'mock_refunded' : 'none',
     });

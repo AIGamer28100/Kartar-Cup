@@ -131,7 +131,7 @@ export function ticketStatusFor(raceId: string, bookingEvents: BookingEvent[]): 
 
 /** The next HOSTED race (skips races we are not hosting, e.g. Malaysia), by race date. */
 export function nextHostedRace(now: Date, races: RaceInfo[], bookingEvents: BookingEvent[]): RaceInfo | null {
-  const today = now.toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
   return (
     [...races]
       .filter((r) => r.status === 'scheduled' && r.raceDate >= today)

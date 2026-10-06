@@ -56,7 +56,7 @@ export function Section({
 }) {
   return (
     <section id={sectionId(title)} aria-label={title} className="scroll-mt-6 border-b border-line py-8">
-      <h2 className="text-xl font-semibold md:text-2xl">{title}</h2>
+      <h3 className="text-xl font-semibold md:text-2xl">{title}</h3>
       {intro && <p className="mt-1 max-w-2xl text-muted">{intro}</p>}
       <div className="mt-6">{children}</div>
     </section>

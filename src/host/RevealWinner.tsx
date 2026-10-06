@@ -61,7 +61,9 @@ export default function RevealWinner({
         {show && winner && (
           <motion.div
             role="dialog"
+            aria-modal="true"
             aria-label="Winner"
+            onKeyDown={(e) => { if (e.key === 'Escape') setShow(false); }}
             className="fixed inset-0 z-50 grid place-items-center bg-base p-6 md:p-16 lg:p-24"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -87,7 +89,7 @@ export default function RevealWinner({
                 {winner.score} / {max}
               </motion.p>
               <motion.div {...item(1.5)} className="mt-10">
-                <Button variant="secondary" onClick={() => setShow(false)}>
+                <Button variant="secondary" autoFocus onClick={() => setShow(false)}>
                   Back to the pit wall
                 </Button>
               </motion.div>

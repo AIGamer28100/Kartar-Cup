@@ -3,7 +3,7 @@ import { ArrowRight, FlagCheckered, Trophy } from '@phosphor-icons/react';
 import { Link } from 'react-router';
 import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from '../components/RaceStateDisplay';
 import TrackMap from '../components/TrackMap';
-import { Shell } from '../guest/parts';
+import { H1, Shell } from '../guest/parts';
 
 const MOCK_DRIVERS = [
   { position: 1, name: 'Max Verstappen', code: 'VER', team: 'Red Bull Racing', colour: '#0600EF', headshotUrl: null, points: 25 },
@@ -104,7 +104,7 @@ export default function RaceStateMockPage() {
           <section className="grid gap-10 py-12 lg:grid-cols-[44fr_56fr] lg:items-center lg:gap-14 lg:py-16">
             <div className="flex min-w-0 flex-col justify-center">
               <p className="font-mono text-xs uppercase tracking-widest text-muted">Chennai &amp; Coimbatore · motorsport community</p>
-              <h1 className="mt-4 text-h1 font-bold text-ink">The Karter Cup</h1>
+              <h1 className={`mt-4 ${H1}`}>The Karter Cup</h1>
               <p className="mt-6 max-w-[40ch] text-lead text-pretty text-muted">
                 A leisure go-karting league and F1-style motorsport community — karting days, sim racing and watch parties, run by people who actually turn up.
               </p>

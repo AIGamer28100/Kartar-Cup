@@ -86,7 +86,7 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
       <div aria-live="polite" className="mt-2 text-sm text-muted">
         {busy && 'Searching…'}
         {!busy && error && (
-          <span className="text-destructive">
+          <span className="text-accent-text" role="alert">
             Search failed: {error.status}{error.error_message && ` — ${error.error_message}`}
           </span>
         )}

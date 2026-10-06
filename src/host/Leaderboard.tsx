@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Check, X } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { QUESTIONS } from '../config/event';
@@ -24,6 +24,7 @@ export default function Leaderboard({
   onPick: (uid: string | null) => void;
 }) {
   const [pending, setPending] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   if (rows.length === 0) {
     return (
@@ -91,7 +92,7 @@ export default function Leaderboard({
           const rowCls =
             'grid w-full grid-cols-[2rem_minmax(0,1fr)_3rem] items-center gap-x-3 py-4 sm:grid-cols-[3rem_minmax(0,1fr)_auto_4.5rem] md:grid-cols-[4rem_minmax(0,1fr)_auto_6rem] md:gap-x-6 md:py-5 2xl:grid-cols-[6rem_minmax(0,1fr)_auto_8rem] 2xl:py-6';
           return (
-            <motion.li key={r.uid} layout transition={reorder}>
+            <motion.li key={r.uid} layout transition={reduceMotion ? { duration: 0 } : reorder}>
               {tiedTop ? (
                 <button
                   type="button"

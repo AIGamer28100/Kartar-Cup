@@ -18,7 +18,7 @@ import { Partner, Story, LegalDoc } from '../lib/content';
 import { UserRecord } from '../lib/users';
 
 const tabCls =
-  'inline-flex min-h-11 items-center px-3 text-muted hover:text-ink aria-[current=page]:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-3 text-muted hover:text-ink aria-[current=page]:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 // Wrapper components for nested routes
 
@@ -197,7 +197,7 @@ export default function HostApp() {
   const { access } = useAuth();
   return (
     <HostFrame signedIn>
-      <nav aria-label="Host sections" className="flex gap-2 border-b border-line py-2">
+      <nav aria-label="Host sections" className="scroll-hide flex gap-2 overflow-x-auto border-b border-line py-2">
         <NavLink to="/host" end className={tabCls}>
           Console
         </NavLink>

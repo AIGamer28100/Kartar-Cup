@@ -8,7 +8,6 @@ import './styles/index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
-import { RaceStateProvider } from './lib/raceStateContext';
 
 // Production only; failures are ignored so the service worker can never block the app or auth.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -22,9 +21,7 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <RaceStateProvider>
-            <App />
-          </RaceStateProvider>
+          <App />
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

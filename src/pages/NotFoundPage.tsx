@@ -1,7 +1,7 @@
 import { House } from '@phosphor-icons/react';
 import { Link, useLocation } from 'react-router';
 import { buttonCls } from '../components/Button';
-import { Eyebrow, H1, Reveal, Shell, Split } from '../guest/parts';
+import { Eyebrow, PageTitle, Reveal, Shell, Split } from '../guest/parts';
 
 export default function NotFoundPage() {
   const { pathname, search } = useLocation();
@@ -11,7 +11,7 @@ export default function NotFoundPage() {
         left={
           <Reveal>
             <Eyebrow>Error 404</Eyebrow>
-            <h1 className={`mt-3 ${H1}`}>Invalid path</h1>
+            <h1 className={`mt-3 ${PageTitle}`}>Invalid path</h1>
             <p className="mt-3 max-w-[40ch] text-muted md:text-lg">
               You have gone off the track and into the gravel. Nothing lives here. Race control suggests rejoining
               at the pit lane.

@@ -15,4 +15,4 @@ export { onRaceDataIngestion } from './raceDataIngestion';
 export { onScorePredictions } from './scoring';
 export { onCalendarSync } from './calendarSync';
 export { onEventOperations } from './eventOperations';
-export { scheduledJobs } from './scheduledJobs';
+export { raceWindowJobs, dailyMaintenance, hourlyCompetitionCheck } from './scheduledJobs';

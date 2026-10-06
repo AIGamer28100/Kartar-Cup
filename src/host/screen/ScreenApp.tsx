@@ -107,7 +107,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Lobby mode (key 1)"
           onClick={() => goMode('lobby')}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           1 Lobby
         </button>
@@ -115,7 +115,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Standings mode (key 2)"
           onClick={() => goMode('standings')}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           2 Standings
         </button>
@@ -123,7 +123,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Podium mode (key 3)"
           onClick={() => goMode('podium')}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           3 Podium
         </button>
@@ -131,7 +131,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Back a stage (left arrow)"
           onClick={() => goStage(prevStage(stage))}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           ← Back
         </button>
@@ -139,7 +139,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Next stage (space or right arrow)"
           onClick={() => goStage(nextStage(stage))}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Next →
         </button>
@@ -147,7 +147,7 @@ export default function ScreenApp() {
           type="button"
           aria-label="Reset to sealed grid (key r)"
           onClick={() => goStage(0)}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Reset
         </button>
@@ -158,7 +158,7 @@ export default function ScreenApp() {
             if (document.fullscreenElement) void document.exitFullscreen();
             else void document.documentElement.requestFullscreen().catch(() => {});
           }}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+          className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Fullscreen
         </button>

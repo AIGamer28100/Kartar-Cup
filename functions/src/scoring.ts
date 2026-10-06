@@ -148,8 +148,8 @@ export const onScorePredictions = onCall<ScoringInput>(
         const userScoreRef = db.doc(`predictionLeaderboards/${competitionId}/users/${submission.userId}`);
         batch.set(userScoreRef, {
           userId: submission.userId,
-          totalScore: admin.firestore.FieldValue.increment(result.score),
-          competitionsPlayed: admin.firestore.FieldValue.increment(1),
+          totalScore: result.score,
+          competitionsPlayed: 1,
           lastScoredAt: result.scoredAt,
         }, { merge: true });
       }

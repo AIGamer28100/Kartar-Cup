@@ -159,7 +159,7 @@ export function formToEvent(f: FormState): NewBookingEvent {
  * `extraId` (the event's currently-saved raceId, if any) is always included even if it has fallen
  * outside the default window, so editing an older event never silently blanks the selection. */
 export function upcomingRaceOptions(now: Date = new Date(), limit = 5, extraId?: string): RaceInfo[] {
-  const today = now.toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
   const upcoming = ALL_RACES.filter((r) => r.status === 'scheduled' && r.raceDate >= today).slice(0, limit);
   if (extraId && !upcoming.some((r) => r.id === extraId)) {
     const extra = ALL_RACES.find((r) => r.id === extraId);
