@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 import TrackLayout from './TrackLayout';
 import { getRace } from '../config/calendar';
 import { factsFor, TYRES_2026 } from '../config/tracks/raceFacts';
@@ -36,7 +36,7 @@ import { ticketStatusFor } from './eventsModel';
 const SHOW_HEADSHOTS = true;
 
 const card = 'rounded-lg border border-line p-4 md:p-5';
-const h2 = 'text-xl font-semibold text-balance';
+const h2 = H3;
 const mono = 'font-mono tabular-nums';
 
 const dateFmt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -113,8 +113,7 @@ function SessionResults({ session }: { session: RaceSession }) {
   const tabBtn = (id: 'drivers' | 'teams', text: string) => (
     <button
       type="button"
-      role="tab"
-      aria-selected={tab === id}
+      aria-pressed={tab === id}
       onClick={() => setTab(id)}
       className={`min-h-11 rounded-full border px-4 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         tab === id ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'
@@ -126,7 +125,7 @@ function SessionResults({ session }: { session: RaceSession }) {
 
   return (
     <div className="mt-3">
-      <div role="tablist" aria-label="Result view" className="flex gap-2">
+      <div role="group" aria-label="Result view" className="flex gap-2">
         {tabBtn('drivers', 'Drivers')}
         {tabBtn('teams', 'Teams')}
       </div>

@@ -15,7 +15,7 @@ import AchievementsSection from './AchievementsSection';
 import { accountName } from './SignIn';
 import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
-import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 
 function Avatar({ photoUrl, name, email }: { photoUrl?: string | null; name: string; email?: string | null }) {
   const [broken, setBroken] = useState(false);
@@ -228,7 +228,7 @@ function ProfileContent({ user }: { user: User }) {
 
       <Divider className="mt-10" />
       <Reveal index={2} className="mt-8">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
+        <h2 className={`flex items-center gap-2 text-ink ${H3}`}>
           <Trophy size={20} weight="regular" aria-hidden="true" />
           Quiz history
         </h2>
@@ -237,7 +237,7 @@ function ProfileContent({ user }: { user: User }) {
 
       <Divider className="mt-4" />
       <Reveal index={3} className="mt-8">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
+        <h2 className={`flex items-center gap-2 text-ink ${H3}`}>
           <Medal size={20} weight="regular" aria-hidden="true" />
           Achievements
         </h2>
@@ -246,7 +246,7 @@ function ProfileContent({ user }: { user: User }) {
 
       <Divider className="mt-8" />
       <Reveal index={4} className="mt-8">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
+        <h2 className={`flex items-center gap-2 text-ink ${H3}`}>
           <TicketIcon size={20} weight="regular" aria-hidden="true" />
           Bookings
         </h2>

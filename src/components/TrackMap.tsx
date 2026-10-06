@@ -17,6 +17,7 @@ interface TrackMapProps {
  * pathLength normalises in user units, so the draw-on animation finished long before its duration.
  * The draw keyframes live in src/styles/tokens.css (.track-draw). */
 export default function TrackMap({ raceId, track, animate = false, className = '', title, state }: TrackMapProps) {
+  const maskId = `track-reveal-${useId().replace(/:/g, '')}`;
   const t = track ?? (raceId ? trackForRace(raceId) : null);
   if (!t) return null;
 
@@ -32,7 +33,6 @@ export default function TrackMap({ raceId, track, animate = false, className = '
 
   const isChequered = stateKey === 'chequered-flag' || stateKey === 'completed';
   const trackColor = getTrackColor();
-  const maskId = `track-reveal-${useId().replace(/:/g, '')}`;
   const draw = animate ? 'track-draw' : '';
   const label = title ?? `Circuit layout: ${t.name}`;
   return (

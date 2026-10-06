@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import Button, { buttonCls } from '../components/Button';
-import Skeleton from '../components/Skeleton';
+import Skeleton, { PageSkeleton } from '../components/Skeleton';
 import GoogleCta from '../guest/SignIn';
 import { Eyebrow, PageTitle, Reveal, Shell } from '../guest/parts';
 import { useAuth } from '../lib/auth';
@@ -77,13 +77,7 @@ export default function JoinPage() {
     }
   };
 
-  if (!ready) {
-    return (
-      <Shell bare>
-        <Skeleton className="mt-8 h-10 w-64" />
-      </Shell>
-    );
-  }
+  if (!ready) return <PageSkeleton />;
 
   if (!user) {
     return (

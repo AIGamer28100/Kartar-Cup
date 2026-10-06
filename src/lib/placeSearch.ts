@@ -43,6 +43,7 @@ export async function fetchPlaceDetails(
   placeId: string,
   signal?: AbortSignal
 ): Promise<{ lat: number; lng: number } | PlacesError> {
+  if (!import.meta.env.VITE_GOOGLE_PLACES_API_KEY) return { status: 'NO_KEY', error_message: 'Place search is not configured (VITE_GOOGLE_PLACES_API_KEY).' };
   const isDev = import.meta.env.DEV;
   const baseUrl = isDev
     ? '/api/places/details/json'
@@ -87,6 +88,7 @@ export async function searchPlaces(
 ): Promise<PlaceResult[] | PlacesError> {
   const q = query.trim();
   if (q.length < 3) return [];
+  if (!import.meta.env.VITE_GOOGLE_PLACES_API_KEY) return { status: 'NO_KEY', error_message: 'Place search is not configured (VITE_GOOGLE_PLACES_API_KEY).' };
 
   // Use Vite dev proxy in development to avoid CORS issues with Google Places API.
   // In production, the proxy won't exist, so we fall back to direct call (requires

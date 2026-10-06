@@ -553,7 +553,7 @@ export default function EventsPage() {
     </Busy>
   );
   const errorNote = loadError && (
-    <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted">
+    <p role="status" className="mb-4 text-sm text-accent-text">
       Couldn&rsquo;t load event details — showing the schedule only.
     </p>
   );

@@ -364,49 +364,6 @@ function getLabel(state: RaceState): string {
   return labels[key] ?? 'UNKNOWN STATE';
 }
 
-export function getToneColor(state: RaceState): string {
-  const tone = getTone(state);
-  const colors: Record<string, string> = {
-    muted: 'rgba(100, 116, 139, 0.1)',
-    accent: 'rgba(16, 185, 129, 0.1)',
-    warn: 'rgba(245, 158, 11, 0.2)',
-    ok: 'rgba(16, 185, 129, 0.1)',
-    bad: 'rgba(225, 29, 72, 0.2)',
-  };
-  return colors[tone] || colors.muted;
-}
-
-function IceCrystals({ state }: { state: RaceState }) {
-  const stateKey = typeof state === 'object' ? state.type : state;
-
-  const config: Record<string, { bg: string; text: string; pattern?: string }> = {
-    scheduled: { bg: 'bg-slate-500/10', text: 'text-slate-500' },
-    'in-progress': { bg: 'bg-emerald-500/20', text: 'text-emerald-500' },
-    'yellow-flag': { bg: 'bg-amber-500/30', text: 'text-amber-600', pattern: 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)' },
-    'yellow-flag-sector': { bg: 'bg-amber-500/30', text: 'text-amber-600', pattern: 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)' },
-    'safety-car': { bg: 'bg-amber-500/20', text: 'text-amber-600', pattern: 'repeating-linear-gradient(135deg, rgba(15,23,42,0.08) 0 16px, transparent 16px 32px)' },
-    'safety-car-ending': { bg: 'bg-amber-500/20', text: 'text-amber-600', pattern: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(61,220,151,0.18))' },
-    'red-flag': { bg: 'bg-rose-500/30', text: 'text-rose-600', pattern: 'linear-gradient(45deg, rgba(225,29,72,0.3) 25%, transparent 25%, transparent 50%, rgba(225,29,72,0.3) 50%, rgba(225,29,72,0.3) 75%, transparent 75%, transparent)' },
-    'virtual-safety-car': { bg: 'bg-amber-500/20', text: 'text-amber-600' },
-    'last-lap': { bg: 'bg-emerald-500/20', text: 'text-emerald-500' },
-    'chequered-flag': { bg: 'bg-zinc-500/20', text: 'text-zinc-400', pattern: 'conic-gradient(rgba(255,255,255,0.2) 0.25turn, transparent 0.25turn 0.5turn, rgba(255,255,255,0.2) 0.5turn 0.75turn, transparent 0.75turn 1turn)' },
-    completed: { bg: 'bg-emerald-500/20', text: 'text-emerald-500' },
-    'cancelled-by-host': { bg: 'bg-rose-500/30', text: 'text-rose-600' },
-  };
-
-  const { bg, pattern } = config[stateKey] || config.scheduled;
-
-  return (
-    <div
-      className={`absolute inset-0 opacity-30 select-none ${bg}`}
-      style={{
-        backgroundImage: pattern,
-        backgroundSize: pattern ? '40px 40px' : undefined
-      }}
-    />
-  );
-}
-
 function StatusBadge({ text, variant }: { text: string; variant: string }) {
   const toneClasses: Record<string, string> = {
     muted: 'bg-raised text-muted border-line',
@@ -425,10 +382,13 @@ function StatusBadge({ text, variant }: { text: string; variant: string }) {
 
 function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: number }) {
   const [now, setNow] = useState(Date.now());
+  // Centisecond readout only for the lights-out countdown; every other readout changes once a second.
+  const tickMs = state === 'lights-out-countdown' ? 10 : state === 'lights-out-sequence' ? 250 : 1000;
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 10);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, []);
+  }, [tickMs]);
 
   const delta = raceStartMs - now;
   const secondsLeft = delta / 1000;
@@ -564,33 +524,8 @@ function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceSta
     );
   }
 
-  if (
-    state === 'in-progress' ||
-    state === 'yellow-flag' ||
-    state === 'yellow-flag-sector' ||
-    state === 'safety-car' ||
-    state === 'safety-car-ending' ||
-    (typeof state === 'object' && state.type === 'yellow-flag-sector') ||
-    state === 'red-flag' ||
-    state === 'virtual-safety-car' ||
-    state === 'last-lap' ||
-    state === 'chequered-flag'
-  ) return null;
-
-  if (state === 'completed' || state === 'cancelled-by-host') return null;
-
-  const elapsedMs = Math.abs(delta);
-  const totalSec = Math.floor(elapsedMs / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-
-  return (
-    <div className="font-mono text-4xl font-bold tabular-nums text-ink">
-      {h > 0 ? `${String(h).padStart(2, '0')}:` : ''}
-      {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-    </div>
-  );
+  // Every other state (in progress, flags, chequered, completed, cancelled) shows no timer.
+  return null;
 }
 
 // Determine the tone for a given state
@@ -800,7 +735,6 @@ export {
   PodiumDisplay,
   StatusBadge,
   RaceTimer,
-  IceCrystals,
   getLabel,
   getTone,
 };

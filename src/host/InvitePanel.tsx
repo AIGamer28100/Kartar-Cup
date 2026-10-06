@@ -8,9 +8,8 @@ import { INVITE_DAY_OPTIONS, ROLES, inviteRolesFor, roleLabel, type Role } from 
 import { INVITE_STATUS_LABEL, inviteLink, inviteStatus } from '../lib/userAdmin';
 import { createInvite, revokeInvite, watchInvites, type Invite } from '../lib/users';
 import { fmtLocal } from './settings/time';
+import { inputCls } from './settings/ui';
 
-const inputCls =
-  'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
 const errMsg = (e: unknown, fallback: string) =>
   (e as { code?: string }).code === 'permission-denied' ? 'The server refused this change for your account.' : fallback;

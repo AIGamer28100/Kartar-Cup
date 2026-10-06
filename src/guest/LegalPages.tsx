@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { DEVELOPER, OPERATOR, missing } from '../config/legal';
 import { usePageMeta } from '../lib/pageMeta';
-import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 
 /* /terms and /privacy. Drafting aid only - the operator must have a lawyer review these before the site
  * takes real bookings. Facts below describe what the app actually does today (mock payments, Google
@@ -26,7 +26,7 @@ const who = (
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="mt-8">
-      <h2 id={id} className="text-xl font-semibold text-balance">{title}</h2>
+      <h2 id={id} className={H3}>{title}</h2>
       <div className="mt-2 grid max-w-[68ch] gap-3 text-pretty text-muted [&_strong]:font-semibold [&_strong]:text-ink [&_ul]:grid [&_ul]:list-disc [&_ul]:gap-1.5 [&_ul]:pl-5">
         {children}
       </div>

@@ -43,7 +43,7 @@ export default function App() {
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/cup" element={<CupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/race-state-mock" element={<RaceStateMockPage />} />
+              {import.meta.env.DEV && <Route path="/race-state-mock" element={<RaceStateMockPage />} />}
               <Route path="/tickets/:bookingId" element={<TicketPage />} />
               <Route path="/join/:token" element={<JoinPage />} />
               <Route path="/about" element={<AboutPage />} />

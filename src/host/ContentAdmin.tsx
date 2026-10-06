@@ -454,7 +454,6 @@ function LegalTab() {
 
 type Tab = 'partners' | 'stories' | 'legal';
 
-export { PartnerForm, StoryForm, LegalForm };
 
 export default function ContentAdmin() {
   const { access } = useAuth();
@@ -468,13 +467,12 @@ export default function ContentAdmin() {
   return (
     <section aria-label="Content" className="py-6">
       <h2 className="text-2xl font-semibold md:text-3xl">Content</h2>
-      <div role="tablist" aria-label="Content sections" className="mt-4 flex flex-wrap gap-2">
+      <div role="group" aria-label="Content sections" className="mt-4 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
-            role="tab"
-            aria-selected={tab === t.id}
+            aria-pressed={tab === t.id}
             onClick={() => setTab(t.id)}
             className={`min-h-11 rounded-full border px-4 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               tab === t.id ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'
@@ -484,7 +482,7 @@ export default function ContentAdmin() {
           </button>
         ))}
       </div>
-      <div className="mt-6" role="tabpanel">
+      <div className="mt-6">
         {tab === 'partners' && <PartnersTab />}
         {tab === 'stories' && <StoriesTab />}
         {tab === 'legal' && access?.isAdmin && <LegalTab />}

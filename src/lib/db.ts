@@ -28,7 +28,6 @@ import type {
   Provider,
   Results,
   ResultsDoc,
-  ScreenMode,
   ScreenState,
 } from './types';
 
@@ -377,13 +376,10 @@ export async function setScreenState(
   eventId: string,
   patch: Partial<Pick<ScreenState, 'mode' | 'stage' | 'overrideUid'>>,
 ): Promise<void> {
-  const s = await getDoc(screenStateRef(eventId));
-  const base: Pick<ScreenState, 'mode' | 'stage' | 'overrideUid'> = s.exists()
-    ? (s.data() as ScreenState)
-    : { mode: 'lobby' as ScreenMode, stage: 0, overrideUid: null };
+  // Merge only the patched keys, so two hosts changing different fields cannot clobber each other.
   await setDoc(
     screenStateRef(eventId),
-    { ...base, ...patch, updatedAt: serverTimestamp() },
+    { ...patch, updatedAt: serverTimestamp() },
     { merge: true },
   );
 }

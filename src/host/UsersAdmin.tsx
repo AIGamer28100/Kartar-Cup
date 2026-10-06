@@ -8,9 +8,8 @@ import { filterUsers, removesOwnLastAdmin } from '../lib/userAdmin';
 import { setUserRoles, watchAllUsers, type UserRecord } from '../lib/users';
 import InvitePanel from './InvitePanel';
 import { fmtLocal } from './settings/time';
+import { inputCls } from './settings/ui';
 
-const inputCls =
-  'min-h-12 w-full rounded-lg border border-line bg-raised px-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent';
 
 const chipCls =
   'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50';

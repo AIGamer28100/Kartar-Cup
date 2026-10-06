@@ -2,13 +2,14 @@ import { pointsOf } from '../lib/scoring';
 import type { EventConfig } from '../lib/types';
 import type { PickMap } from './draft';
 import { optionLabel } from './model';
+import { H3 } from './parts';
 
 /** The guest's OWN answers with their option labels. Own data only (R15): never other guests' counts. */
 export default function PicksCard({ config, answers }: { config: EventConfig; answers: PickMap }) {
   const locked = config.questions.filter((q) => !!answers[q.id]).length;
   return (
     <section aria-label="Your locked picks" className="rounded-xl border border-line bg-raised p-5">
-      <h2 className="text-lg font-semibold">
+      <h2 className={H3}>
         <span className="font-mono tabular-nums">{locked}</span> {locked === 1 ? 'pick' : 'picks'} locked in
       </h2>
       <ol className="m-0 mt-3 list-none divide-y divide-line p-0">

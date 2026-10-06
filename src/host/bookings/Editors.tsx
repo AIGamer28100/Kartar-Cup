@@ -47,7 +47,7 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
                 }
               />
             </Field>
-            <Field id={`tier-capacity-${t.id}`} label="Tier capacity (0 = unlimited)">
+            <Field id={`tier-capacity-${t.id}`} label="Tier capacity (0 = unlimited; shown to guests, not enforced)">
               <input
                 id={`tier-capacity-${t.id}`}
                 type="number"

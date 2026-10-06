@@ -42,7 +42,7 @@ async function seed(over: Record<string, unknown> = {}) {
 
 const booking = (id: string, over: Record<string, unknown> = {}) => ({
   id, bookingEventId: BEID, buyerUid: 'g1', buyerName: 'Guest One', buyerEmail: 'guest1@example.com',
-  tierId: 't1', qty: 1, unitPriceInr: 500, discountAmountInr: 0, totalInr: 500, status: 'reserved',
+  tierId: 't1', qty: 1, seatsPerTicket: 1, unitPriceInr: 500, discountAmountInr: 0, totalInr: 500, status: 'reserved',
   qrToken: id, createdAt: serverTimestamp(), ...over,
 });
 
@@ -155,9 +155,31 @@ describe('bookingEvents write', () => {
   });
 });
 
+// Like createReservation(): the booking and the matching seat bump commit together.
+async function reserveBatch(id: string, over: Record<string, unknown> = {}, bump?: number) {
+  const db = guest();
+  const ev = (await getDoc(doc(db, 'bookingEvents/' + BEID))).data() as { bookedCount: number };
+  const qty = (over.qty as number | undefined) ?? 1;
+  const seats = (over.seatsPerTicket as number | undefined) ?? 1;
+  const b = writeBatch(db);
+  b.set(doc(db, 'bookings/' + id), booking(id, over));
+  b.update(doc(db, 'bookingEvents/' + BEID), { bookedCount: ev.bookedCount + (bump ?? qty * seats), updatedAt: serverTimestamp() });
+  return b.commit();
+}
+
 describe('reservation create', () => {
-  it('owner creates own reservation', async () => {
-    await assertSucceeds(setDoc(doc(guest(), 'bookings/b1'), booking('b1')));
+  it('owner creates own reservation (booking + matching seat bump)', async () => {
+    await assertSucceeds(reserveBatch('b1'));
+  });
+  it('seat bump must equal qty x seatsPerTicket (no overselling by under-bumping)', async () => {
+    await assertFails(reserveBatch('b1', { seatsPerTicket: 4 }, 1));
+    await assertSucceeds(reserveBatch('b2', { seatsPerTicket: 4 }));
+  });
+  it('a booking without the seat bump is rejected', async () => {
+    await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1')));
+  });
+  it('booking id must equal the document id', async () => {
+    await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('other', { qrToken: 'other' })));
   });
   it('denied for mismatched buyerUid', async () => {
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1', { buyerUid: 'g2' })));
@@ -168,8 +190,7 @@ describe('reservation create', () => {
   it('qty must be a positive int <= 10', async () => {
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1', { qty: 0 })));
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1', { qty: 11 })));
-    await assertSucceeds(setDoc(doc(guest(), 'bookings/b1'),
-      booking('b1', { qty: 10, unitPriceInr: 500, totalInr: 5000 })));
+    await assertSucceeds(reserveBatch('b1', { qty: 10, unitPriceInr: 500, totalInr: 5000 }));
   });
   it('wrong initial status is rejected', async () => {
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1', { status: 'paid_mock' })));
@@ -215,6 +236,16 @@ describe('checkIn', () => {
     await seedBooking('b1', { status: 'paid_mock' });
     await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'),
       { status: 'checked_in', checkedInAt: serverTimestamp(), checkedInBy: 'host@x.com' }));
+  });
+  it('host partially checks in a bundled booking (count, status stays paid_mock)', async () => {
+    await seedBooking('b1', { status: 'paid_mock', qty: 1, seatsPerTicket: 4 });
+    await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'),
+      { status: 'paid_mock', checkedInCount: 2, checkedInBy: 'host@x.com' }));
+  });
+  it('check-in count must be a sane positive int', async () => {
+    await seedBooking('b1', { status: 'paid_mock', seatsPerTicket: 4 });
+    await assertFails(updateDoc(doc(host(), 'bookings/b1'),
+      { status: 'paid_mock', checkedInCount: 0, checkedInBy: 'host@x.com' }));
   });
   it('non-host cannot check in', async () => {
     await seedBooking('b1', { status: 'paid_mock' });
@@ -389,6 +420,15 @@ describe('seat release on the event (capacityRelease)', () => {
     await setCount(5);
     await seedBooking('b1', { status: 'cancelled', cancelledBy: 'guest', refund: 'none', cancelledAt: Timestamp.now() });
     await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), evUpd(4, 'b1')));
+  });
+  it('(b2) multi-seat tickets release qty x seatsPerTicket seats', async () => {
+    await setCount(8);
+    await seedBooking('b1', { qty: 2, seatsPerTicket: 3, totalInr: 1000 });
+    const db = guest();
+    const b = writeBatch(db);
+    b.update(doc(db, 'bookings/b1'), cf('guest'));
+    b.update(doc(db, 'bookingEvents/' + BEID), evUpd(2, 'b1'));
+    await assertSucceeds(b.commit());
   });
   it('(b) decrease must equal the booking qty exactly (too small or too large)', async () => {
     await setCount(6);

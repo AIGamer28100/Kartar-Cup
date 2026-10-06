@@ -12,6 +12,7 @@ import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from "../componen
 import { computeRaceState } from "../lib/raceState";
 import { raceStartFor } from "../lib/f1api";
 import Divider from "../components/Divider";
+import { buttonCls } from "../components/Button";
 import Skeleton, { PageSkeleton } from "../components/Skeleton";
 import TrackMap from "../components/TrackMap";
 import { ALL_RACES, nextRace } from "../config/calendar";
@@ -78,29 +79,29 @@ function PlainDivider() {
  * fit, never the other way around). QuizBanner is NOT inside this row (kept below, full-width)
  * so height-matching stays predictable regardless of quiz state. */
 function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: RaceState | null) => void }) {
-  const next = useMemo(() => nextRace(new Date(), ALL_RACES), []);
+  // Ticks every 30s so the live flag state and the "next race" roll over without a reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const next = useMemo(() => nextRace(new Date(nowMs), ALL_RACES), [nowMs]);
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
   // R47: "next watch party" is the next HOSTED race, which can be later than the next race
   // on the calendar (e.g. Malaysia is not hosted, Singapore is). Until booking events load, or if
   // they fail to, nothing watch-party related is claimed.
   const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
   useEffect(() => watchBookingEvents(setBookingEvents, () => setBookingEvents([])), []);
-  const hostedNext = useMemo(() => nextHostedRace(new Date(), ALL_RACES, bookingEvents), [bookingEvents]);
+  const hostedNext = useMemo(() => nextHostedRace(new Date(nowMs), ALL_RACES, bookingEvents), [bookingEvents, nowMs]);
   const track = next ? trackForRace(next.id) : null;
   const { schedule, settled } = useSchedule(next?.season);
   const targetMs = next ? raceStartFor(next, schedule).ms : 0;
 
   // Compute race state for live flag display
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
   const raceStateInfo = useMemo(
     () => (next ? computeRaceState(targetMs, next.id, nowMs) : null),
     [next, targetMs, nowMs]
   );
   const raceState = raceStateInfo?.state ?? null;
-  useEffect(() => onRaceStateChange(raceState), [onRaceStateChange, raceState]);
 
   const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
         <Reveal index={1} className="mt-6">
           <Link
             to="/events"
-            className="text-gradient-brand inline-flex min-h-12 items-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-semibold transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
+            className={buttonCls("secondary")}
           >
             See the full calendar
           </Link>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { inputCls } from './settings/ui';
 import { Flag, LockSimple, LockSimpleOpen } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import StatusDot from '../components/StatusDot';
@@ -32,9 +33,6 @@ export default function StatusPanel({ event, count }: { event: EventDoc | null; 
       setBusy(false);
     }
   }
-
-  const focus =
-    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
   return (
     <section aria-label="Race control" className="border-b border-line py-8">
@@ -87,7 +85,7 @@ export default function StatusPanel({ event, count }: { event: EventDoc | null; 
               type="datetime-local"
               value={lights}
               onChange={(e) => setLights(e.target.value)}
-              className={`min-h-12 rounded-lg border border-line bg-raised px-3 font-mono text-[1rem] text-ink ${focus}`}
+              className={`${inputCls} font-mono`}
             />
           </label>
           <Button type="submit" variant="secondary" disabled={busy || !lights}>

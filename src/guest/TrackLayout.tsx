@@ -7,9 +7,9 @@ import type { TrackProfile } from '../config/tracks/profiles';
  * indicative (lap telemetry z, relative to the lowest point), not a surveyed profile. */
 
 const SECTORS = [
-  { id: 1, label: 'Sector 1', colour: '#ff4d61' },
-  { id: 2, label: 'Sector 2', colour: '#ffc83d' },
-  { id: 3, label: 'Sector 3', colour: '#4da3ff' },
+  { id: 1, label: 'Sector 1', colour: 'var(--color-accent-text)' },
+  { id: 2, label: 'Sector 2', colour: 'var(--color-gold)' },
+  { id: 3, label: 'Sector 3', colour: 'var(--color-info)' },
 ] as const;
 
 const W = 640;
@@ -86,7 +86,7 @@ export default function TrackLayout({ profile, name }: { profile: TrackProfile; 
   const label = (idx: number, text: string) => {
     const p = pts[Math.min(idx, n - 1)];
     return (
-      <text key={text} x={p.x} y={p.y - 14} textAnchor="middle" className="fill-ink font-mono" style={{ fontSize: 13, fontWeight: 600 }} paintOrder="stroke" stroke="#14161a" strokeWidth={4}>
+      <text key={text} x={p.x} y={p.y - 14} textAnchor="middle" className="fill-ink font-mono" style={{ fontSize: 13, fontWeight: 600 }} paintOrder="stroke" stroke="var(--color-base)" strokeWidth={4}>
         {text}
       </text>
     );
@@ -111,14 +111,14 @@ export default function TrackLayout({ profile, name }: { profile: TrackProfile; 
         {label(Math.round((profile.s1End + profile.s2End) / 2), 'S2')}
         {label(Math.round((profile.s2End + n) / 2), 'S3')}
         {/* Start / finish: index 0 is the line, drawn as a bar across the direction of travel. */}
-        <circle cx={pts[0].x} cy={pts[0].y} r={9} fill="#fff" stroke="#14161a" strokeWidth={3} />
-        <text x={pts[0].x} y={pts[0].y + 26} textAnchor="middle" className="fill-ink font-mono" style={{ fontSize: 11 }} paintOrder="stroke" stroke="#14161a" strokeWidth={4}>
+        <circle cx={pts[0].x} cy={pts[0].y} r={9} fill="var(--color-ink)" stroke="var(--color-base)" strokeWidth={3} />
+        <text x={pts[0].x} y={pts[0].y + 26} textAnchor="middle" className="fill-ink font-mono" style={{ fontSize: 11 }} paintOrder="stroke" stroke="var(--color-base)" strokeWidth={4}>
           START / FINISH
         </text>
         {cur && (
           <g>
-            <circle cx={cur.x} cy={cur.y} r={13} fill="none" stroke="#fff" strokeWidth={3} />
-            <circle cx={cur.x} cy={cur.y} r={4} fill="#fff" />
+            <circle cx={cur.x} cy={cur.y} r={13} fill="none" stroke="var(--color-ink)" strokeWidth={3} />
+            <circle cx={cur.x} cy={cur.y} r={4} fill="var(--color-ink)" />
           </g>
         )}
       </svg>
@@ -135,7 +135,7 @@ export default function TrackLayout({ profile, name }: { profile: TrackProfile; 
         <line x1={SP} y1={SH - SP} x2={SW - SP} y2={SH - SP} stroke="currentColor" className="text-line" strokeWidth={1} />
         {stripSegs}
         {cursor != null && (
-          <line x1={stripX(cursor)} y1={SP} x2={stripX(cursor)} y2={SH - SP} stroke="#fff" strokeWidth={1.5} strokeDasharray="4 3" />
+          <line x1={stripX(cursor)} y1={SP} x2={stripX(cursor)} y2={SH - SP} stroke="var(--color-ink)" strokeWidth={1.5} strokeDasharray="4 3" />
         )}
       </svg>
 
@@ -147,7 +147,7 @@ export default function TrackLayout({ profile, name }: { profile: TrackProfile; 
           max={n - 1}
           value={cursor ?? 0}
           onChange={(e) => setCursor(Number(e.target.value))}
-          className="mt-1 block w-full accent-[#d81e36]"
+          className="mt-1 block w-full accent-accent"
           aria-valuetext={cur ? `Lap point ${cursor}, ${cur.rel.toFixed(1)} metres above the lowest point` : 'Start of lap'}
         />
       </label>

@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "deploy": "firebase deploy --project kartar-cup --only hosting,firestore:rules",
-    "deploy:all": "firebase deploy --project kartar-cup",
-    "deploy:functions": "firebase deploy --project kartar-cup --only functions"
+    "deploy:all": "firebase deploy --project kartar-cup"
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",

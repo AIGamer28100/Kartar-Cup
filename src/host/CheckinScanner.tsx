@@ -157,16 +157,16 @@ export default function CheckinScanner() {
     }
   }
 
-  async function doCheckIn(booking: Booking) {
+  async function doCheckIn(booking: Booking, count?: number) {
     if (!user?.email) return;
     setCheckinBusy(true);
     setCheckinErr(null);
     try {
-      await checkIn(booking.id, user.email);
+      await checkIn(booking.id, user.email.toLowerCase(), count);
       setCheckedOk(true);
-      setState((s) =>
-        s.kind === 'found' ? { ...s, booking: { ...s.booking, status: 'checked_in' } } : s,
-      );
+      // Re-read: a partial check-in leaves the booking paid_mock with an updated count.
+      const fresh = await lookupBookingById(booking.id);
+      if (fresh) setState((s) => (s.kind === 'found' ? { ...s, booking: fresh } : s));
     } catch (e) {
       setCheckinErr(e instanceof Error ? e.message : 'Check-in failed. Try again.');
     } finally {
@@ -219,7 +219,7 @@ export default function CheckinScanner() {
           busy={checkinBusy}
           err={checkinErr}
           ok={checkedOk}
-          onCheckIn={() => void doCheckIn(state.booking)}
+          onCheckIn={(count) => void doCheckIn(state.booking, count)}
           onNext={scanNext}
         />
       )}

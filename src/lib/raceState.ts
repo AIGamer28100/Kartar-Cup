@@ -4,17 +4,13 @@
  * we compute race state based on time and allow manual override for demos.
  */
 
-export type RaceState = 
-  | 'scheduled'           // Race hasn't started yet
-  | 'in-progress'         // Race is live (between lights out and ~2h after)
-  | 'yellow-flag'         // Safety car / yellow flag period
-  | 'yellow-flag-sector'  // Single yellow sector
-  | 'red-flag'            // Red flag - race suspended
-  | 'virtual-safety-car'  // VSC period
-  | 'last-lap'            // Final lap
-  | 'chequered-flag'      // Chequered flag shown - race ending
-  | 'completed'           // Race finished
-  | 'cancelled-by-host';  // Host cancelled the event
+import type { RaceState as DisplayRaceState } from '../components/RaceStateDisplay';
+
+/** The states computeRaceState can produce: a subset of the display component's RaceState. */
+export type RaceState = Extract<
+  DisplayRaceState,
+  'scheduled' | 'in-progress' | 'yellow-flag' | 'yellow-flag-sector' | 'red-flag' | 'virtual-safety-car' | 'last-lap' | 'chequered-flag' | 'completed' | 'cancelled-by-host'
+>;
 
 export interface RaceStateInfo {
   state: RaceState;
@@ -41,59 +37,12 @@ const POST_RACE_PODIUM_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** Last lap detection window (last 5% of race) */
 const LAST_LAP_WINDOW_MS = RACE_DURATION_MS * 0.05;
 
-/** Manual race state override for demos (can be set in localStorage) */
-const MANUAL_OVERRIDE_KEY = 'kartarcup:race:manual-state';
-
-/** Get manual override if set (for demos) */
-function getManualOverride(raceId: string): RaceState | null {
-  try {
-    const stored = localStorage.getItem(MANUAL_OVERRIDE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.raceId === raceId && parsed.expiresAt > Date.now()) {
-        return parsed.state;
-      }
-    }
-  } catch {
-    /* ignore parse errors */
-  }
-  return null;
-}
-
-/** Set manual override for demo purposes (expires in 1 hour) */
-export function setManualRaceState(raceId: string, state: RaceState): void {
-  try {
-    localStorage.setItem(MANUAL_OVERRIDE_KEY, JSON.stringify({
-      raceId,
-      state,
-      expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
-    }));
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Clear manual override */
-export function clearManualRaceState(): void {
-  try {
-    localStorage.removeItem(MANUAL_OVERRIDE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Compute race state based on race start time and current time */
 export function computeRaceState(
   raceStartMs: number,
-  raceId: string,
+  _raceId: string,
   nowMs: number = Date.now()
 ): RaceStateInfo {
-  // Check for manual override first (for demos)
-  const manual = getManualOverride(raceId);
-  if (manual) {
-    return stateInfo(manual);
-  }
-
   const timeToStart = raceStartMs - nowMs;
   const timeSinceStart = nowMs - raceStartMs;
   const raceEndMs = raceStartMs + RACE_DURATION_MS;

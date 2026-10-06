@@ -141,7 +141,7 @@ function getTierRemainingTickets(event: BookingEvent, tier: PriceTier): number {
   }
 
   // Tier has a ticket limit - we estimate based on event's bookedCount
-  // Note: This is a client-side estimate. Server-side transaction does authoritative check.
+  // Client-side estimate only: tier capacity is not enforced by rules (event capacity is).
   const eventLeft = seatsLeft(event);
   const seatsPerTicket = tier.seatsPerTicket ?? 1;
   const maxByEvent = Math.floor(eventLeft / seatsPerTicket);
@@ -375,6 +375,10 @@ function EventDetails({
         </div>
       </div>
 
+      <div className="overflow-hidden rounded-lg border border-line bg-raised lg:hidden">
+        <VenueMap venue={event.venue} />
+      </div>
+
       {/* Qty & Discount */}
       <div className="flex flex-wrap gap-4">
         <div className="flex-1 min-w-[140px]">
@@ -453,6 +457,7 @@ function EventDetails({
             <p role="alert" className="mt-4 text-sm text-accent-text">{error}</p>
           )}
 
+          {!user && <p className="mt-3 text-center text-sm text-muted">Sign in to complete your booking</p>}
           <Button
             onClick={onBuy}
             disabled={busy || !tier || tierSoldOut}
@@ -492,7 +497,8 @@ export default function BookingCheckout() {
   }, [bookingEventId]);
 
   useEffect(() => {
-    if (event && !tierId && event.tiers.length > 0) setTierId(event.tiers[0].id);
+    const first = event?.tiers.find((t) => !isTierSoldOut(event, t));
+    if (event && !tierId && first) setTierId(first.id);
   }, [event, tierId]);
 
   // Calculate per-tier maxQty and soldOut
@@ -524,16 +530,17 @@ export default function BookingCheckout() {
     }
   }, [event?.bookedCount, tier]);
 
-  const reserve = async () => {
-    if (!event || !bookingEventId || !user || !tier) return;
+  // `buyer` is passed right after a popup sign-in, when the `user` from useAuth is still stale.
+  const reserve = async (buyer: { uid: string; displayName: string | null; email: string | null } | null = user) => {
+    if (!event || !bookingEventId || !buyer || !tier) return;
     setError('');
     setBusy(true);
     try {
       const bookingId = await createReservation({
         bookingEventId,
-        buyerUid: user.uid,
-        buyerName: user.displayName ?? user.email ?? 'Guest',
-        buyerEmail: user.email ?? '',
+        buyerUid: buyer.uid,
+        buyerName: buyer.displayName ?? buyer.email ?? 'Guest',
+        buyerEmail: buyer.email ?? '',
         tierId: tier.id,
         qty,
         discountCode: discountCode.trim() || undefined,
@@ -551,8 +558,8 @@ export default function BookingCheckout() {
     if (user) {
       reserve();
     } else {
-      // Popup sign-in; the guest then presses the (relabelled) button again to reserve.
-      signInGoogle().then(() => setError('')).catch((e) => {
+      // Popup sign-in, then carry straight on with the reservation (R28: sign in on demand, in place).
+      signInGoogle().then((cred) => reserve(cred.user)).catch((e) => {
         setError(e instanceof Error ? e.message : 'Sign in failed. Please try again.');
       });
     }

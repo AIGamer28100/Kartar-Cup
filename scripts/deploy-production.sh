@@ -54,15 +54,6 @@ if [ $? -ne 0 ]; then
 fi
 echo -e "${GREEN}✓ Tests passed${NC}"
 
-# Build functions
-echo "⚙️  Building Cloud Functions..."
-npm run functions:build
-if [ $? -ne 0 ]; then
-  echo -e "${RED}Functions build failed! Aborting deployment.${NC}"
-  exit 1
-fi
-echo -e "${GREEN}✓ Functions built${NC}"
-
 # Build frontend
 echo "🏗️  Building frontend..."
 npm run build

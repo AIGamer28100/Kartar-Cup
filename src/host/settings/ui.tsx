@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { fmtIst, fmtLocal, fmtUtc } from './time';
 
 export const inputCls =
@@ -27,12 +27,20 @@ export function Field({
   children: ReactNode;
   className?: string;
 }) {
+  // Tie the error text to the control so screen readers announce it with the field.
+  const control =
+    error && isValidElement(children)
+      ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string; 'aria-invalid'?: boolean }>, {
+          'aria-describedby': [(children.props as { 'aria-describedby'?: string })['aria-describedby'], `${id}-err`].filter(Boolean).join(' '),
+          'aria-invalid': true,
+        })
+      : children;
   return (
     <div className={className}>
       <label htmlFor={id} className={`mb-1.5 block text-sm font-medium text-muted ${hideLabelMd ? 'md:sr-only' : ''}`}>
         {label}
       </label>
-      {children}
+      {control}
       {hint && !error && <p className="mt-1.5 text-sm text-muted">{hint}</p>}
       {error && (
         <p id={`${id}-err`} role="alert" className="mt-1.5 text-sm text-accent-text">

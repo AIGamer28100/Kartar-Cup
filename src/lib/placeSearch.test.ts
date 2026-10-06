@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { googleMapsPinUrl, type PlacesError } from './placeSearch';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { googleMapsPinUrl, searchPlaces, type PlacesError } from './placeSearch';
 import type { PlaceResult } from './placeSearch';
 
 // Google Places Autocomplete returns predictions with these fields.
@@ -21,6 +21,18 @@ describe('googleMapsPinUrl', () => {
 });
 
 describe('searchPlaces', () => {
+  beforeEach(() => { vi.stubEnv('VITE_GOOGLE_PLACES_API_KEY', 'test-key'); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('reports NO_KEY instead of calling Google when the key is missing', async () => {
+    vi.stubEnv('VITE_GOOGLE_PLACES_API_KEY', '');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const out = await searchPlaces('marina beach');
+    expect((out as PlacesError).status).toBe('NO_KEY');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   // Type guard to narrow the union type
   const isPlaceResultArray = (results: PlaceResult[] | PlacesError): results is PlaceResult[] => {
     return Array.isArray(results);

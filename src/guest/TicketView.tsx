@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import QRCode from 'qrcode';
 import { QrCode } from '@phosphor-icons/react';
-import Skeleton from '../components/Skeleton';
+import Skeleton, { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { watchBooking, watchBookingEvent } from '../lib/bookings';
@@ -87,13 +87,7 @@ export default function TicketPage() {
     return watchBookingEvent(eventId, setEvent, () => setEvent(null));
   }, [eventId]);
 
-  if (!ready) {
-    return (
-      <Shell>
-        <Skeleton className="mt-8 h-10 w-64" />
-      </Shell>
-    );
-  }
+  if (!ready) return <PageSkeleton />;
 
   if (!user) {
     return (

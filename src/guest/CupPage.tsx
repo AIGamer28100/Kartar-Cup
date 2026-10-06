@@ -14,7 +14,7 @@ import {
   type Standings,
 } from '../lib/cup';
 import { usePageMeta } from '../lib/pageMeta';
-import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 
 const num = 'font-mono tabular-nums';
 
@@ -91,7 +91,7 @@ function SeasonView({ season }: { season: CupSeason }) {
   return (
     <div className="mt-8 grid gap-12">
       <section aria-labelledby="cup-standings">
-        <h2 id="cup-standings" className="text-h3 font-semibold">Driver standings</h2>
+        <h2 id="cup-standings" className={H3}>Driver standings</h2>
         {standings === undefined ? (
           <p role="status" className="mt-3 text-muted">Loading standings.</p>
         ) : !standings || standings.drivers.length === 0 ? (
@@ -153,7 +153,7 @@ function SeasonView({ season }: { season: CupSeason }) {
       </section>
 
       <section aria-labelledby="cup-rounds">
-        <h2 id="cup-rounds" className="text-h3 font-semibold">Rounds</h2>
+        <h2 id="cup-rounds" className={H3}>Rounds</h2>
         {!rounds ? (
           <p role="status" className="mt-3 text-muted">Loading rounds.</p>
         ) : rounds.length === 0 ? (

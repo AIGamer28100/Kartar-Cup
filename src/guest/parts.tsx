@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
-import { Check, Gauge, Images, List, SignIn, TicketIcon, User, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Check, Gauge, List, SignIn, User, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { isInAppBrowser } from '../lib/inAppBrowser';
@@ -137,7 +137,7 @@ function MobileMenu({ user, isHost, ready }: { user: unknown; isHost: boolean | 
   return (
     <div
       ref={wrapRef}
-      className="md:hidden"
+      className="lg:hidden"
       onBlur={(e) => {
         if (open && e.relatedTarget && !wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
       }}
@@ -207,30 +207,26 @@ function MobileMenu({ user, isHost, ready }: { user: unknown; isHost: boolean | 
   );
 }
 
-/** Page shell. Left: logo placeholder linking home. Right: md+ the inline nav (Events, Gallery,
- * Host console for hosts, Profile, Sign out / Sign in); below md a burger menu (MobileMenu) holds
+/** Page shell. Left: logo placeholder linking home. Right: md+ the inline nav (every public page,
+ * Host console for hosts, Profile, Sign in); below md a burger menu (MobileMenu) holds
  * every public link plus the account actions. Sign-in works on every non-bare page (R28:
  * on-demand, not a gate). */
 export function Shell({ children, bare = false }: { children: ReactNode; bare?: boolean }) {
   const { ready, user, isHost } = useAuth();
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-[87.5rem] flex-col px-6 pt-4 md:px-10 md:pt-6 lg:px-16">
-    <main className="flex min-w-0 flex-1 flex-col pb-10 md:pb-12">
-      <div className="relative mb-6 flex min-h-11 items-center justify-between gap-4 md:mb-2">
+    <header className="relative mb-6 flex min-h-11 items-center justify-between gap-4 lg:mb-2">
         {bare ? <span /> : <LogoMark />}
         {!bare && <MobileMenu user={user} isHost={isHost} ready={ready} />}
-        <div className="flex items-center gap-4 max-md:hidden">
+        <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1 max-lg:hidden">
           {!bare && (
-            <Link to="/events" className={linkCls}>
-              <TicketIcon size={20} weight="regular" aria-hidden="true" />
-              Events
-            </Link>
-          )}
-          {!bare && (
-            <Link to="/gallery" className={linkCls}>
-              <Images size={20} weight="regular" aria-hidden="true" />
-              Gallery
-            </Link>
+            <nav aria-label="Primary" className="flex flex-wrap items-center justify-end gap-x-5">
+              {NAV_LINKS.filter((l) => l.to !== '/').map((l) => (
+                <NavLink key={l.to} to={l.to} className={`${linkCls} aria-[current=page]:text-ink`}>
+                  {l.label}
+                </NavLink>
+              ))}
+            </nav>
           )}
           {!bare && user && isHost === true && (
             <Link to="/host" className={linkCls}>
@@ -247,7 +243,8 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
           {/* Sign out lives on the Profile page only (owner request); the navbar keeps just Sign in. */}
           {!bare && ready && !user && <HeaderSignIn />}
         </div>
-      </div>
+    </header>
+    <main className="flex min-w-0 flex-1 flex-col pb-10 md:pb-12">
       {children}
     </main>
     {!bare && <SiteFooter />}
@@ -347,6 +344,8 @@ export const H1 = 'text-hero font-semibold text-balance';
 export const H2 = 'text-h2 font-semibold text-balance';
 /** The top-of-page title on every other page/view (Events, Gallery, Profile, the quiz flow, etc). */
 export const PageTitle = 'text-h2 font-semibold text-balance';
+/** Sub-section headings inside a page (cards, content blocks). */
+export const H3 = 'text-h3 font-semibold text-balance';
 
 /** Split composition: stacked on phones, two columns from md. Left = readout, right = active step. */
 export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {

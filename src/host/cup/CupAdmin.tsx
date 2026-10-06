@@ -58,7 +58,6 @@ function useAction() {
   return { busy, msg, run, clear: () => setMsg(null) };
 }
 
-export { SeasonEditor, ResultsEditor, RoundForm };
 
 export default function CupAdmin() {
   const [seasons, setSeasons] = useState<CupSeason[] | null>(null);

@@ -10,7 +10,7 @@ import {
   type Story,
 } from '../lib/content';
 import { usePageMeta } from '../lib/pageMeta';
-import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 
 /* /partners and /stories(/:id). Public, read-only, and driven entirely by what the host enters in
  * Host > Content (R26/R27: no seed or invented names, logos or posts). Empty states say so honestly. */
@@ -77,7 +77,7 @@ export function PartnersPage() {
               const group = items.filter((p) => p.kind === k.id);
               return group.length === 0 ? null : (
                 <section key={k.id} aria-labelledby={`pk-${k.id}`}>
-                  <h2 id={`pk-${k.id}`} className="text-lg font-semibold">{k.label}s</h2>
+                  <h2 id={`pk-${k.id}`} className={H3}>{k.label}s</h2>
                   <ul className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {group.map((p) => (
                       <PartnerCard key={p.id} p={p} />
@@ -102,7 +102,7 @@ function StoryCard({ s }: { s: Story }) {
       <p className={`${mono} text-xs uppercase tracking-widest text-muted`}>
         {storyTagLabel(s.tag)} - {dateFmt(s.date)}
       </p>
-      <h2 className="text-lg font-semibold text-balance">
+      <h2 className={H3}>
         <Link to={`/stories/${s.id}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           {s.title}
         </Link>

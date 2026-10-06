@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, FloppyDisk, Plus } from '@phosphor-icons/react';
-import { useNavigate, useParams, Outlet } from 'react-router';
+import { useMatch, useNavigate, useParams, Outlet } from 'react-router';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
 import { deleteField } from 'firebase/firestore';
@@ -16,6 +16,8 @@ import VenueSearch from './VenueSearch';
 import AttendeeRoster from './AttendeeRoster';
 import CardsAdmin from './CardsAdmin';
 import {
+  blankForm,
+  eventToForm,
   formToEvent,
   raceDefaultDateUtc,
   upcomingRaceOptions,
@@ -42,12 +44,29 @@ export function BookingEventForm() {
   const { schedule: schedule27 } = useSchedule(2027);
   const raceOptions = useMemo(() => upcomingRaceOptions(new Date(), 5, form?.raceId || undefined), [form?.raceId]);
 
+  const [notFound, setNotFound] = useState(false);
   useEffect(() => {
-    if (isEditing && eventId) {
-      // TODO: fetch single event for editing
-      // For now, we'll need to load from the parent's events list
-      // This is a limitation - we'll handle it by passing events from parent
+    setNotFound(false);
+    if (!isEditing || !eventId) {
+      const f = blankForm();
+      setForm(f);
+      setSaved(snap(f));
+      return;
     }
+    return watchBookingEvent(
+      eventId,
+      (ev) => {
+        if (!ev) return setNotFound(true);
+        // Only seed once: later snapshots must not clobber what the host is typing.
+        setForm((cur) => {
+          if (cur) return cur;
+          const f = eventToForm(ev);
+          setSaved(snap(f));
+          return f;
+        });
+      },
+      () => setNotFound(true),
+    );
   }, [eventId, isEditing]);
 
   const patch = useCallback((fn: (f: FormState) => Partial<FormState>) => {
@@ -59,7 +78,7 @@ export function BookingEventForm() {
   const dirty = form ? snap(form) !== saved : false;
 
   function closeForm() {
-    navigate('../..', { replace: true });
+    navigate('..', { replace: true });
   }
 
   async function save() {
@@ -77,7 +96,7 @@ export function BookingEventForm() {
       else await createBookingEvent(payload);
       setSaved(snap(form));
       setBanner({ ok: true, msg: 'Booking event saved.' });
-      navigate('../..', { replace: true });
+      navigate('..', { replace: true });
     } catch (e) {
       setBanner({ ok: false, msg: permissionHint(e, 'bookings', access, 'save this booking event') });
     } finally {
@@ -91,7 +110,15 @@ export function BookingEventForm() {
     </button>
   );
 
-  if (!form) return null;
+  if (notFound) {
+    return (
+      <div className="py-6">
+        {backLink}
+        <p className="mt-4 text-accent-text" role="alert">That booking event could not be found.</p>
+      </div>
+    );
+  }
+  if (!form) return <RowsSkeleton />;
 
   const show = (k: keyof typeof errors) => (touched ? errors[k] : undefined);
   return (
@@ -306,12 +333,12 @@ export function BookingEventAttendees() {
     return watchBookingEvent(eventId, setEvent, () => setEvent(null));
   }, [eventId]);
 
-  if (!event) return null;
+  if (!event) return <RowsSkeleton />;
 
   return (
     <AttendeeRoster
       event={event}
-      onBack={() => navigate('../..', { replace: true })}
+      onBack={() => navigate('..', { replace: true })}
     />
   );
 }
@@ -327,12 +354,12 @@ export function BookingEventCards() {
     return watchBookingEvent(eventId, setEvent, () => setEvent(null));
   }, [eventId]);
 
-  if (!event) return null;
+  if (!event) return <RowsSkeleton />;
 
   return (
     <CardsAdmin
       event={event}
-      onBack={() => navigate('../..', { replace: true })}
+      onBack={() => navigate('..', { replace: true })}
     />
   );
 }
@@ -340,6 +367,7 @@ export function BookingEventCards() {
 /** Main BookingsAdmin component with nested routes. */
 export default function BookingsAdmin() {
   const navigate = useNavigate();
+  const atIndex = useMatch({ path: '/host/bookings', end: true });
   const [events, setEvents] = useState<BookingEvent[] | null>(null);
 
   useEffect(() => {
@@ -349,6 +377,9 @@ export default function BookingsAdmin() {
     );
     return unsub;
   }, []);
+
+  // Nested views (form, attendees, cards) replace the list instead of rendering under it.
+  if (!atIndex) return <Outlet />;
 
   return (
     <>
@@ -402,7 +433,6 @@ export default function BookingsAdmin() {
         </ul>
       )}
 
-      <Outlet />
     </>
   );
 }

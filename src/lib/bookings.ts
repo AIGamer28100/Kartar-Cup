@@ -3,7 +3,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   query,
   runTransaction,
@@ -150,20 +149,8 @@ export async function createReservation(input: CreateReservationInput): Promise<
     const nextEventCount = (ev.bookedCount ?? 0) + seatsRequested;
     if (nextEventCount > ev.capacity) throw new Error('Sold out — not enough seats left.');
 
-    // Check tier-level capacity
-    if (tier.capacity && tier.capacity > 0) {
-      // tier.capacity = max number of TICKETS for this tier (not seats)
-      // We need to check existing bookings for this tier
-      const bookingsSnap = await getDocs(query(bookingsCol(), where('bookingEventId', '==', bookingEventId), where('tierId', '==', tierId), where('status', '!=', 'cancelled')));
-      let tierBookedTickets = 0;
-      bookingsSnap.docs.forEach((doc) => {
-        const b = doc.data() as Booking;
-        tierBookedTickets += b.qty;
-      });
-      if (tierBookedTickets + qty > tier.capacity) {
-        throw new Error(`Tier "${tier.label}" is sold out.`);
-      }
-    }
+    // Only event-level capacity is enforced (firestore.rules capacityBump). Guests cannot read other
+    // buyers' bookings (R15), so a per-tier ticket count cannot be computed client-side.
 
     const discount = discountCode
       ? ev.discounts.find((d) => d.code?.toLowerCase() === discountCode.toLowerCase()) ?? null
@@ -316,7 +303,7 @@ export async function cancelBooking(
       const ev = evSnap.data() as BookingEvent;
       const seatsToRelease = b.qty * (b.seatsPerTicket ?? 1);
       tx.update(evRef, {
-        bookedCount: Math.max(0, (ev.bookedCount ?? 0) - seatsToRelease),
+        bookedCount: (ev.bookedCount ?? 0) - seatsToRelease,
         // Names the booking so firestore.rules can verify this decrease belongs to exactly this cancel.
         lastReleaseBookingId: bookingId,
         updatedAt: serverTimestamp(),
