@@ -36,17 +36,13 @@ Verified at snapshot: `npx tsc -b` clean, `npx vitest run` 443 passed. Rules tes
 Note: the first Opus and first Haiku agents were stopped by an interruption and could not be resumed; fresh agents were started on the same briefs.
 Messages about commit/push cadence were first sent to the wrong agents (ids swapped) and then corrected; check that neither agent committed the other's tree.
 
-### Haiku agent (main checkout, branch `worktree-build-v1`, pushes there)
-| Task | Status |
-| --- | --- |
-| 1 Rules tests (cards tests fixed, event-cancel / no-delete / checked_in-cancel tests) | NOT CONFIRMED: run the rules command (section 1) and check `tests/rules/cards.rules.test.ts` + new cancel tests |
-| 2 Play cards by reference (`toSnapshot`, `getCard`, MyCards) | IN PROGRESS: `src/guest/MyCards.tsx` has uncommitted edits; verify `toSnapshot` drops image/imageUrl |
-| 3 Host "Cancel event" UI (BookingsAdmin) | PARTLY DONE: "Cancel event" present in BookingsAdmin; verify confirm panel, progress, Cancelled badge, "Finish refunds", cancelled-event read-only form |
-| 4 Leftover seats (`distributeLeftoverSeats`) | PARTLY DONE: function exists in `src/host/bookings/model.ts`; verify it is applied in formToEvent, the blocking validate error is gone, info note shows, tests exist |
-| 5 Remove last-lap (`src/lib/raceState.ts`) | DONE (no `last-lap` left in that file); confirm its tests were updated |
-| 6 WhatsApp hook | DONE for the hook (`src/lib/useCommunityLink.ts`); ContactPage wiring to verify (Opus also did footer/home) |
-| 7 Lint | MOSTLY DONE: `eslint.config.js` + `"lint": "eslint ."`; uncommitted edits in eslint.config.js/package.json; confirm `npm run lint` has 0 errors |
-| 8 Docs | DONE: README "Terms and Privacy placeholders" (5.1) and event cancellation notes; rules.md R44 states 5 s |
+### Haiku agent: FINISHED and verified (main checkout, pushed to `worktree-build-v1`)
+All 8 tasks done. Verified by the lead: `npx tsc -b` clean, unit tests 443 pass, rules tests 251 pass (agent report), `npm run lint` 0 errors / 9 warnings
+(in files owned by the Opus work), event-cancel / no-delete / un-cancel rules tests present in `tests/rules/bookings.rules.test.ts`.
+Delivered: play cards by reference (`getCard`, MyCards), host Cancel event UI with refunds progress and Finish refunds, `distributeLeftoverSeats`
+in `src/host/bookings/model.ts` + editor note, last-lap removed, `useCommunityLink` + ContactPage, ESLint flat config + `npm run lint`,
+README (5.1 Terms/Privacy placeholders, ticket and cancel rules), rules.md R44 = 5 s.
+Not manually exercised in a browser: the Cancel event UI and the leftover-seats note (logic is unit tested only).
 
 ### Opus agent (isolated worktree `.claude/worktrees/agent-adaa5e2bac746cb82`, branch `motion-results-v2`)
 | Task | Status |
