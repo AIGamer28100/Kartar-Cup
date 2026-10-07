@@ -113,11 +113,14 @@ const TRAILS = [
   { len: 0.014, width: 12, opacity: 0.7 },
 ];
 
-/** Kart dot that leads the draw-on: it runs one lap in exactly the draw duration, linearly by
- * distance (like the dash-offset draw), so it always sits at the tip of the line being drawn, with a
- * short fading trail, then fades out. Position is written straight to the DOM from a motion value
- * (no React state per frame). Not rendered under reduced motion (the line is simply drawn). Lasts
- * the owner's draw duration and stops: no endless loop. */
+/** One lap of the kart dot, in ms: the draw-on time plus 3 s (owner: "increase the lap time by 2-4 s"). */
+const LAP_MS = TRACK_DRAW_MS + 3000;
+
+/** Kart dot that laps the circuit forever, linearly by distance, with a short fading trail. The first lap
+ * starts with the draw-on (the dot trails the drawn tip a little because a lap is slower than the draw),
+ * then keeps lapping. Position is written straight to the DOM from a motion value (no React state per
+ * frame); rAF pauses on its own in a hidden tab. Not rendered under reduced motion (the line is simply
+ * drawn, nothing loops). */
 function LapRunner({ d }: { d: string }) {
   const reduce = useReducedMotion();
   const geo = useMemo(() => {
@@ -125,34 +128,26 @@ function LapRunner({ d }: { d: string }) {
     return { pts, fracs: distanceFractions(pts) };
   }, [d]);
   const progress = useMotionValue(0);
-  const opacity = useMotionValue(1);
-  const groupRef = useRef<SVGGElement>(null);
   const headRef = useRef<SVGGElement>(null);
   const trailRefs = useRef<(SVGPathElement | null)[]>([]);
 
   useEffect(() => {
     if (reduce || geo.pts.length < 2) return;
     progress.set(0);
-    opacity.set(1);
-    const lap = animate(progress, 1, { duration: TRACK_DRAW_MS / 1000, ease: 'linear' });
-    const fade = animate(opacity, 0, { duration: 0.5, delay: TRACK_DRAW_MS / 1000, ease: 'easeOut' });
-    return () => {
-      lap.stop();
-      fade.stop();
-    };
-  }, [reduce, geo, progress, opacity]);
+    const lap = animate(progress, 1, { duration: LAP_MS / 1000, ease: 'linear', repeat: Infinity, repeatType: 'loop' });
+    return () => lap.stop();
+  }, [reduce, geo, progress]);
 
   useMotionValueEvent(progress, 'change', (v) => {
     const p = pointAtFraction(geo.pts, geo.fracs, Math.min(v, 1));
     headRef.current?.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
     TRAILS.forEach((tr, i) => trailRefs.current[i]?.setAttribute('stroke-dashoffset', String(tr.len - v)));
   });
-  useMotionValueEvent(opacity, 'change', (v) => groupRef.current?.setAttribute('opacity', v.toFixed(3)));
 
   if (reduce || geo.pts.length < 2) return null;
   const start = geo.pts[0];
   return (
-    <g ref={groupRef} aria-hidden="true" pointerEvents="none">
+    <g aria-hidden="true" pointerEvents="none">
       {TRAILS.map((tr, i) => (
         <path
           key={i}
