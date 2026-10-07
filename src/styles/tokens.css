@@ -116,6 +116,13 @@
   text-decoration-color: transparent;
 }
 
+/* Small chequered-flag strip (podium edges and header). Static. */
+.podium-chequer {
+  background-color: var(--color-chequer-light);
+  background-image: repeating-conic-gradient(var(--color-chequer-dark) 0 25%, transparent 0 50%);
+  background-size: 8px 8px;
+}
+
 /* Press feedback for any tappable surface: quick compress on press, spring-ish release. */
 .press {
   transition: transform var(--motion-fast) var(--motion-ease-out);

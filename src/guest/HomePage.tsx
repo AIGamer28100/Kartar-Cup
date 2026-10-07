@@ -9,7 +9,8 @@ import {
   InstagramLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from "../components/RaceStateDisplay";
+import { RaceStateBackdrop, RaceStateDisplay, type PodiumDriver, type RaceState } from "../components/RaceStateDisplay";
+import { fetchPodiumForRace } from "../lib/podium";
 import { computeRaceState } from "../lib/raceState";
 import { raceStartFor } from "../lib/f1api";
 import Divider from "../components/Divider";
@@ -110,6 +111,21 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
   );
   const raceState = raceStateInfo?.state ?? null;
 
+  // Real podium (OpenF1) once the race has ended; cached per race, silent on failure (no podium).
+  const [podium, setPodium] = useState<PodiumDriver[] | null>(null);
+  const ended = raceStateInfo?.isEnded ?? false;
+  useEffect(() => {
+    if (!next || !ended) {
+      setPodium(null);
+      return;
+    }
+    let live = true;
+    void fetchPodiumForRace(next).then((p) => live && setPodium(p));
+    return () => {
+      live = false;
+    };
+  }, [next, ended]);
+
   const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
   const desktopMotion = useDesktopMotion();
@@ -200,6 +216,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                 <RaceStateDisplay
                   state={raceStateInfo.state}
                   raceStartMs={targetMs}
+                  drivers={podium ?? undefined}
                   onDisplayStateChange={onRaceStateChange}
                 />
               ) : (
