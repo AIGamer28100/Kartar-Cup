@@ -1,7 +1,7 @@
 import { Plus, Trash } from '@phosphor-icons/react';
 import Button from '../../components/Button';
 import { Field, Section, iconBtn, inputCls } from '../settings/ui';
-import { MAX_DISCOUNTS, MAX_TIERS, type DiscountForm, type Errors, type FormState } from './model';
+import { MAX_DISCOUNTS, MAX_TIERS, type DiscountForm, type Errors, type FormState, distributeLeftoverSeats } from './model';
 import type { DiscountKind } from '../../lib/types';
 
 type Patch = (fn: (f: FormState) => Partial<FormState>) => void;

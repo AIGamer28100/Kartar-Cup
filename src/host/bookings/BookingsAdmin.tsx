@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, FloppyDisk, Plus } from '@phosphor-icons/react';
+import { ArrowLeft, FloppyDisk, Plus, X } from '@phosphor-icons/react';
 import { useMatch, useNavigate, useParams, Outlet } from 'react-router';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
 import { deleteField } from 'firebase/firestore';
-import { createBookingEvent, updateBookingEvent, watchAllBookingEvents, watchBookingEvent } from '../../lib/bookings';
+import { createBookingEvent, updateBookingEvent, watchAllBookingEvents, watchBookingEvent, cancelBookingEvent, settleCancelledEvent, pendingEventRefunds } from '../../lib/bookings';
 import { useAuth } from '../../lib/auth';
 import { permissionHint } from '../../lib/permissionHint';
 import type { BookingEvent, EventCategory } from '../../lib/types';
@@ -120,16 +120,26 @@ export function BookingEventForm() {
   }
   if (!form) return <RowsSkeleton />;
 
+  const isCancelled = form.cancelled ?? false;
   const show = (k: keyof typeof errors) => (touched ? errors[k] : undefined);
   return (
     <div className="pb-32">
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
         {backLink}
         <p className="font-mono text-sm" role="status">
-          {dirty ? <span className="text-accent-text">Unsaved changes</span> : <span className="text-muted">All changes saved</span>}
+          {isCancelled ? (
+            <span className="text-accent-text">Event cancelled</span>
+          ) : dirty ? (
+            <span className="text-accent-text">Unsaved changes</span>
+          ) : (
+            <span className="text-muted">All changes saved</span>
+          )}
         </p>
       </div>
       <h2 className="text-2xl font-semibold md:text-3xl">{form.id ? 'Edit booking event' : 'New booking event'}</h2>
+      {isCancelled && (
+        <p className="mt-2 text-sm text-accent-text">This event has been cancelled and cannot be edited or reopened.</p>
+      )}
 
       <Section title="Details">
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -308,7 +318,7 @@ export function BookingEventForm() {
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
         <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
-          <Button disabled={busy} onClick={() => void save()}>
+          <Button disabled={busy || isCancelled} onClick={() => void save()}>
             <FloppyDisk size={20} weight="regular" aria-hidden="true" /> {busy ? 'Saving...' : 'Save event'}
           </Button>
           {banner && (
@@ -381,6 +391,154 @@ export function BookingEventCards() {
   );
 }
 
+function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType<typeof useNavigate> }) {
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [settlingRefunds, setSettlingRefunds] = useState(false);
+  const [pendingRefunds, setPendingRefunds] = useState<number>(0);
+  const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Check for pending refunds on cancelled events
+  useEffect(() => {
+    if (!ev.cancelled) return;
+    const check = async () => {
+      try {
+        const pending = await pendingEventRefunds(ev.id);
+        setPendingRefunds(pending.length);
+      } catch {
+        setPendingRefunds(0);
+      }
+    };
+    check();
+  }, [ev.id, ev.cancelled]);
+
+  const isCancelled = ev.cancelled ?? false;
+
+  async function handleCancel() {
+    try {
+      setBanner(null);
+      await cancelBookingEvent(ev.id, cancelReason);
+      setBanner({ ok: true, msg: 'Event cancelled.' });
+      setCancelingId(null);
+      setCancelReason('');
+      setTimeout(() => setBanner(null), 3000);
+    } catch (e) {
+      setBanner({ ok: false, msg: `Failed: ${e instanceof Error ? e.message : 'Unknown error'}` });
+    }
+  }
+
+  async function handleSettleRefunds() {
+    try {
+      setBanner(null);
+      setSettlingRefunds(true);
+      await settleCancelledEvent(ev.id, (done, total) => {
+        setBanner({ ok: true, msg: `Refunding ${done} of ${total} tickets...` });
+      });
+      setPendingRefunds(0);
+      setBanner({ ok: true, msg: 'All refunds completed.' });
+      setTimeout(() => setBanner(null), 3000);
+    } catch (e) {
+      setBanner({ ok: false, msg: `Failed: ${e instanceof Error ? e.message : 'Unknown error'}` });
+    } finally {
+      setSettlingRefunds(false);
+    }
+  }
+
+  const hasPendingRefunds = pendingRefunds > 0 && !ev.cancelSettledAt;
+
+  return (
+    <>
+      <li key={ev.id} className="py-4">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_10rem_8rem_8rem_6rem_auto] md:items-center md:gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{ev.title}</p>
+              {isCancelled && (
+                <span className="inline-flex min-h-6 items-center rounded-full border border-accent-text px-2.5 text-xs font-medium text-accent-text">
+                  Cancelled
+                </span>
+              )}
+            </div>
+            <p className="font-mono text-sm text-muted">
+              {{ f1: 'F1', cup: 'Kartar Cup', club: 'Kartar Club' }[ev.category ?? 'f1']} · {ev.venue.name}
+              {ev.hosted === false && !ev.salesOpen ? ' · hidden' : ''}
+            </p>
+            {hasPendingRefunds && (
+              <p className="mt-1 text-sm text-accent-text">{pendingRefunds} tickets still to refund</p>
+            )}
+          </div>
+          <p className="font-mono text-sm text-muted">{fmtLocal(new Date(ev.dateUtc).getTime())}</p>
+          <p className="font-mono text-sm">{ev.bookedCount} / {ev.capacity}</p>
+          <p className="text-sm text-muted">{ev.venue.city}</p>
+          <span
+            className={`inline-flex w-fit min-h-6 items-center rounded-full px-2.5 text-xs font-medium ${
+              ev.salesOpen ? 'bg-accent/15 text-accent-text' : 'bg-raised text-muted'
+            }`}
+          >
+            {ev.salesOpen ? 'Open' : 'Closed'}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => navigate(`${ev.id}/attendees`, { relative: 'path' })}>
+              Attendees
+            </Button>
+            <Button variant="secondary" onClick={() => navigate(`${ev.id}/cards`, { relative: 'path' })}>
+              Cards
+            </Button>
+            {!isCancelled && (
+              <>
+                <Button variant="secondary" onClick={() => navigate(`${ev.id}/edit`, { relative: 'path' })}>
+                  Edit
+                </Button>
+                <Button variant="secondary" onClick={() => setCancelingId(ev.id)}>
+                  Cancel event
+                </Button>
+              </>
+            )}
+            {isCancelled && hasPendingRefunds && (
+              <Button variant="secondary" disabled={settlingRefunds} onClick={() => void handleSettleRefunds()}>
+                {settlingRefunds ? 'Settling...' : 'Finish refunds'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {cancelingId === ev.id && (
+          <div role="group" aria-label="Cancel event confirmation" className="mt-3 rounded-lg border border-line bg-raised p-4">
+            <p className="text-sm">Sales close now, every ticket is cancelled and refunded (sample refunds, no money moves), the event stays in the history.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1rem]">
+              <div>
+                <label htmlFor={`reason-${ev.id}`} className="block text-xs font-medium text-muted">
+                  Reason (optional)
+                </label>
+                <textarea
+                  id={`reason-${ev.id}`}
+                  className={inputCls + ' mt-1 min-h-12 resize-none'}
+                  maxLength={300}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Why are you cancelling this event?"
+                />
+                <p className="mt-1 text-xs text-muted">{cancelReason.length} / 300</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={() => void handleCancel()}>Confirm cancel</Button>
+              <Button variant="secondary" onClick={() => { setCancelingId(null); setCancelReason(''); }}>
+                Keep event
+              </Button>
+            </div>
+            {banner && (
+              <p role={banner.ok ? 'status' : 'alert'} className={`mt-2 text-sm ${banner.ok ? 'text-ink' : 'text-accent-text'}`}>
+                {banner.msg}
+              </p>
+            )}
+          </div>
+        )}
+      </li>
+    </>
+  );
+}
+
 /** Main BookingsAdmin component with nested routes. */
 export default function BookingsAdmin() {
   const navigate = useNavigate();
@@ -416,36 +574,7 @@ export default function BookingsAdmin() {
       {events !== null && events.length > 0 && (
         <ul className="mt-2 divide-y divide-line border-y border-line">
           {events.map((ev) => (
-            <li key={ev.id} className="grid grid-cols-1 gap-2 py-4 md:grid-cols-[1fr_10rem_8rem_8rem_6rem_auto] md:items-center md:gap-4">
-              <div>
-                <p className="font-medium">{ev.title}</p>
-                <p className="font-mono text-sm text-muted">
-                  {{ f1: 'F1', cup: 'Kartar Cup', club: 'Kartar Club' }[ev.category ?? 'f1']} · {ev.venue.name}
-                  {ev.hosted === false && !ev.salesOpen ? ' · hidden' : ''}
-                </p>
-              </div>
-              <p className="font-mono text-sm text-muted">{fmtLocal(new Date(ev.dateUtc).getTime())}</p>
-              <p className="font-mono text-sm">{ev.bookedCount} / {ev.capacity}</p>
-              <p className="text-sm text-muted">{ev.venue.city}</p>
-              <span
-                className={`inline-flex w-fit min-h-6 items-center rounded-full px-2.5 text-xs font-medium ${
-                  ev.salesOpen ? 'bg-accent/15 text-accent-text' : 'bg-raised text-muted'
-                }`}
-              >
-                {ev.salesOpen ? 'Open' : 'Closed'}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => navigate(`${ev.id}/attendees`, { relative: 'path' })}>
-                  Attendees
-                </Button>
-                <Button variant="secondary" onClick={() => navigate(`${ev.id}/cards`, { relative: 'path' })}>
-                  Cards
-                </Button>
-                <Button variant="secondary" onClick={() => navigate(`${ev.id}/edit`, { relative: 'path' })}>
-                  Edit
-                </Button>
-              </div>
-            </li>
+            <EventListRow key={ev.id} ev={ev} navigate={navigate} />
           ))}
         </ul>
       )}

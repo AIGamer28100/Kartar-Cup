@@ -120,6 +120,41 @@ function formToDiscount(f: DiscountForm): Discount {
   return d;
 }
 
+/** Distribute leftover seats to the tier with the fewest seats per ticket.
+ * Only applies if EVERY tier has a capacity > 0. If any tier is unlimited (0/undefined),
+ * returns tiers unchanged. The remainder (leftover % seatsPerTicket) stays unsold.
+ * This is a pure function that does NOT mutate the input. */
+export function distributeLeftoverSeats(tiers: PriceTier[], capacity: number): PriceTier[] {
+  // Only apply if every tier has a capacity > 0
+  if (tiers.some((t) => !t.capacity || t.capacity <= 0)) {
+    return tiers;
+  }
+
+  const totalTierSeats = tiers.reduce((sum, t) => sum + (t.capacity ?? 0) * ((t.seatsPerTicket ?? 1)), 0);
+  const leftover = capacity - totalTierSeats;
+
+  if (leftover <= 0) {
+    // Exact fit or overage: no leftover seats to distribute
+    return tiers;
+  }
+
+  // Find tier with lowest seatsPerTicket (ties: first one wins)
+  let minSeatsTier = tiers[0];
+  for (const t of tiers) {
+    if ((t.seatsPerTicket ?? 1) < (minSeatsTier.seatsPerTicket ?? 1)) {
+      minSeatsTier = t;
+    }
+  }
+
+  const seatsPerTicket = minSeatsTier.seatsPerTicket ?? 1;
+  const extraTickets = Math.floor(leftover / seatsPerTicket);
+
+  // Return new array with updated tier capacity
+  return tiers.map((t) =>
+    t.id === minSeatsTier.id ? { ...t, capacity: (t.capacity ?? 0) + extraTickets } : t,
+  );
+}
+
 /** Builds the payload for createBookingEvent/updateBookingEvent. Caller should validate() first. */
 export function formToEvent(f: FormState): NewBookingEvent {
   const venue: Venue = {
@@ -131,13 +166,16 @@ export function formToEvent(f: FormState): NewBookingEvent {
   if (f.venuePlaceId.trim()) venue.place_id = f.venuePlaceId.trim();
   if (f.venueCapacityDefault.trim()) venue.capacityDefault = Number(f.venueCapacityDefault);
 
+  const capacity = Number(f.capacity);
+  const tiers = distributeLeftoverSeats(f.tiers, capacity);
+
   const ev: NewBookingEvent = {
     title: f.title.trim(),
     venue,
     dateUtc: new Date(fromLocalInput(f.dateUtc)).toISOString(),
-    tiers: f.tiers,
+    tiers,
     discounts: f.discounts.map(formToDiscount),
-    capacity: Number(f.capacity),
+    capacity,
     salesOpen: f.salesOpen,
     // Always written (blank allowed) so clearing it in the form really clears it on update.
     policy: f.policy.trim(),
@@ -198,16 +236,6 @@ export function validate(f: FormState): Errors {
 
   if (f.tiers.length === 0) errs.tiers = 'At least one price tier is required.';
   else if (f.tiers.length > MAX_TIERS) errs.tiers = `At most ${MAX_TIERS} tiers.`;
-
-  // Check that sum of tier capacities (with seatsPerTicket) doesn't exceed event capacity
-  const totalTierSeats = f.tiers.reduce((sum, t) => {
-    const tierCap = t.capacity && t.capacity > 0 ? t.capacity : Infinity;
-    const seatsPerTicket = t.seatsPerTicket ?? 1;
-    return sum + tierCap * seatsPerTicket;
-  }, 0);
-  if (Number.isFinite(totalTierSeats) && totalTierSeats < cap) {
-    errs.tiers = `Sum of tier capacities (${totalTierSeats} seats) is less than event capacity (${cap}). Some seats cannot be sold.`;
-  }
 
   if (f.discounts.length > MAX_DISCOUNTS) errs.discounts = `At most ${MAX_DISCOUNTS} discounts.`;
   else if (f.discounts.some((d) => !d.code.trim()))

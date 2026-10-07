@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import type { BookingEvent } from '../../lib/types';
 import { fromLocalInput } from '../settings/time';
-import { blankForm, eventToForm, formToEvent, raceDefaultDateUtc, upcomingRaceOptions, validate } from './model';
+import { blankForm, eventToForm, formToEvent, raceDefaultDateUtc, upcomingRaceOptions, validate, distributeLeftoverSeats } from './model';
 
 function makeEvent(): BookingEvent {
   return {
@@ -140,6 +140,84 @@ describe('bookings model', () => {
       const real = Date.parse('2026-10-04T07:00:00Z');
       const schedule = new Map([[race.round, [{ key: 'race' as const, label: 'Race', startMs: real }]]]);
       expect(fromLocalInput(raceDefaultDateUtc(race, schedule))).toBe(real - 30 * 60_000);
+    });
+  });
+
+  describe('distributeLeftoverSeats', () => {
+    it('distributes leftover seats to the tier with lowest seatsPerTicket', () => {
+      const tiers = [
+        { id: 't1', label: 'Single', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+        { id: 't2', label: 'Couple', priceInr: 900, capacity: 5, seatsPerTicket: 2 },
+      ];
+      const capacity = 25;
+      // Booked: 10*1 + 5*2 = 20 seats, leftover = 5
+      // Lowest is t1 (1 seat/ticket), so add floor(5/1) = 5 more tickets
+      const result = distributeLeftoverSeats(tiers, capacity);
+      expect(result[0].capacity).toBe(15);
+      expect(result[1].capacity).toBe(5);
+    });
+
+    it('handles ties by choosing the first tier', () => {
+      const tiers = [
+        { id: 't1', label: 'A', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+        { id: 't2', label: 'B', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+      ];
+      const result = distributeLeftoverSeats(tiers, 25);
+      // Both have 1 seat/ticket, t1 wins the tie (first one)
+      expect(result[0].capacity).toBe(15);
+      expect(result[1].capacity).toBe(10);
+    });
+
+    it('does not mutate the input array', () => {
+      const tiers = [
+        { id: 't1', label: 'Single', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+      ];
+      const original = JSON.stringify(tiers);
+      distributeLeftoverSeats(tiers, 15);
+      expect(JSON.stringify(tiers)).toBe(original);
+    });
+
+    it('leaves capacity unchanged when there is no leftover', () => {
+      const tiers = [
+        { id: 't1', label: 'Single', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+        { id: 't2', label: 'Couple', priceInr: 900, capacity: 5, seatsPerTicket: 2 },
+      ];
+      const result = distributeLeftoverSeats(tiers, 20);
+      // Exact fit: 10*1 + 5*2 = 20
+      expect(result[0].capacity).toBe(10);
+      expect(result[1].capacity).toBe(5);
+    });
+
+    it('ignores remainder seats (drops them)', () => {
+      const tiers = [
+        { id: 't1', label: 'Single', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+        { id: 't2', label: 'Couple', priceInr: 900, capacity: 5, seatsPerTicket: 2 },
+      ];
+      const result = distributeLeftoverSeats(tiers, 26);
+      // Booked: 20 seats, leftover = 6
+      // Lowest is t1 (1 seat/ticket), add floor(6/1) = 6 tickets (no remainder)
+      expect(result[0].capacity).toBe(16);
+    });
+
+    it('does not apply when any tier is unlimited (capacity 0 or undefined)', () => {
+      const tiers = [
+        { id: 't1', label: 'Single', priceInr: 500, capacity: 10, seatsPerTicket: 1 },
+        { id: 't2', label: 'Couple', priceInr: 900, capacity: 0, seatsPerTicket: 2 }, // unlimited
+      ];
+      const result = distributeLeftoverSeats(tiers, 25);
+      // Does not apply because t2 has unlimited capacity
+      expect(result[0].capacity).toBe(10);
+      expect(result[1].capacity).toBe(0);
+    });
+
+    it('handles tiers with seatsPerTicket > 1', () => {
+      const tiers = [
+        { id: 't1', label: 'Four-seater', priceInr: 1800, capacity: 2, seatsPerTicket: 4 },
+      ];
+      const result = distributeLeftoverSeats(tiers, 10);
+      // Booked: 2*4 = 8 seats, leftover = 2
+      // Add floor(2/4) = 0 tickets, remainder 2 seats stays unsold
+      expect(result[0].capacity).toBe(2);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cardImageSrc, watchVipCards } from '../lib/cards';
+import { cardImageSrc, getCard, watchVipCards } from '../lib/cards';
 import type { Booking, CardDoc } from '../lib/types';
 
 /** R45/R46, R15: the guest's OWN VIP pass and Play card on their ticket. The VIP design is the same for
@@ -7,8 +7,27 @@ import type { Booking, CardDoc } from '../lib/types';
  * booking at check-in, so no other guest's card, and not the rest of the deck, is ever loaded here. */
 export default function MyCards({ booking }: { booking: Booking }) {
   const [vip, setVip] = useState<CardDoc | null>(null);
+  const [playCard, setPlayCard] = useState<CardDoc | null>(null);
 
   useEffect(() => watchVipCards(booking.bookingEventId, (c) => setVip(c[0] ?? null), () => setVip(null)), [booking.bookingEventId]);
+
+  // Load the Play card design if the booking has one
+  useEffect(() => {
+    const play = booking.playCard;
+    if (!play?.cardId) {
+      setPlayCard(null);
+      return;
+    }
+    const load = async () => {
+      try {
+        const card = await getCard(booking.bookingEventId, play.cardId);
+        setPlayCard(card);
+      } catch {
+        setPlayCard(null);
+      }
+    };
+    load();
+  }, [booking.bookingEventId, booking.playCard?.cardId]);
 
   const play = booking.playCard;
   const hasAny = booking.passNumber != null || play;
@@ -19,7 +38,8 @@ export default function MyCards({ booking }: { booking: Booking }) {
   }
 
   const vipSrc = cardImageSrc(vip);
-  const playSrc = cardImageSrc(play);
+  // Prefer the loaded design image, fall back to legacy snapshot image
+  const playSrc = cardImageSrc(playCard) || cardImageSrc(play);
 
   return (
     <section aria-labelledby="my-cards" className="max-w-xl">
