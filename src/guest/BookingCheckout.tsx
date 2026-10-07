@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
-import { applyDiscount, createReservation, markPaidMock, watchBookingEvent } from '../lib/bookings';
+import { applyDiscount, createReservation, markPaidMock, watchBookingEvent, watchTierCounts } from '../lib/bookings';
 import { venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
 import type { BookingEvent, PriceTier } from '../lib/types';
 import { TicketQr } from './TicketView';
@@ -127,36 +127,25 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
   );
 }
 
-/** Calculate remaining TICKETS for a specific tier.
- * tier.capacity = max number of TICKETS (not seats) for this tier. 0 = unlimited.
- */
-function getTierRemainingTickets(event: BookingEvent, tier: PriceTier): number {
-  const tierCapacity = tier.capacity && tier.capacity > 0 ? tier.capacity : Infinity;
+type TierCounts = Record<string, number>;
 
-  if (!Number.isFinite(tierCapacity)) {
-    // Unlimited tier - limited only by event capacity
-    const eventLeft = seatsLeft(event);
-    const seatsPerTicket = tier.seatsPerTicket ?? 1;
-    return Math.floor(eventLeft / seatsPerTicket);
-  }
-
-  // Tier has a ticket limit - we estimate based on event's bookedCount
-  // Client-side estimate only: tier capacity is not enforced by rules (event capacity is).
-  const eventLeft = seatsLeft(event);
+/** Remaining TICKETS for a tier: its own capacity (0 = unlimited) minus tickets already sold, also
+ * limited by the event's remaining seats. Both limits are enforced by firestore.rules. */
+function getTierRemainingTickets(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
   const seatsPerTicket = tier.seatsPerTicket ?? 1;
-  const maxByEvent = Math.floor(eventLeft / seatsPerTicket);
-
-  return Math.min(tierCapacity, maxByEvent);
+  const byEvent = Math.floor(seatsLeft(event) / seatsPerTicket);
+  if (!tier.capacity || tier.capacity <= 0) return byEvent;
+  return Math.min(Math.max(0, tier.capacity - (counts[tier.id] ?? 0)), byEvent);
 }
 
-/** Calculate max quantity (number of tickets) for a specific tier. */
-function getTierMaxQty(event: BookingEvent, tier: PriceTier): number {
-  return maxQtyFor(getTierRemainingTickets(event, tier));
+/** Max quantity (number of tickets) for a tier. */
+function getTierMaxQty(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
+  return maxQtyFor(getTierRemainingTickets(event, tier, counts));
 }
 
 /** Check if a tier is sold out. */
-function isTierSoldOut(event: BookingEvent, tier: PriceTier): boolean {
-  return getTierMaxQty(event, tier) <= 0;
+function isTierSoldOut(event: BookingEvent, tier: PriceTier, counts: TierCounts): boolean {
+  return getTierMaxQty(event, tier, counts) <= 0;
 }
 
 /** Sticky order summary panel for desktop (sidebar). */
@@ -290,7 +279,9 @@ function EventDetails({
   error,
   eventSoldOut,
   user,
+  tierCounts,
 }: {
+  tierCounts: TierCounts;
   user: { uid: string } | null;
   event: BookingEvent;
   tier: PriceTier | undefined;
@@ -332,12 +323,12 @@ function EventDetails({
       <div className="rounded-lg border border-line bg-raised p-5">
         <h3 className="font-medium text-ink">Select tier</h3>
         <div role="radiogroup" aria-label="Price tier" className="mt-3 space-y-2">
-          {event.tiers.filter((t) => !isTierSoldOut(event, t)).length === 0 && (
+          {event.tiers.filter((t) => !isTierSoldOut(event, t, tierCounts)).length === 0 && (
             <p className="text-sm text-accent-text">All tiers are sold out.</p>
           )}
-          {event.tiers.filter((t) => !isTierSoldOut(event, t)).map((t) => {
-            const tSoldOut = isTierSoldOut(event, t);
-            const tRemaining = getTierRemainingTickets(event, t);
+          {event.tiers.filter((t) => !isTierSoldOut(event, t, tierCounts)).map((t) => {
+            const tSoldOut = isTierSoldOut(event, t, tierCounts);
+            const tRemaining = getTierRemainingTickets(event, t, tierCounts);
             const tSeatsPerTicket = t.seatsPerTicket ?? 1;
             return (
               <label
@@ -496,15 +487,21 @@ export default function BookingCheckout() {
     return watchBookingEvent(bookingEventId, setEvent, () => setEvent(null));
   }, [bookingEventId]);
 
+  const [tierCounts, setTierCounts] = useState<TierCounts>({});
   useEffect(() => {
-    const first = event?.tiers.find((t) => !isTierSoldOut(event, t));
+    if (!bookingEventId) return;
+    return watchTierCounts(bookingEventId, setTierCounts, () => setTierCounts({}));
+  }, [bookingEventId]);
+
+  useEffect(() => {
+    const first = event?.tiers.find((t) => !isTierSoldOut(event, t, tierCounts));
     if (event && !tierId && first) setTierId(first.id);
   }, [event, tierId]);
 
   // Calculate per-tier maxQty and soldOut
   const tier = event?.tiers.find((t) => t.id === tierId);
-  const tierMaxQty = tier && event ? getTierMaxQty(event, tier) : 0;
-  const tierSoldOut = tier && event ? isTierSoldOut(event, tier) : false;
+  const tierMaxQty = tier && event ? getTierMaxQty(event, tier, tierCounts) : 0;
+  const tierSoldOut = tier && event ? isTierSoldOut(event, tier, tierCounts) : false;
   const eventSoldOut = event ? seatsLeft(event) <= 0 : false;
 
   useEffect(() => {
@@ -524,11 +521,11 @@ export default function BookingCheckout() {
 
   // Auto-reset tier selection if current tier becomes sold out
   useEffect(() => {
-    if (tier && event && isTierSoldOut(event, tier)) {
+    if (tier && event && isTierSoldOut(event, tier, tierCounts)) {
       setTierId('');
       setQty(1);
     }
-  }, [event?.bookedCount, tier]);
+  }, [event?.bookedCount, tier, tierCounts]);
 
   // `buyer` is passed right after a popup sign-in, when the `user` from useAuth is still stale.
   const reserve = async (buyer: { uid: string; displayName: string | null; email: string | null } | null = user) => {
@@ -603,6 +600,7 @@ export default function BookingCheckout() {
           error={error}
           eventSoldOut={eventSoldOut}
           user={user}
+          tierCounts={tierCounts}
         />
       </div>
     </Shell>

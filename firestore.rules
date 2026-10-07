@@ -323,12 +323,11 @@ service cloud.firestore {
     // Seat release on cancel. An event write cannot see which booking is involved, so the writer
     // NAMES it in the transient-but-persisted field `lastReleaseBookingId`, and the rule then
     // checks that booking directly: it must belong to THIS event, be reserved/paid_mock BEFORE the
-    // write and 'cancelled' AFTER it (getAfter, i.e. the same batch/transaction), be owned by the
-    // caller (or the caller runs bookings), and the counter must drop by EXACTLY its qty. Because
+    // write and 'cancelled' AFTER it (getAfter, i.e. the same batch/transaction), and the counter must drop by EXACTLY its qty x seatsPerTicket. Only people who run bookings
+    // (host/admin/venue_host) may release: guests cannot cancel, so they can never lower the counter. Because
     // the booking is no longer reserved/paid_mock afterwards, the same booking can never release
-    // twice, and the id must change on every release (defence in depth). A user with no booking
-    // of their own cannot lower the counter at all. The booking-cancel rule (ownerCancel/host path)
-    // binds the other way (getAfter on the event), so neither write succeeds alone.
+    // twice, and the id must change on every release (defence in depth). The booking-cancel rule
+    // (host path) binds the other way (getAfter on the event), so neither write succeeds alone.
     // Trade-off: the cancelled booking's id (== its QR token) is written to a publicly readable
     // event doc; that is safe only because a cancelled ticket can never be checked in. The reserve
     // side (capacityBump) deliberately has NO such id, since a live ticket token must never be
@@ -339,7 +338,7 @@ service cloud.firestore {
       let before = resource.data;
       let after = request.resource.data;
       let bpath = /databases/$(database)/documents/bookings/$(after.lastReleaseBookingId);
-      return signedIn()
+      return canRunBookings()
         && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt', 'lastReleaseBookingId'])
         && after.lastReleaseBookingId is string
         && after.lastReleaseBookingId.size() >= 1 && after.lastReleaseBookingId.size() <= 64
@@ -351,8 +350,7 @@ service cloud.firestore {
         && get(bpath).data.bookingEventId == eventId
         && (get(bpath).data.status == 'reserved' || get(bpath).data.status == 'paid_mock')
         && getAfter(bpath).data.status == 'cancelled'
-        && before.bookedCount - after.bookedCount == get(bpath).data.qty * get(bpath).data.get('seatsPerTicket', 1)
-        && (get(bpath).data.buyerUid == request.auth.uid || canRunBookings());
+        && before.bookedCount - after.bookedCount == get(bpath).data.qty * get(bpath).data.get('seatsPerTicket', 1);
     }
     match /bookingEvents/{eventId} {
       // hosted==true lists a closed event publicly ("booking opening soon"); it exposes only what a
@@ -366,11 +364,30 @@ service cloud.firestore {
       // The VIP design is the same for every attendee, so any signed-in guest may read it (their query
       // must filter kind == 'vip'); Play-card designs reveal the whole deck, so they stay host-only.
       // A guest sees only THEIR Play card, copied onto their own booking at check-in (R15).
+      // Per-tier ticket counters (see tierWithinCapacity). Public read: they are only counts and
+      // let the page show "N left". Guests may only RAISE a counter (their booking create checks the
+      // exact amount); lowering/resetting is for people who run bookings (cancel, edit).
+      match /tierCounts/{tierId} {
+        allow read: if true;
+        allow create: if signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
+          && validTierCount() && request.resource.data.booked >= 1 && request.resource.data.booked <= 10;
+        allow update: if (signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
+            && validTierCount() && request.resource.data.booked > resource.data.booked)
+          || (canRunBookings() && validTierCount());
+        allow delete: if canRunBookings();
+      }
+
       match /cards/{cardId} {
         allow read: if canRunBookings() || (signedIn() && resource.data.kind == 'vip');
         allow create, update: if canRunBookings() && validCard();
         allow delete: if canRunBookings();
       }
+    }
+
+    function validTierCount() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['booked', 'updatedAt']) && d.keys().hasAll(['booked', 'updatedAt'])
+        && d.booked is int && d.booked >= 0 && d.updatedAt == request.time;
     }
 
     function validCard() {
@@ -404,13 +421,50 @@ service cloud.firestore {
     }
 
     function bookingEv(id) { return get(/databases/$(database)/documents/bookingEvents/$(id)).data; }
+    // The price is whatever THIS event's tier says (prices differ per event/tier), never a client
+    // number: the booking names the tier by its index in event.tiers and every money field is
+    // checked against it. A discount must name a live entry of event.discounts by index; percent-style
+    // kinds may differ from the client's rounding by 1 rupee, flat is exact. With no code, no discount.
+    function validPricing(d) {
+      let ev = bookingEv(d.bookingEventId);
+      return d.tierIndex is int && d.tierIndex >= 0 && d.tierIndex < ev.tiers.size()
+        && ev.tiers[d.tierIndex].id == d.tierId
+        && d.unitPriceInr == ev.tiers[d.tierIndex].priceInr
+        && d.seatsPerTicket == ev.tiers[d.tierIndex].get('seatsPerTicket', 1)
+        && (!('discountCode' in d)
+            ? (d.discountAmountInr == 0 && !('discountIndex' in d))
+            : validDiscount(d, ev.discounts[d.discountIndex], ev.tiers[d.tierIndex].priceInr * d.qty));
+    }
+    function validDiscount(d, disc, gross) {
+      return d.discountIndex is int && d.discountIndex >= 0
+        && disc.get('code', '').lower() == d.discountCode.lower()
+        && disc.active == true
+        && d.qty >= disc.get('minQty', 0)
+        && (!('validFromUtc' in disc) || request.time >= disc.validFromUtc)
+        && (!('validToUtc' in disc) || request.time <= disc.validToUtc)
+        && (disc.kind == 'flat'
+            ? d.discountAmountInr == math.floor(disc.value < gross ? disc.value : gross)
+            : (disc.kind in ['percent', 'earlybird', 'group']
+                && d.discountAmountInr >= math.floor(gross * disc.value / 100)
+                && d.discountAmountInr <= math.ceil(gross * disc.value / 100)));
+    }
+    // Per-tier capacity: bookingEvents/{id}/tierCounts/{tierId}.booked counts TICKETS sold for the tier.
+    // The booking and its counter bump commit together; the counter must rise by exactly qty and may
+    // not pass the tier's capacity (0 / absent = unlimited, event capacity still applies).
+    function tierWithinCapacity(d) {
+      let cpath = /databases/$(database)/documents/bookingEvents/$(d.bookingEventId)/tierCounts/$(d.tierId);
+      let afterCount = getAfter(cpath).data.booked;
+      return afterCount == (exists(cpath) ? get(cpath).data.booked : 0) + d.qty
+        && (bookingEv(d.bookingEventId).tiers[d.tierIndex].get('capacity', 0) == 0
+            || afterCount <= bookingEv(d.bookingEventId).tiers[d.tierIndex].capacity);
+    }
     function validBooking(bookingId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
-                'qty','seatsPerTicket','unitPriceInr','discountCode','discountAmountInr','totalInr','status','qrToken',
+                'qty','seatsPerTicket','unitPriceInr','discountCode','discountIndex','tierIndex','discountAmountInr','totalInr','status','qrToken',
                 'createdAt','paidAt','checkedInAt','checkedInBy','checkedInCount'])
         && d.keys().hasAll(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
-                'qty','seatsPerTicket','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
+                'tierIndex','qty','seatsPerTicket','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
         && d.id == bookingId && d.id == d.qrToken
         && d.buyerUid == request.auth.uid
         && d.buyerName is string && d.buyerName.size() >= 1 && d.buyerName.size() <= 80
@@ -425,6 +479,8 @@ service cloud.firestore {
         && d.status == 'reserved'
         && !('paidAt' in d) && !('checkedInAt' in d) && !('checkedInBy' in d) && !('checkedInCount' in d)
         && bookingEv(d.bookingEventId).salesOpen == true
+        && validPricing(d)
+        && tierWithinCapacity(d)
         && getAfter(/databases/$(database)/documents/bookingEvents/$(d.bookingEventId)).data.bookedCount
              == bookingEv(d.bookingEventId).bookedCount + d.qty * d.seatsPerTicket
         && d.createdAt == request.time;
@@ -450,11 +506,6 @@ service cloud.firestore {
       return getAfter(evPath).data.bookedCount == get(evPath).data.bookedCount - resource.data.qty * resource.data.get('seatsPerTicket', 1)
         && getAfter(evPath).data.lastReleaseBookingId == bookingId;
     }
-    function ownerCancel(bookingId) {
-      return resource.data.buyerUid == request.auth.uid
-        && cancelShape('guest')
-        && releasesSeats(bookingId);
-    }
     match /bookings/{bookingId} {
       // R15: get() and list() share this rule. A guest querying `where('buyerUid','==',uid)`
       // gets every matching doc back (each passes); a guest attempting an unfiltered/other-uid
@@ -465,8 +516,7 @@ service cloud.firestore {
       allow create: if signedIn() && validBooking(bookingId);
 
       allow update: if signedIn()
-        && (ownerCancel(bookingId)
-            || (canRunBookings() && cancelShape('host') && releasesSeats(bookingId))
+        && ((canRunBookings() && cancelShape('host') && releasesSeats(bookingId))
             || (resource.data.buyerUid == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
               && resource.data.status == 'reserved'

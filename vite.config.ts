@@ -4,13 +4,4 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: {
-    proxy: {
-      '/api/places': {
-        target: 'https://maps.googleapis.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/places/, '/maps/api/place'),
-      },
-    },
-  },
 });

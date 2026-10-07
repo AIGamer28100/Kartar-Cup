@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { googleMapsPinUrl, searchPlaces, type PlacesError } from './placeSearch';
+import { googleMapsPinUrl, searchPlaces, setPlacesTokenProvider, type PlacesError } from './placeSearch';
 import type { PlaceResult } from './placeSearch';
 
 // Google Places Autocomplete returns predictions with these fields.
@@ -21,16 +21,38 @@ describe('googleMapsPinUrl', () => {
 });
 
 describe('searchPlaces', () => {
-  beforeEach(() => { vi.stubEnv('VITE_GOOGLE_PLACES_API_KEY', 'test-key'); });
+  beforeEach(() => {
+    vi.stubEnv('VITE_PLACES_PROXY_URL', 'https://places.example.workers.dev/');
+    setPlacesTokenProvider(async () => 'test-id-token');
+  });
   afterEach(() => { vi.unstubAllEnvs(); });
 
-  it('reports NO_KEY instead of calling Google when the key is missing', async () => {
-    vi.stubEnv('VITE_GOOGLE_PLACES_API_KEY', '');
+  it('reports NO_PROXY instead of calling anything when the proxy URL is missing', async () => {
+    vi.stubEnv('VITE_PLACES_PROXY_URL', '');
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const out = await searchPlaces('marina beach');
-    expect((out as PlacesError).status).toBe('NO_KEY');
+    expect((out as PlacesError).status).toBe('NO_PROXY');
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it('asks the user to sign in when there is no ID token, and never calls the proxy', async () => {
+    setPlacesTokenProvider(async () => undefined);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const out = await searchPlaces('marina beach');
+    expect((out as PlacesError).status).toBe('UNAUTHENTICATED');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('calls the proxy with the ID token and no Google key anywhere in the request', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ZERO_RESULTS', predictions: [] }) });
+    (global as any).fetch = fetchMock;
+    await searchPlaces('Marina Beach');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://places.example.workers.dev/autocomplete?input=Marina+Beach');
+    expect(String(url)).not.toMatch(/key=/i);
+    expect((init as RequestInit).headers).toEqual({ Authorization: 'Bearer test-id-token' });
   });
 
   // Type guard to narrow the union type

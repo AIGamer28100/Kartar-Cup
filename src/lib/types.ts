@@ -195,6 +195,10 @@ export interface Booking {
   buyerName: string;
   buyerEmail: string;
   tierId: string;
+  /** Position of the tier in the event's `tiers` when booked; firestore.rules check price against it. */
+  tierIndex?: number;
+  /** Position of the applied discount in the event's `discounts` (set with discountCode). */
+  discountIndex?: number;
   qty: number;
   /** How many seats one ticket consumes. 1 = standard, 2 = "ticket for 2 entries", etc. */
   seatsPerTicket?: number;
@@ -211,7 +215,7 @@ export interface Booking {
   checkedInAt?: Timestamp;
   checkedInBy?: string;
   cancelledAt?: Timestamp;
-  cancelledBy?: 'guest' | 'host';
+  cancelledBy?: 'host';
   cancelReason?: string;
   /** Mock payments only (R23): 'mock_refunded' = a paid_mock booking was cancelled; no real money moved. */
   refund?: 'mock_refunded' | 'none';

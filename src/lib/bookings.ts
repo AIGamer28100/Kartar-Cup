@@ -23,6 +23,25 @@ const bookingEventRef = (id: string) => doc(db, 'bookingEvents', id);
 const bookingEventsCol = () => collection(db, 'bookingEvents');
 const bookingRef = (id: string) => doc(db, 'bookings', id);
 const bookingsCol = () => collection(db, 'bookings');
+/** Per-tier ticket counters, enforced by firestore.rules (tierCounts / tierWithinCapacity). */
+const tierCountRef = (eventId: string, tierId: string) => doc(db, 'bookingEvents', eventId, 'tierCounts', tierId);
+
+/** Live tickets-sold per tier id for an event (missing = 0). Public read. */
+export function watchTierCounts(
+  eventId: string,
+  cb: (counts: Record<string, number>) => void,
+  onErr?: (e: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'bookingEvents', eventId, 'tierCounts'),
+    (snap) => {
+      const out: Record<string, number> = {};
+      snap.docs.forEach((d) => { out[d.id] = Number(d.data().booked) || 0; });
+      cb(out);
+    },
+    onErr,
+  );
+}
 
 /* ---------- booking events ---------- */
 
@@ -126,20 +145,23 @@ export interface CreateReservationInput {
   discountCode?: string;
 }
 
-/** Signed-in guest, own buyerUid. Reserves capacity via a transaction incrementing bookedCount;
- * throws a clear error if sold out. Price is computed client-side (trust boundary — see rules). */
+/** Signed-in guest, own buyerUid. One transaction: bumps the event's bookedCount AND the tier's
+ * ticket counter, then writes the booking. Firestore rules re-check the tier price/discount against
+ * the event and the exact counter increments, so this client cannot under-charge or oversell. */
 export async function createReservation(input: CreateReservationInput): Promise<string> {
   const { bookingEventId, buyerUid, buyerName, buyerEmail, tierId, qty, discountCode } = input;
   const bookingId = doc(bookingsCol()).id;
   const evRef = bookingEventRef(bookingEventId);
 
   await runTransaction(db, async (tx) => {
-    const evSnap = await tx.get(evRef);
+    const countRef = tierCountRef(bookingEventId, tierId);
+    const [evSnap, countSnap] = await Promise.all([tx.get(evRef), tx.get(countRef)]);
     if (!evSnap.exists()) throw new Error('Booking event not found.');
     const ev = evSnap.data() as BookingEvent;
     if (!ev.salesOpen) throw new Error('Sales are closed for this event.');
 
-    const tier = ev.tiers.find((t) => t.id === tierId);
+    const tierIndex = ev.tiers.findIndex((t) => t.id === tierId);
+    const tier = ev.tiers[tierIndex];
     if (!tier) throw new Error('Price tier not found.');
 
     const seatsPerTicket = tier.seatsPerTicket ?? 1;
@@ -149,15 +171,22 @@ export async function createReservation(input: CreateReservationInput): Promise<
     const nextEventCount = (ev.bookedCount ?? 0) + seatsRequested;
     if (nextEventCount > ev.capacity) throw new Error('Sold out — not enough seats left.');
 
-    // Only event-level capacity is enforced (firestore.rules capacityBump). Guests cannot read other
-    // buyers' bookings (R15), so a per-tier ticket count cannot be computed client-side.
+    // Tier-level capacity (tickets, not seats; 0 = unlimited).
+    const tierSold = countSnap.exists() ? Number(countSnap.data().booked) || 0 : 0;
+    if (tier.capacity && tier.capacity > 0 && tierSold + qty > tier.capacity) {
+      throw new Error(`${tier.label} is sold out.`);
+    }
 
-    const discount = discountCode
-      ? ev.discounts.find((d) => d.code?.toLowerCase() === discountCode.toLowerCase()) ?? null
-      : null;
-    const { unitPriceInr, discountAmountInr, totalInr } = applyDiscount(tier, discount, qty);
+    const discountIndex = discountCode
+      ? ev.discounts.findIndex((d) => d.code?.toLowerCase() === discountCode.toLowerCase())
+      : -1;
+    const discount = discountIndex >= 0 ? ev.discounts[discountIndex] : null;
+    const { unitPriceInr, discountAmountInr, totalInr, rejectedReason } = applyDiscount(tier, discount, qty);
+    // Only record a discount that actually applied; the rules verify code, index and amount.
+    const discountApplied = discount !== null && rejectedReason === null;
 
     tx.update(evRef, { bookedCount: nextEventCount, updatedAt: serverTimestamp() });
+    tx.set(countRef, { booked: tierSold + qty, updatedAt: serverTimestamp() });
     tx.set(bookingRef(bookingId), {
       id: bookingId,
       bookingEventId,
@@ -165,10 +194,11 @@ export async function createReservation(input: CreateReservationInput): Promise<
       buyerName,
       buyerEmail,
       tierId,
+      tierIndex,
       qty,
       seatsPerTicket,
       unitPriceInr,
-      ...(discountCode ? { discountCode } : {}),
+      ...(discountApplied ? { discountCode: discount!.code, discountIndex } : {}),
       discountAmountInr,
       totalInr,
       status: 'reserved',
@@ -290,7 +320,8 @@ export async function cancelBooking(
     if (b.status === 'cancelled') throw new CancelBookingError('already-cancelled', 'Already cancelled.');
     if (b.status === 'checked_in') throw new CancelBookingError('checked-in', 'Checked-in bookings cannot be cancelled.');
     const evRef = bookingEventRef(b.bookingEventId);
-    const evSnap = await tx.get(evRef);
+    const countRef = tierCountRef(b.bookingEventId, b.tierId);
+    const [evSnap, countSnap] = await Promise.all([tx.get(evRef), tx.get(countRef)]);
     const trimmed = reason?.trim().slice(0, 200);
     tx.update(ref, {
       status: 'cancelled',
@@ -308,6 +339,10 @@ export async function cancelBooking(
         lastReleaseBookingId: bookingId,
         updatedAt: serverTimestamp(),
       });
+    }
+    if (countSnap.exists()) {
+      const sold = Number(countSnap.data().booked) || 0;
+      tx.set(countRef, { booked: Math.max(0, sold - b.qty), updatedAt: serverTimestamp() });
     }
   });
   logAudit('booking.cancel', bookingId, reason?.trim() || undefined);
