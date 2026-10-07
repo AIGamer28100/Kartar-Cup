@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
 import { Magnetic, Stagger, StaggerItem, StartLightsLoader, Ticker } from '../components/motion';
@@ -13,31 +13,26 @@ import { watchBookingEvents } from '../lib/bookings';
 import { usePageMeta } from '../lib/pageMeta';
 import {
   fetchForecast,
-  fetchResults,
   fetchSessions,
   fetchSessionWeather,
   fetchTyreUse,
-  formatLapTime,
   offsetSeconds,
   sessionPhase,
   summariseForecast,
-  teamStandings,
   type ForecastHour,
   type RaceSession,
-  type ResultRow,
   type TyreUse,
   type WeatherSummary,
 } from '../lib/raceData';
 import type { BookingEvent } from '../lib/types';
 import { ticketStatusFor } from './eventsModel';
 
+// Results hub (session tabs + classification tables) only loads once the schedule is known.
+const ResultsHub = lazy(() => import('./results/ResultsHub'));
+
 /* R41 race detail page: everything about one race weekend - the track (length, sectors + elevation in one
  * layout), each session with its weather, completed-session results with faces, team standings and tyres.
  * Every race on the calendar gets one (we follow every race, only hosted ones have booking - R47). */
-
-// Official F1 headshots are hot-linked from OpenF1's URLs (never downloaded or re-hosted). Flip this to
-// false to fall back to number badges everywhere if F1 ever restricts the images (see decisions.md).
-const SHOW_HEADSHOTS = true;
 
 const card = 'rounded-lg border border-line p-4 md:p-5';
 const h2 = H3;
@@ -59,129 +54,6 @@ function Fact({ label, value, hint }: { label: string; value: ReactNode; hint?: 
   );
 }
 
-function Face({ row }: { row: Pick<ResultRow, 'headshotUrl' | 'number' | 'code' | 'colour'> }) {
-  const [broken, setBroken] = useState(false);
-  const ring = { borderColor: row.colour };
-  return SHOW_HEADSHOTS && row.headshotUrl && !broken ? (
-    <img
-      src={row.headshotUrl}
-      alt=""
-      loading="lazy"
-      onError={() => setBroken(true)}
-      style={ring}
-      className="h-10 w-10 shrink-0 rounded-full border-2 bg-raised object-cover object-top"
-    />
-  ) : (
-    <span style={ring} className={`${mono} flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-raised text-sm font-semibold`}>
-      {row.number}
-    </span>
-  );
-}
-
-const fmtRace = (sec: number) => {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec - h * 3600 - m * 60;
-  return `${h}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
-};
-
-function resultText(r: ResultRow, session: RaceSession): string {
-  if (r.dsq) return 'DSQ';
-  if (r.dns) return 'DNS';
-  if (r.dnf) return 'DNF';
-  const isRace = session.name === 'Race' || session.name === 'Sprint';
-  if (isRace) return r.position === 1 && r.time ? fmtRace(r.time) : r.gap || (r.laps ? `${r.laps} laps` : '');
-  return r.time ? formatLapTime(r.time) : r.gap;
-}
-
-function SessionResults({ session }: { session: RaceSession }) {
-  const [rows, setRows] = useState<ResultRow[] | null>(null);
-  const [err, setErr] = useState('');
-  const [tab, setTab] = useState<'drivers' | 'teams'>('drivers');
-
-  useEffect(() => {
-    let live = true;
-    fetchResults(session.key)
-      .then((r) => live && setRows(r))
-      .catch((e: unknown) => live && setErr(e instanceof Error ? e.message : 'Could not load the results.'));
-    return () => {
-      live = false;
-    };
-  }, [session.key]);
-
-  const teams = useMemo(() => (rows ? teamStandings(rows) : []), [rows]);
-  const isRace = session.name === 'Race' || session.name === 'Sprint';
-
-  if (err) return <p role="alert" className="mt-3 text-sm text-accent-text">{err}</p>;
-  if (!rows)
-    return (
-      <p role="status" className="mt-3 flex items-center gap-3 text-sm text-muted">
-        <StartLightsLoader label="Loading results" />
-        Loading results...
-      </p>
-    );
-  if (!rows.length) return <p className="mt-3 text-sm text-muted">No classified results are available for this session.</p>;
-
-  const tabBtn = (id: 'drivers' | 'teams', text: string) => (
-    <button
-      type="button"
-      aria-pressed={tab === id}
-      onClick={() => setTab(id)}
-      className={`press min-h-11 rounded-full border px-4 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-        tab === id ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'
-      }`}
-    >
-      {text}
-    </button>
-  );
-
-  return (
-    <div className="mt-3">
-      <div role="group" aria-label="Result view" className="flex gap-2">
-        {tabBtn('drivers', 'Drivers')}
-        {tabBtn('teams', 'Teams')}
-      </div>
-      {tab === 'drivers' ? (
-        <Stagger as="ol" step={0.03} className="mt-3 divide-y divide-line">
-          {rows.map((r) => (
-            <StaggerItem as="li" kind="slide" key={r.number} className="flex items-center gap-3 py-2">
-              <span className={`${mono} w-7 shrink-0 text-right text-sm text-muted`}>{r.position ?? '-'}</span>
-              <Face row={r} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{r.name}</span>
-                <span className="flex items-center gap-2 text-xs text-muted">
-                  <span aria-hidden="true" className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: r.colour }} />
-                  <span className="truncate">{r.team}</span>
-                </span>
-              </span>
-              <span className={`${mono} shrink-0 text-right text-sm`}>
-                {resultText(r, session)}
-                {isRace && r.points > 0 && <span className="block text-xs text-muted">{r.points} pts</span>}
-              </span>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      ) : (
-        <Stagger as="ol" step={0.04} className="mt-3 divide-y divide-line">
-          {teams.map((t, i) => (
-            <StaggerItem as="li" kind="slide" key={t.team} className="flex items-center gap-3 py-2">
-              <span className={`${mono} w-7 shrink-0 text-right text-sm text-muted`}>{i + 1}</span>
-              <span aria-hidden="true" className="inline-block h-8 w-1.5 shrink-0 rounded-full" style={{ background: t.colour }} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{t.team}</span>
-                <span className={`${mono} text-xs text-muted`}>{t.drivers.join(' / ')}</span>
-              </span>
-              <span className={`${mono} shrink-0 text-sm`}>
-                {isRace ? `${t.points} pts` : t.bestPosition != null ? `Best P${t.bestPosition}` : ''}
-              </span>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      )}
-    </div>
-  );
-}
-
 function SessionRow({
   session,
   weather,
@@ -194,7 +66,6 @@ function SessionRow({
   forecastOffset: number;
 }) {
   const phase = sessionPhase(session);
-  const [open, setOpen] = useState(false);
   const daysAway = (Date.parse(session.startUtc) - Date.now()) / 86_400_000;
 
   let weatherLine = '';
@@ -228,14 +99,6 @@ function SessionRow({
         <p className={`${mono} text-sm text-muted`}>{when(session.startUtc)}</p>
       </div>
       <p className="mt-1 text-sm text-muted">{weatherLine}</p>
-      {phase === 'done' && !session.cancelled && (
-        <details className="mt-2" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="kerb-link kerb-link--rest inline-flex min-h-11 cursor-pointer items-center text-sm text-accent-text">
-            Results and standings
-          </summary>
-          {open && <SessionResults session={session} />}
-        </details>
-      )}
     </StaggerItem>
   );
 }
@@ -250,6 +113,26 @@ function TyreChip({ label, c, tone }: { label: string; c: string; tone: string }
       <p className="text-xs uppercase tracking-widest text-muted">{label}</p>
       <p className={`${mono} text-lg font-semibold`}>{c}</p>
     </StaggerItem>
+  );
+}
+
+/** Results hub placeholder: a tab strip and a few table rows, same rhythm as the real thing. */
+function ResultsSkeleton() {
+  return (
+    <div role="status" aria-busy="true" className="mt-4">
+      <span className="sr-only">Loading results</span>
+      <div className="flex gap-2 border-b border-line pb-2">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} variant="shimmer" className="h-8 w-20" />
+        ))}
+      </div>
+      <Skeleton variant="shimmer" className="mt-4 h-11 w-52" />
+      <div className="mt-4 grid gap-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} variant="shimmer" className="h-11" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -470,6 +353,25 @@ export default function RaceDetailPage() {
       </Reveal>
 
       <Reveal index={3} className="mt-10">
+        <section aria-labelledby="results-heading">
+          <Eyebrow>Classification</Eyebrow>
+          <h2 id="results-heading" className={`mt-2 ${h2}`}>
+            Results and standings
+          </h2>
+          {sessions === undefined && <ResultsSkeleton />}
+          {sessions === null && (
+            <p className="mt-3 text-sm text-muted">Results are not available right now. Try again a little later.</p>
+          )}
+          {sessions && sessions.length === 0 && <p className="mt-3 text-sm text-muted">Results appear shortly after the session ends.</p>}
+          {sessions && sessions.length > 0 && (
+            <Suspense fallback={<ResultsSkeleton />}>
+              <ResultsHub sessions={sessions} />
+            </Suspense>
+          )}
+        </section>
+      </Reveal>
+
+      <Reveal index={4} className="mt-10">
         <h2 className={h2}>Tyres</h2>
         {nomination ? (
           <>
@@ -498,7 +400,7 @@ export default function RaceDetailPage() {
         )}
       </Reveal>
 
-      <Reveal index={4} className="mt-12">
+      <Reveal index={5} className="mt-12">
         <p className="max-w-2xl text-xs text-muted">
           Session, weather and result data: OpenF1 (CC BY-NC-SA 4.0). Forecasts: Open-Meteo. Track facts: formula1.com and
           Wikipedia. Driver photos are loaded from Formula 1's media servers. This is an independent fan site and is not

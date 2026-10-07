@@ -356,6 +356,13 @@ export function teamStandings(rows: ResultRow[]): TeamRow[] {
   );
 }
 
+/** Every lap of a session (driver, lap number, duration): used to find the fastest lap of a race or
+ * sprint. Large payload, so it is only requested for the session a visitor is actually looking at. */
+export type LapRow = { driver_number: number; lap_number: number; lap_duration: number | null };
+export async function fetchLaps(sessionKey: number): Promise<LapRow[]> {
+  return cached<LapRow[]>(`${BASE}/laps?session_key=${sessionKey}`, 24 * HOUR);
+}
+
 /* ---------- tyres actually used ---------- */
 
 export interface TyreUse {
