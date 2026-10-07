@@ -13,7 +13,7 @@ import { CONTACT } from '../config/contact';
 import { DEVELOPER, OPERATOR } from '../config/legal';
 import type { PickMap } from './draft';
 import { formatRemaining, optionLabel, safeWhatsappUrl } from './model';
-import { ActiveKerb, InView } from '../components/motion';
+import { ActiveKerb, InView, KerbDraw } from '../components/motion';
 import { DUR, EASE, SPRING as MOTION_SPRING, staggerDelay, STAGGER } from '../lib/motion';
 
 /** The site's default reveal spring (kept as a named export for existing callers). */
@@ -401,9 +401,13 @@ export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {
   );
 }
 
+/** Section/page eyebrow: mono caps with a short kerb tick that draws in as it appears. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-xs uppercase tracking-widest text-muted">{children}</p>
+    <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+      <KerbDraw className="h-[3px] w-4 shrink-0" delay={0.1} />
+      <span className="min-w-0">{children}</span>
+    </p>
   );
 }
 

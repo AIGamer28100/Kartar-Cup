@@ -38,7 +38,7 @@ export function TicketQr({ bookingId, dim = false }: { bookingId: string; dim?: 
           className={`size-60 rounded-lg border border-line bg-white p-2 ${dim ? 'opacity-40' : ''}`}
         />
       ) : (
-        <Skeleton className="size-60 rounded-lg" />
+        <Skeleton variant="shimmer" className="size-60 rounded-lg" />
       )}
       <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
         <QrCode size={16} weight="regular" aria-hidden="true" />
@@ -107,8 +107,8 @@ export default function TicketPage() {
   if (booking === undefined) {
     return (
       <Shell>
-        <Skeleton className="mt-8 h-10 w-64" />
-        <Skeleton className="mt-6 size-60 rounded-lg" />
+        <Skeleton variant="shimmer" className="mt-8 h-10 w-64" />
+        <Skeleton variant="shimmer" className="mt-6 size-60 rounded-lg" />
       </Shell>
     );
   }
@@ -127,7 +127,7 @@ export default function TicketPage() {
       <Reveal>
         <Eyebrow>{bookingStatusLabel(booking.status)}</Eyebrow>
         <h1 className={`mt-3 ${PageTitle}`}>
-          {event === undefined ? <Skeleton className="h-10 w-72" /> : (event?.title ?? 'Watch party')}
+          {event === undefined ? <Skeleton variant="shimmer" className="h-10 w-72" /> : (event?.title ?? 'Watch party')}
         </h1>
         <p className="mt-2 text-muted">
           {tierLabel} · Qty {booking.qty} · {formatInr(booking.totalInr)}

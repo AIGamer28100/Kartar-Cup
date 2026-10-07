@@ -142,8 +142,8 @@ function EventFlow({
                   </>
                 ) : (
                   <Busy className="flex flex-col gap-3">
-                    <Skeleton className="h-16 w-40" />
-                    <Skeleton className="h-11 w-full" />
+                    <Skeleton variant="shimmer" className="h-16 w-40" />
+                    <Skeleton variant="shimmer" className="h-11 w-full" />
                   </Busy>
                 )}
               </Reveal>

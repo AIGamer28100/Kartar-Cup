@@ -228,7 +228,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                     {settled ? (
                       <CountdownReadout targetMs={targetMs} />
                     ) : (
-                      <Skeleton className="h-16 w-72 max-w-full" />
+                      <Skeleton variant="shimmer" className="h-16 w-72 max-w-full" />
                     )}
                   </div>
                 </div>
