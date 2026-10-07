@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  html {
+    background-color: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* R40: the route transition moves focus to the new page's heading; it is a programmatic target,
+   not an interactive control, so no ring. */
+h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Large displays: scale the rem base so the capped composition grows instead of floating lost. */
+@media (min-width: 1800px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+@media (min-width: 2400px) {
+  html {
+    font-size: 150%;
+  }
+}
+
+@keyframes settings-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[settings-fade_120ms_ease-out\] {
+    animation: none;
+  }
+}
+
+/* R29: hide the scrollbar chrome on the horizontal-scroll gallery strip; native scroll-snap
+   still works with mouse wheel, trackpad and touch — this only hides the visual scrollbar. */
+.scroll-hide {
+  scrollbar-width: none;
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+/* Owner request: no browser scrollbar on the page itself (scrolling still works with wheel, touch, keys).
+   The scroll progress bar at the top of the home page shows position instead. */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}

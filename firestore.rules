@@ -1,0 +1,749 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function verifiedGoogle() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    // ---- Access model ----------------------------------------------------------------------
+    // Super admin: a hosts/{email} document, created ONLY by hand in the console (R18). Full
+    // access to everything; nothing in the app can create, edit or remove one.
+    // Everyone else is RBAC: users/{uid}.roles, changed only by admins (see /users below).
+    function isSuperAdmin() {
+      return verifiedGoogle()
+        && exists(/databases/$(database)/documents/hosts/$(request.auth.token.email.lower()));
+    }
+    function hasRole(r) {
+      return verifiedGoogle()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (r in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles);
+    }
+    function isAdmin() { return isSuperAdmin() || hasRole('admin'); }
+    // Operational host: everything in the host console (quiz, results, podium, bookings, check-in).
+    function isHost() { return isAdmin() || hasRole('host'); }
+    // Bookings and door check-in only: a venue partner who runs tickets but not the quiz.
+    function canRunBookings() { return isHost() || hasRole('venue_host'); }
+    function evDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)).data; }
+    function activeId() { return get(/databases/$(database)/documents/settings/active).data.eventId; }
+    // Server clock (request.time); R13 window plus manual override. Override 'open' can never pass closesAt.
+    function acceptingEntries(eventId) {
+      let ev = evDoc(eventId);
+      return activeId() == eventId
+        && ev.override != 'closed'
+        && request.time < ev.closesAt
+        && (ev.override == 'open' || request.time >= ev.opensAt);
+    }
+    function validWhatsapp(u) {
+      return u is string && (u == ''
+        || u.matches('^https://chat\\.whatsapp\\.com/[A-Za-z0-9_-]{1,64}$')
+        || u.matches('^https://whatsapp\\.com/channel/[A-Za-z0-9_-]{1,64}$'));
+    }
+    // NOTE: per-item label caps for drivers/questions are inlined (1000-expression budget); teams are client-capped.
+    // Question `points` is deliberately NOT range-checked here: the budget is exhausted by a full-size event.
+    // It is host-only-writable (events write = isHost) and scoring clamps anything outside 1..10 to 1.
+    function promptsOk(l, i) {
+      return l.size() <= i || (l[i].prompt.size() <= 80 && l[i].get('hint', '').size() <= 160);
+    }
+    function validEvent(eventId) {
+      let d = request.resource.data;
+      let dr = d.drivers;
+      let qs = d.questions;
+      return d.keys().hasOnly(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','nextQuestionSeq','createdAt','updatedAt'])
+        && d.keys().hasAll(['id','raceId','name','subtitle','circuit','themeId','raceStartUtc','raceDurationMin',
+                'opensAt','closesAt','override','whatsappUrl','teams','drivers','questions','questionIds',
+                'winnerRevealed','tiebreakOverride','createdAt','updatedAt'])
+        && d.id == eventId
+        && d.raceId is string && d.raceId.size() <= 60
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.subtitle is string && d.subtitle.size() <= 120
+        && (d.circuit == null || (d.circuit is string && d.circuit.size() <= 80))
+        && d.themeId is string && d.themeId.size() <= 60
+        && d.raceStartUtc is timestamp
+        && d.raceDurationMin is number && d.raceDurationMin >= 10 && d.raceDurationMin <= 600
+        && d.opensAt is timestamp && d.closesAt is timestamp && d.closesAt > d.opensAt
+        && d.override in ['none','open','closed']
+        && validWhatsapp(d.whatsappUrl)
+        && d.teams is list && d.teams.size() <= 12
+        && d.drivers is list && d.drivers.size() <= 24
+        && d.questions is list && d.questions.size() <= 8
+        && d.questionIds is list && d.questionIds.size() <= 8
+        && d.questionIds.size() == d.questions.size()
+        && (!('nextQuestionSeq' in d) || (d.nextQuestionSeq is int && d.nextQuestionSeq >= 1 && d.nextQuestionSeq <= 1000))
+        && (dr.size() <= 0 || dr[0].label.size() <= 80) && (dr.size() <= 1 || dr[1].label.size() <= 80) && (dr.size() <= 2 || dr[2].label.size() <= 80) && (dr.size() <= 3 || dr[3].label.size() <= 80)
+        && (dr.size() <= 4 || dr[4].label.size() <= 80) && (dr.size() <= 5 || dr[5].label.size() <= 80) && (dr.size() <= 6 || dr[6].label.size() <= 80) && (dr.size() <= 7 || dr[7].label.size() <= 80)
+        && (dr.size() <= 8 || dr[8].label.size() <= 80) && (dr.size() <= 9 || dr[9].label.size() <= 80) && (dr.size() <= 10 || dr[10].label.size() <= 80) && (dr.size() <= 11 || dr[11].label.size() <= 80)
+        && (dr.size() <= 12 || dr[12].label.size() <= 80) && (dr.size() <= 13 || dr[13].label.size() <= 80) && (dr.size() <= 14 || dr[14].label.size() <= 80) && (dr.size() <= 15 || dr[15].label.size() <= 80)
+        && (dr.size() <= 16 || dr[16].label.size() <= 80) && (dr.size() <= 17 || dr[17].label.size() <= 80) && (dr.size() <= 18 || dr[18].label.size() <= 80) && (dr.size() <= 19 || dr[19].label.size() <= 80)
+        && (dr.size() <= 20 || dr[20].label.size() <= 80) && (dr.size() <= 21 || dr[21].label.size() <= 80) && (dr.size() <= 22 || dr[22].label.size() <= 80) && (dr.size() <= 23 || dr[23].label.size() <= 80)
+        && promptsOk(qs, 0) && promptsOk(qs, 1) && promptsOk(qs, 2) && promptsOk(qs, 3)
+        && promptsOk(qs, 4) && promptsOk(qs, 5) && promptsOk(qs, 6) && promptsOk(qs, 7)
+        && d.winnerRevealed is bool
+        && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
+    }
+    // qs[i] is the question config for questionIds[i] (validEvent keeps both lists the same size, same order).
+    // yesno questions take exactly 'yes' or 'no'; team/driver ids stay free-form strings as before.
+    function answerOk(a, q, qs, i) {
+      return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40
+        && (qs[i].get('kind', 'team') != 'yesno' || a[q[i]] in ['yes','no']));
+    }
+    function validEntry(eventId, uid) {
+      let d = request.resource.data;
+      let ev = evDoc(eventId);
+      let q = ev.questionIds;
+      let qs = ev.questions;
+      return d.keys().hasOnly(['uid','name','email','phone','photoURL','provider','answers','submittedAt','createdAt'])
+        && d.keys().hasAll(['uid','name','email','provider','answers','submittedAt','createdAt'])
+        && d.uid == uid
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 60
+        && (!('phone' in d) || (d.phone is string && d.phone.matches('^[+0-9 ]{7,16}$')))
+        && (!('photoURL' in d) || (d.photoURL is string && d.photoURL.matches('^https://lh[0-9]\\.googleusercontent\\.com/.*')))
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && d.email is string && d.email.lower() == request.auth.token.email.lower()
+        && d.provider == 'google'
+        && d.answers is map
+        && d.answers.keys().toSet().hasOnly(q.toSet())
+        && d.answers.keys().toSet().hasAll(q)
+        && answerOk(d.answers, q, qs, 0) && answerOk(d.answers, q, qs, 1) && answerOk(d.answers, q, qs, 2)
+        && answerOk(d.answers, q, qs, 3) && answerOk(d.answers, q, qs, 4) && answerOk(d.answers, q, qs, 5)
+        && answerOk(d.answers, q, qs, 6) && answerOk(d.answers, q, qs, 7)
+        && d.submittedAt == request.time;
+    }
+
+    match /settings/active {
+      allow read: if true;
+      allow write: if isHost() && request.resource.data.keys().hasOnly(['eventId'])
+                   && request.resource.data.eventId is string
+                   && request.resource.data.eventId.size() >= 1 && request.resource.data.eventId.size() <= 60;
+    }
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update: if isHost() && validEvent(eventId);
+      allow delete: if isHost();
+
+      match /results/answers {
+        allow read: if isHost() || evDoc(eventId).winnerRevealed == true;
+        allow write: if isHost();
+      }
+      // Host-controlled big-screen podium reveal state (PD1). R15: never a public/guest route,
+      // however visible the screen it drives — read AND write both host-only, no exceptions.
+      match /screen/state {
+        allow read: if isHost();
+        allow write: if isHost();
+      }
+      match /entries/{uid} {
+        allow get: if (signedIn() && request.auth.uid == uid) || isHost();
+        allow list, delete: if isHost();
+        allow create: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == request.time;
+        allow update: if signedIn() && request.auth.uid == uid && acceptingEntries(eventId)
+                      && validEntry(eventId, uid) && request.resource.data.createdAt == resource.data.createdAt;
+      }
+    }
+    match /hosts/{email} {
+      allow get: if signedIn() && request.auth.token.email.lower() == email;
+      allow write: if false;
+    }
+
+    /* ---------- people and roles (RBAC) ----------
+     * users/{uid}: one profile per signed-in person. They create their own with NO roles and can
+     * edit only their profile fields; roles change only through (a) an admin, or (b) redeeming a
+     * valid invite link for a low-privilege role. Reading the directory is admin-only (R15: a guest
+     * only ever sees their own record).
+     * Roles: admin, host, venue_host, contributor, community_member, marketing, social_admin. */
+    function linkRoles() {
+      return ['community_member', 'contributor', 'marketing', 'venue_host', 'social_admin'];
+    }
+    function allRoles() {
+      return ['admin', 'host', 'community_member', 'contributor', 'marketing', 'venue_host', 'social_admin'];
+    }
+    function newUserOk(uid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['uid', 'email', 'name', 'photoURL', 'createdAt', 'lastSeenAt', 'roles'])
+        && d.keys().hasAll(['uid', 'email', 'name', 'createdAt', 'lastSeenAt', 'roles'])
+        && d.uid == uid
+        && d.email == request.auth.token.email.lower()
+        && d.name is string && d.name.size() <= 120
+        && (!('photoURL' in d) || (d.photoURL is string && d.photoURL.size() <= 500))
+        && d.createdAt == request.time && d.lastSeenAt == request.time
+        && d.roles == [];
+    }
+    function profileUpdateOk() {
+      let a = request.resource.data;
+      return a.diff(resource.data).affectedKeys().hasOnly(['name', 'photoURL', 'lastSeenAt'])
+        && a.name is string && a.name.size() <= 120
+        && (!('photoURL' in a) || (a.photoURL is string && a.photoURL.size() <= 500))
+        && a.lastSeenAt == request.time;
+    }
+    // Redeeming an invite: add exactly the invite's role, nothing else, while the invite is live.
+    function selfJoinOk() {
+      let a = request.resource.data;
+      let b = resource.data;
+      let inv = get(/databases/$(database)/documents/invites/$(a.joinedVia)).data;
+      return a.diff(b).affectedKeys().hasOnly(['roles', 'joinedVia'])
+        && a.joinedVia is string
+        && inv.active == true
+        && inv.expiresAt > request.time
+        && inv.role in linkRoles()
+        && a.roles.toSet() == b.roles.toSet().union([inv.role].toSet());
+    }
+    // An admin edits another person's roles. Only a super admin may grant or remove 'admin'.
+    function adminRoleEditOk(uid) {
+      let a = request.resource.data;
+      let b = resource.data;
+      return uid != request.auth.uid
+        && a.diff(b).affectedKeys().hasOnly(['roles', 'roleUpdatedBy', 'roleUpdatedAt'])
+        && a.roles is list && a.roles.size() <= 8
+        && a.roles.toSet().difference(allRoles().toSet()).size() == 0
+        && a.roleUpdatedBy == request.auth.token.email.lower()
+        && a.roleUpdatedAt == request.time
+        && (isSuperAdmin() || ('admin' in a.roles) == ('admin' in b.roles));
+    }
+    match /users/{uid} {
+      allow get: if verifiedGoogle() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if verifiedGoogle() && request.auth.uid == uid && newUserOk(uid);
+      allow update: if verifiedGoogle()
+        && ((request.auth.uid == uid && (profileUpdateOk() || selfJoinOk()))
+            || (isAdmin() && adminRoleEditOk(uid)));
+      allow delete: if false;
+    }
+
+    /* Invite links: the doc id IS the secret token (long and random), so possession of the link
+     * is what grants the role. Only low-privilege roles can ever be granted this way (never host
+     * or admin). Hosts can mint community_member links; admins can mint any link role. */
+    match /invites/{token} {
+      allow get: if verifiedGoogle();
+      allow list: if isHost();
+      allow create: if isHost()
+        && token.size() >= 24 && token.size() <= 64
+        && request.resource.data.keys().hasOnly(['role', 'createdBy', 'createdAt', 'expiresAt', 'active', 'note'])
+        && request.resource.data.keys().hasAll(['role', 'createdBy', 'createdAt', 'expiresAt', 'active'])
+        && request.resource.data.role in linkRoles()
+        && (request.resource.data.role == 'community_member' || isAdmin())
+        && request.resource.data.createdBy == request.auth.token.email.lower()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(90, 'd')
+        && request.resource.data.active == true
+        && (!('note' in request.resource.data)
+            || (request.resource.data.note is string && request.resource.data.note.size() <= 120));
+      // Revoke only: an invite can be switched off, never edited or turned back on.
+      allow update: if isHost()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+        && request.resource.data.active == false;
+      allow delete: if false;
+    }
+
+    /* ---------- host audit log (append-only) ----------
+     * Hosts record sensitive actions here. Entries can be created and read by hosts only, and can
+     * never be edited or deleted by anyone — so a mistake or a disputed result can be traced. The
+     * actor and timestamp are pinned to the signed-in host and the server clock, so an entry cannot
+     * be backdated or attributed to another host. */
+    match /auditLogs/{logId} {
+      allow read: if isHost();
+      allow create: if canRunBookings()
+        && request.resource.data.keys().hasOnly(['action', 'actor', 'target', 'detail', 'at'])
+        && request.resource.data.keys().hasAll(['action', 'actor', 'target', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.action.size() >= 1 && request.resource.data.action.size() <= 40
+        && request.resource.data.actor == request.auth.token.email.lower()
+        && request.resource.data.target is string && request.resource.data.target.size() <= 120
+        && (!('detail' in request.resource.data)
+            || (request.resource.data.detail is string && request.resource.data.detail.size() <= 300))
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
+
+    /* ---------- booking/ticketing (R23) ---------- */
+
+    function validTier(t) {
+      return t.keys().hasAll(['id', 'label', 'priceInr']) && t.id is string
+        && t.label is string && t.label.size() <= 60
+        && t.priceInr is number && t.priceInr >= 0
+        && (!('capacity' in t) || (t.capacity is int && t.capacity >= 0))
+        && (!('seatsPerTicket' in t) || (t.seatsPerTicket is int && t.seatsPerTicket >= 1 && t.seatsPerTicket <= 10));
+    }
+    function tiersOk(l, i) { return l.size() <= i || validTier(l[i]); }
+    function validBookingEvent(eventId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
+                'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt',
+                'category','hosted','description','cardSpec','cardSeq',
+                'cancelled','cancelledAt','cancelledBy','cancelReason','cancelSettledAt','lastReserveBookingId'])
+        && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
+                'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
+        && d.id == eventId
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.venue is map && d.venue.keys().size() <= 12
+        && d.dateUtc is string && d.dateUtc.size() >= 10 && d.dateUtc.size() <= 40
+        && d.tiers is list && d.tiers.size() <= 10
+        && tiersOk(d.tiers, 0) && tiersOk(d.tiers, 1) && tiersOk(d.tiers, 2) && tiersOk(d.tiers, 3)
+        && tiersOk(d.tiers, 4) && tiersOk(d.tiers, 5) && tiersOk(d.tiers, 6) && tiersOk(d.tiers, 7)
+        && tiersOk(d.tiers, 8) && tiersOk(d.tiers, 9)
+        && d.discounts is list && d.discounts.size() <= 20
+        && d.capacity is int && d.capacity > 0
+        && d.bookedCount is int && d.bookedCount >= 0
+        && d.salesOpen is bool
+        && (!('policy' in d) || (d.policy is string && d.policy.size() <= 300))
+        && (!('category' in d) || d.category in ['f1', 'cup', 'club'])
+        && (!('hosted' in d) || d.hosted is bool)
+        && (!('description' in d) || (d.description is string && d.description.size() <= 600))
+        && (!('cardSpec' in d) || (d.cardSpec is map && d.cardSpec.keys().hasOnly(['widthMm', 'heightMm', 'note'])))
+        && (!('cardSeq' in d) || (d.cardSeq is int && d.cardSeq >= 0 && d.cardSeq <= 100000))
+        && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64))
+        && (!('lastReserveBookingId' in d) || (d.lastReserveBookingId is string && d.lastReserveBookingId.size() <= 64))
+        // Cancelling an event (host action, never a delete: the record stays for audit) closes sales.
+        && (!('cancelled' in d) || d.cancelled is bool)
+        && (d.get('cancelled', false) == false
+            || (d.salesOpen == false && d.cancelledAt is timestamp
+                && d.cancelledBy is string && d.cancelledBy.size() <= 120))
+        && (!('cancelReason' in d) || (d.cancelReason is string && d.cancelReason.size() <= 300))
+        && (!('cancelSettledAt' in d) || d.cancelSettledAt is timestamp);
+    }
+    // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
+    // that a query would return, using that document's `resource.data` (same as `get`). A query
+    // is only granted if EVERY document it could return passes the rule; otherwise the whole
+    // request is denied (queries are never silently filtered by rules). So a plain
+    // `resource.data.<field> == <allowed value>` read rule already scopes `list` correctly for a
+    // client query filtered on that field (e.g. `where('salesOpen','==',true)` or
+    // `where('buyerUid','==',uid)`): every returned doc satisfies the rule, while an unfiltered or
+    // wrongly-filtered query would include a doc that fails it and gets denied outright. No
+    // special `request.query.*` filter-inspection syntax is needed or used. This is the same
+    // family of pattern as this file's existing `entries/{uid}` get/list split, applied to `read`
+    // (get+list together) instead.
+    // A signed-in guest reserving a seat must increment bookedCount as part of the SAME
+    // transaction that creates their booking (see createReservation in src/lib/bookings.ts).
+    // This path is deliberately narrow: it may touch ONLY bookedCount (+updatedAt), the new
+    // value must be a strictly-larger int, and it can never push bookedCount past capacity —
+    // so real capacity is enforced here by rules, not just trusted from the client.
+    function capacityBump(eventId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(after.lastReserveBookingId);
+      return signedIn()
+        && before.salesOpen == true
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt', 'lastReserveBookingId'])
+        && after.bookedCount is int
+        && after.bookedCount > before.bookedCount
+        && after.bookedCount <= before.capacity
+        && after.lastReserveBookingId is string && after.lastReserveBookingId.size() >= 1 && after.lastReserveBookingId.size() <= 64
+        // The bump must come with a NEW booking of this caller for this event, created in the same
+        // transaction, and must equal exactly that booking's seats: no booking, no bump.
+        && !exists(bpath) && existsAfter(bpath)
+        && getAfter(bpath).data.bookingEventId == eventId
+        && getAfter(bpath).data.buyerUid == request.auth.uid
+        && getAfter(bpath).data.status == 'reserved'
+        && after.bookedCount - before.bookedCount == getAfter(bpath).data.qty * getAfter(bpath).data.seatsPerTicket;
+    }
+    // Seat release on cancel. An event write cannot see which booking is involved, so the writer
+    // NAMES it in the transient-but-persisted field `lastReleaseBookingId`, and the rule then
+    // checks that booking directly: it must belong to THIS event, be reserved/paid_mock BEFORE the
+    // write and 'cancelled' AFTER it (getAfter, i.e. the same batch/transaction), and the counter must drop by EXACTLY its qty x seatsPerTicket. Only people who run bookings
+    // (host/admin/venue_host) may release: guests cannot cancel, so they can never lower the counter. Because
+    // the booking is no longer reserved/paid_mock afterwards, the same booking can never release
+    // twice, and the id must change on every release (defence in depth). The booking-cancel rule
+    // (host path) binds the other way (getAfter on the event), so neither write succeeds alone.
+    // Trade-off: the cancelled booking's id (== its QR token) is written to a publicly readable
+    // event doc; that is safe only because a cancelled ticket can never be checked in. The reserve
+    // side (capacityBump) deliberately has NO such id, since a live ticket token must never be
+    // public; so bumping the counter is still not tied to a booking (it can only waste seats up
+    // to capacity, never oversell). The no-Cloud-Functions alternative (derive seats-left from a
+    // count of bookings) was rejected: guests cannot list other people's bookings (R15).
+    function capacityRelease(eventId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(after.lastReleaseBookingId);
+      return canRunBookings()
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt', 'lastReleaseBookingId'])
+        && after.lastReleaseBookingId is string
+        && after.lastReleaseBookingId.size() >= 1 && after.lastReleaseBookingId.size() <= 64
+        && (!('lastReleaseBookingId' in before) || before.lastReleaseBookingId != after.lastReleaseBookingId)
+        && after.bookedCount is int
+        && after.bookedCount >= 0
+        && after.bookedCount < before.bookedCount
+        && exists(bpath)
+        && get(bpath).data.bookingEventId == eventId
+        && (get(bpath).data.status == 'reserved' || get(bpath).data.status == 'paid_mock')
+        && getAfter(bpath).data.status == 'cancelled'
+        && before.bookedCount - after.bookedCount == get(bpath).data.qty * get(bpath).data.get('seatsPerTicket', 1);
+    }
+    match /bookingEvents/{eventId} {
+      // hosted==true lists a closed event publicly ("booking opening soon"); it exposes only what a
+      // sales-open event already does (R15: no per-guest data lives on this doc).
+      // A cancelled event stays readable so people holding tickets can see it was cancelled.
+      allow read: if resource.data.salesOpen == true || resource.data.hosted == true
+        || resource.data.get('cancelled', false) == true || canRunBookings();
+      allow create: if canRunBookings() && validBookingEvent(eventId);
+      // A cancelled event can never be reopened by the app.
+      allow update: if (canRunBookings() && validBookingEvent(eventId)
+            && (resource.data.get('cancelled', false) == false || request.resource.data.get('cancelled', false) == true))
+        || capacityBump(eventId) || capacityRelease(eventId);
+      // Events are never deleted by the app: "cancel" keeps the record for audit. Only a person with
+      // the Firestore console can remove one by hand.
+      allow delete: if false;
+
+      // R45: per-event card designs, stored as small compressed images (no Storage on this plan).
+      // The VIP design is the same for every attendee, so any signed-in guest may read it (their query
+      // must filter kind == 'vip'); Play-card designs reveal the whole deck, so they stay host-only.
+      // A guest sees only THEIR Play card, copied onto their own booking at check-in (R15).
+      // Per-tier ticket counters (see tierWithinCapacity). Public read: they are only counts and
+      // let the page show "N left". Guests may only RAISE a counter (their booking create checks the
+      // exact amount); lowering/resetting is for people who run bookings (cancel, edit).
+      match /tierCounts/{tierId} {
+        allow read: if true;
+        allow create: if signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
+          && validTierCount() && tierBumpFor(eventId, tierId, 0);
+        allow update: if (signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
+            && validTierCount() && tierBumpFor(eventId, tierId, resource.data.booked))
+          || (canRunBookings() && validTierCount());
+        allow delete: if false;
+      }
+
+      match /cards/{cardId} {
+        // get by id: a guest holding a Play card is handed its (unguessable) id on their booking and loads
+        // the design from here instead of a copy. Listing the deck stays host-only (VIP designs excepted).
+        allow get: if signedIn();
+        allow list: if canRunBookings() || (signedIn() && resource.data.kind == 'vip');
+        allow create, update: if canRunBookings() && validCard();
+        allow delete: if canRunBookings();
+      }
+    }
+
+    function validTierCount() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['booked', 'updatedAt', 'lastBookingId']) && d.keys().hasAll(['booked', 'updatedAt'])
+        && d.booked is int && d.booked >= 0 && d.updatedAt == request.time
+        && (!('lastBookingId' in d) || (d.lastBookingId is string && d.lastBookingId.size() <= 64));
+    }
+    // A guest raises a tier counter only together with a NEW booking of theirs for that tier, by
+    // exactly that booking's ticket count (so the counter cannot be griefed without a real booking).
+    function tierBumpFor(eventId, tierId, before) {
+      let d = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(d.lastBookingId);
+      return 'lastBookingId' in d
+        && !exists(bpath) && existsAfter(bpath)
+        && getAfter(bpath).data.bookingEventId == eventId
+        && getAfter(bpath).data.buyerUid == request.auth.uid
+        && getAfter(bpath).data.tierId == tierId
+        && d.booked - before == getAfter(bpath).data.qty;
+    }
+
+    function validCard() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['kind', 'title', 'driverName', 'code', 'number', 'points', 'image', 'imageUrl', 'width', 'height', 'order', 'updatedAt'])
+        && d.keys().hasAll(['kind', 'order', 'updatedAt'])
+        && d.kind in ['vip', 'play']
+        && ('image' in d || 'imageUrl' in d)
+        && (!('image' in d) || (d.image is string && d.image.size() <= 450000))
+        && (!('imageUrl' in d) || (d.imageUrl is string && d.imageUrl.matches('https://.*') && d.imageUrl.size() <= 500))
+        && d.order is int
+        && d.updatedAt == request.time
+        && (d.kind == 'vip' || ('points' in d && 'driverName' in d))
+        && (!('title' in d) || (d.title is string && d.title.size() <= 60))
+        && (!('driverName' in d) || (d.driverName is string && d.driverName.size() <= 60))
+        && (!('code' in d) || (d.code is string && d.code.size() <= 4))
+        && (!('points' in d) || (d.points is int && d.points >= 0 && d.points <= 1000));
+    }
+    // Host assigns the pass number + the drawn Play card onto the guest's booking (a snapshot copy).
+    function validAssignment(d) {
+      return (!('passNumber' in d) || (d.passNumber is int && d.passNumber >= 1 && d.passNumber <= 100000))
+        && (!('playCard' in d) || (d.playCard is map
+              && d.playCard.keys().hasOnly(['cardId', 'driverName', 'code', 'number', 'points', 'image', 'imageUrl'])
+              && d.playCard.keys().hasAll(['cardId', 'driverName', 'points'])
+              && (!('imageUrl' in d.playCard) || (d.playCard.imageUrl is string && d.playCard.imageUrl.matches('https://.*') && d.playCard.imageUrl.size() <= 500))
+              && d.playCard.cardId is string
+              && d.playCard.driverName is string && d.playCard.driverName.size() <= 60
+              && d.playCard.points is int && d.playCard.points >= 0 && d.playCard.points <= 1000
+              && (!('image' in d.playCard) || (d.playCard.image is string && d.playCard.image.size() <= 450000))));
+    }
+
+    function bookingEv(id) { return get(/databases/$(database)/documents/bookingEvents/$(id)).data; }
+    // The price is whatever THIS event's tier says (prices differ per event/tier), never a client
+    // number: the booking names the tier by its index in event.tiers and every money field is
+    // checked against it. A discount must name a live entry of event.discounts by index; percent-style
+    // kinds may differ from the client's rounding by 1 rupee, flat is exact. With no code, no discount.
+    function validPricing(d) {
+      let ev = bookingEv(d.bookingEventId);
+      return d.tierIndex is int && d.tierIndex >= 0 && d.tierIndex < ev.tiers.size()
+        && ev.tiers[d.tierIndex].id == d.tierId
+        && d.unitPriceInr == ev.tiers[d.tierIndex].priceInr
+        && d.seatsPerTicket == ev.tiers[d.tierIndex].get('seatsPerTicket', 1)
+        && (!('discountCode' in d)
+            ? (d.discountAmountInr == 0 && !('discountIndex' in d))
+            : validDiscount(d, ev.discounts[d.discountIndex], ev.tiers[d.tierIndex].priceInr * d.qty));
+    }
+    function validDiscount(d, disc, gross) {
+      return d.discountIndex is int && d.discountIndex >= 0
+        && disc.get('code', '').lower() == d.discountCode.lower()
+        && disc.active == true
+        && d.qty >= disc.get('minQty', 0)
+        && (!('validFromUtc' in disc) || request.time >= disc.validFromUtc)
+        && (!('validToUtc' in disc) || request.time <= disc.validToUtc)
+        && (disc.kind == 'flat'
+            ? d.discountAmountInr == math.floor(disc.value < gross ? disc.value : gross)
+            : (disc.kind in ['percent', 'earlybird', 'group']
+                && d.discountAmountInr >= math.floor(gross * disc.value / 100)
+                && d.discountAmountInr <= math.ceil(gross * disc.value / 100)));
+    }
+    // Per-tier capacity: bookingEvents/{id}/tierCounts/{tierId}.booked counts TICKETS sold for the tier.
+    // The booking and its counter bump commit together; the counter must rise by exactly qty and may
+    // not pass the tier's capacity (0 / absent = unlimited, event capacity still applies).
+    function tierWithinCapacity(d) {
+      let cpath = /databases/$(database)/documents/bookingEvents/$(d.bookingEventId)/tierCounts/$(d.tierId);
+      let afterCount = getAfter(cpath).data.booked;
+      return afterCount == (exists(cpath) ? get(cpath).data.booked : 0) + d.qty
+        && (bookingEv(d.bookingEventId).tiers[d.tierIndex].get('capacity', 0) == 0
+            || afterCount <= bookingEv(d.bookingEventId).tiers[d.tierIndex].capacity);
+    }
+    function validBooking(bookingId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
+                'qty','seatsPerTicket','unitPriceInr','discountCode','discountIndex','tierIndex','discountAmountInr','totalInr','status','qrToken',
+                'createdAt','paidAt','checkedInAt','checkedInBy','checkedInCount'])
+        && d.keys().hasAll(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
+                'tierIndex','qty','seatsPerTicket','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
+        && d.id == bookingId
+        // The QR token is a separate random secret: the booking id can then be named on public counters.
+        && d.qrToken is string && d.qrToken.size() >= 24 && d.qrToken.size() <= 64
+        && d.buyerUid == request.auth.uid
+        && d.buyerName is string && d.buyerName.size() >= 1 && d.buyerName.size() <= 80
+        && d.buyerEmail is string && d.buyerEmail.lower() == request.auth.token.email.lower()
+        && d.tierId is string
+        && d.qty is int && d.qty > 0 && d.qty <= 10
+        && d.seatsPerTicket is int && d.seatsPerTicket > 0 && d.seatsPerTicket <= 10
+        && d.unitPriceInr is number && d.unitPriceInr >= 0
+        && d.discountAmountInr is number && d.discountAmountInr >= 0
+        && d.totalInr is number && d.totalInr >= 0
+        && d.totalInr == d.unitPriceInr * d.qty - d.discountAmountInr
+        && d.status == 'reserved'
+        && !('paidAt' in d) && !('checkedInAt' in d) && !('checkedInBy' in d) && !('checkedInCount' in d)
+        && bookingEv(d.bookingEventId).salesOpen == true
+        && validPricing(d)
+        && tierWithinCapacity(d)
+        && getAfter(/databases/$(database)/documents/bookingEvents/$(d.bookingEventId)).data.bookedCount
+             == bookingEv(d.bookingEventId).bookedCount + d.qty * d.seatsPerTicket
+        && d.createdAt == request.time;
+    }
+    // Cancel: status -> 'cancelled' from reserved/paid_mock (and checked_in, but only once the whole
+    // event was cancelled), never from cancelled, so no un-cancel. Touches only status + cancel* + refund.
+    // refund is 'none' for a reserved (unpaid) booking, else 'mock_refunded' (R23: a label, no real
+    // money). cancelledBy is the cancelling host's email.
+    function cancelShape(by) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelReason', 'refund'])
+        && (before.status == 'reserved' || before.status == 'paid_mock'
+            || (before.status == 'checked_in' && get(/databases/$(database)/documents/bookingEvents/$(before.bookingEventId)).data.get('cancelled', false) == true))
+        && after.status == 'cancelled'
+        && after.cancelledAt == request.time
+        && after.cancelledBy == by
+        && (!('cancelReason' in after) || (after.cancelReason is string && after.cancelReason.size() <= 200))
+        && after.refund == (before.status == 'reserved' ? 'none' : 'mock_refunded');
+    }
+    // Every cancel must come with the matching seat release on the event, in the same batch:
+    // bookedCount drops by exactly qty and lastReleaseBookingId names this booking (host included).
+    function releasesSeats(bookingId) {
+      let evPath = /databases/$(database)/documents/bookingEvents/$(resource.data.bookingEventId);
+      return getAfter(evPath).data.bookedCount == get(evPath).data.bookedCount - resource.data.qty * resource.data.get('seatsPerTicket', 1)
+        && getAfter(evPath).data.lastReleaseBookingId == bookingId;
+    }
+    match /bookings/{bookingId} {
+      // R15: get() and list() share this rule. A guest querying `where('buyerUid','==',uid)`
+      // gets every matching doc back (each passes); a guest attempting an unfiltered/other-uid
+      // query is denied outright because at least one candidate document would fail the check
+      // (see the note above `bookingEvents` for why this scopes `list` safely).
+      allow read: if signedIn() && (resource.data.buyerUid == request.auth.uid || canRunBookings());
+
+      allow create: if verifiedGoogle() && validBooking(bookingId);
+
+      allow update: if signedIn()
+        && ((canRunBookings() && cancelShape(request.auth.token.email.lower()) && releasesSeats(bookingId))
+            || (resource.data.buyerUid == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
+              && resource.data.status == 'reserved'
+              && request.resource.data.status == 'paid_mock'
+              && request.resource.data.paidAt == request.time)
+            || (canRunBookings()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passNumber', 'playCard'])
+              && (resource.data.status == 'paid_mock' || resource.data.status == 'checked_in')
+              && validAssignment(request.resource.data))
+            || (canRunBookings()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkedInAt', 'checkedInBy', 'checkedInCount'])
+              && resource.data.status == 'paid_mock'
+              && request.resource.data.status in ['paid_mock', 'checked_in']
+              && (request.resource.data.status == 'paid_mock' || request.resource.data.checkedInAt == request.time)
+              && request.resource.data.checkedInBy == request.auth.token.email.lower()
+              && (!('checkedInCount' in request.resource.data)
+                  || (request.resource.data.checkedInCount is int
+                      && request.resource.data.checkedInCount > resource.data.get('checkedInCount', 0)
+                      && request.resource.data.checkedInCount <= resource.data.qty * resource.data.get('seatsPerTicket', 1)))));
+
+      allow delete: if false;
+    }
+
+    /* ---------- Partners, stories and the legal-document register (R26/R27: only what the host enters) ----------
+     * partners + stories: the public reads PUBLISHED docs only (queries must filter published == true); hosts write.
+     * partnerPrivate: contact + contract notes for the same partner id, hosts only (never public).
+     * legalDocs: links to where each agreement/licence/permission is stored; admins only. */
+    function httpsUrl(u) { return u is string && u.matches('https://.*') && u.size() <= 500; }
+    function validPartner() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'kind', 'blurb', 'website', 'logoUrl', 'order', 'published', 'updatedAt'])
+        && d.keys().hasAll(['name', 'kind', 'published', 'updatedAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.kind in ['sponsor', 'venue', 'media', 'community', 'supplier']
+        && d.published is bool
+        && d.updatedAt == request.time
+        && (!('blurb' in d) || (d.blurb is string && d.blurb.size() <= 400))
+        && (!('website' in d) || httpsUrl(d.website))
+        && (!('logoUrl' in d) || httpsUrl(d.logoUrl))
+        && (!('order' in d) || d.order is int);
+    }
+    match /partners/{partnerId} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validPartner();
+      allow delete: if isHost();
+    }
+    match /partnerPrivate/{partnerId} {
+      allow read, delete: if isHost();
+      allow create, update: if isHost()
+        && request.resource.data.keys().hasOnly(['contactName', 'contactEmail', 'contactPhone', 'since', 'terms', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (!('terms' in request.resource.data) || (request.resource.data.terms is string && request.resource.data.terms.size() <= 1000));
+    }
+    function validStory() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['title', 'summary', 'body', 'coverUrl', 'date', 'tag', 'published', 'updatedAt'])
+        && d.keys().hasAll(['title', 'date', 'tag', 'published', 'updatedAt'])
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.date is string && d.date.size() == 10
+        && d.tag in ['recap', 'event', 'community']
+        && d.published is bool
+        && d.updatedAt == request.time
+        && (!('summary' in d) || (d.summary is string && d.summary.size() <= 300))
+        && (!('body' in d) || (d.body is string && d.body.size() <= 6000))
+        && (!('coverUrl' in d) || httpsUrl(d.coverUrl));
+    }
+    match /stories/{storyId} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validStory();
+      allow delete: if isHost();
+    }
+    function validLegalDoc() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['title', 'category', 'url', 'where', 'partnerId', 'signedOn', 'expiresOn', 'notes', 'updatedAt'])
+        && d.keys().hasAll(['title', 'category', 'url', 'updatedAt'])
+        && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
+        && d.category in ['agreement', 'licence', 'permission', 'policy', 'registration', 'other']
+        && httpsUrl(d.url)
+        && d.updatedAt == request.time
+        && (!('where' in d) || (d.where is string && d.where.size() <= 120))
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500));
+    }
+    match /legalDocs/{docId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && validLegalDoc();
+    }
+
+    /* ---------- Karter Cup competitive layer (PRD s24) ----------
+     * Hosts (isHost: host, admin, super admin) write everything. The public reads only PUBLISHED
+     * seasons, their published rounds, and that season's drivers/results/standings. List queries
+     * on seasons and rounds must carry where('published','==',true). Standings are precomputed
+     * by the host app (no Cloud Functions). Validators are deliberately shallow (top-level shape,
+     * sizes, element checks only for the short points table) to stay inside the rules budget;
+     * writers are trusted hosts and the client sanitises on read. */
+    function cupSeasonPath(sid) { return /databases/$(database)/documents/cupSeasons/$(sid); }
+    function cupSeasonPublished(sid) { return get(cupSeasonPath(sid)).data.published == true; }
+    function ptOk(l, i) { return l.size() <= i || (l[i] is int && l[i] >= 0 && l[i] <= 1000); }
+    function validPoints(l) {
+      return l is list && l.size() >= 1 && l.size() <= 20
+        && ptOk(l, 0) && ptOk(l, 1) && ptOk(l, 2) && ptOk(l, 3) && ptOk(l, 4)
+        && ptOk(l, 5) && ptOk(l, 6) && ptOk(l, 7) && ptOk(l, 8) && ptOk(l, 9)
+        && ptOk(l, 10) && ptOk(l, 11) && ptOk(l, 12) && ptOk(l, 13) && ptOk(l, 14)
+        && ptOk(l, 15) && ptOk(l, 16) && ptOk(l, 17) && ptOk(l, 18) && ptOk(l, 19);
+    }
+    function validCupSeason() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'year', 'status', 'pointsTable', 'fastestLapBonus', 'published', 'updatedAt'])
+        && d.keys().hasAll(['name', 'year', 'status', 'pointsTable', 'fastestLapBonus', 'published', 'updatedAt'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.year is int && d.year >= 2000 && d.year <= 2100
+        && d.status in ['upcoming', 'active', 'completed']
+        && validPoints(d.pointsTable)
+        && d.fastestLapBonus is int && d.fastestLapBonus >= 0 && d.fastestLapBonus <= 10
+        && d.published is bool
+        && d.updatedAt == request.time;
+    }
+    function validCupDriver() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'number', 'team', 'active'])
+        && d.keys().hasAll(['name', 'active'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+        && (!('number' in d) || (d.number is int && d.number >= 0 && d.number <= 999))
+        && (!('team' in d) || (d.team is string && d.team.size() >= 1 && d.team.size() <= 60))
+        && d.active is bool;
+    }
+    function validCupRound() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'date', 'venue', 'order', 'status', 'published'])
+        && d.keys().hasAll(['name', 'date', 'order', 'status', 'published'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && (!('venue' in d) || (d.venue is string && d.venue.size() <= 80))
+        && d.order is int && d.order >= 0 && d.order <= 1000
+        && d.status in ['scheduled', 'completed']
+        && d.published is bool;
+    }
+    function validCupResult() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['order', 'dnf', 'fastestLap', 'updatedAt'])
+        && d.keys().hasAll(['order', 'updatedAt'])
+        && d.order is list && d.order.size() <= 100
+        && (!('dnf' in d) || (d.dnf is list && d.dnf.size() <= 100))
+        && (!('fastestLap' in d) || (d.fastestLap is string && d.fastestLap.size() <= 40))
+        && d.updatedAt == request.time;
+    }
+    function validCupStandings() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['drivers', 'teams', 'roundsCounted', 'updatedAt'])
+        && d.keys().hasAll(['drivers', 'teams', 'roundsCounted', 'updatedAt'])
+        && d.drivers is list && d.drivers.size() <= 100
+        && d.teams is list && d.teams.size() <= 100
+        && d.roundsCounted is int && d.roundsCounted >= 0 && d.roundsCounted <= 1000
+        && d.updatedAt == request.time;
+    }
+    match /cupSeasons/{sid} {
+      allow read: if resource.data.published == true || isHost();
+      allow create, update: if isHost() && validCupSeason();
+      allow delete: if false;
+
+      match /drivers/{did} {
+        allow read: if cupSeasonPublished(sid) || isHost();
+        allow create, update: if isHost() && validCupDriver();
+        allow delete: if isHost();
+      }
+      match /rounds/{rid} {
+        allow read: if (resource.data.published == true && cupSeasonPublished(sid)) || isHost();
+        allow create, update: if isHost() && validCupRound();
+        allow delete: if isHost();
+        match /results/{resId} {
+          allow read: if (resId == 'final' && cupSeasonPublished(sid)
+              && get(/databases/$(database)/documents/cupSeasons/$(sid)/rounds/$(rid)).data.published == true)
+            || isHost();
+          allow create, update: if isHost() && resId == 'final' && validCupResult();
+          allow delete: if isHost();
+        }
+      }
+      match /standings/{stId} {
+        allow read: if cupSeasonPublished(sid) || isHost();
+        allow create, update: if isHost() && stId == 'current' && validCupStandings();
+        allow delete: if isHost();
+      }
+    }
+  }
+}

@@ -1,0 +1,565 @@
+@theme {
+  /* R42 / owner's pick (2026-10-03): "Palette B" - navy neutrals, red for actions, gold ONLY for rewards.
+   * Contrast (checked): ink on base 18:1, muted on base 8:1, white on accent 5.05:1, accent-text on base 6.1:1,
+   * gold on base 12.7:1. Never put plain `accent` (the fill red) on text over navy - use accent-text. */
+  --color-base: #070b14;
+  --color-raised: #0f1626;
+  --color-surface: #172138;
+  --color-line: #232b3d;
+  --color-ink: #f2f5fa;
+  --color-muted: #9aa6bd;
+  /* Action red: button fills, borders, bars, focus rings. */
+  --color-accent: #d81e36;
+  --color-accent-ink: #ffffff;
+  /* Action red as TEXT or icon on navy (links, labels, errors). */
+  --color-accent-text: #ff4d61;
+  /* Reward gold: points, badges, tiers, leaderboard numerals ONLY (never buttons, links or chrome). */
+  --color-gold: #ffc83d;
+  /* Semantic data colours, never chrome: info/tint and gain/success. */
+  --color-info: #6d92ff;
+  --color-ok: #3ddc97;
+  /* Yellow-flag / caution data colour (race state), not a reward colour. */
+  --color-warn: #f5b942;
+  /* Chequered-flag racing line squares (TrackMap). */
+  --color-chequer-light: #ffffff;
+  --color-chequer-dark: #000000;
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  /* Condensed italic, used only for round numbers, points and big watermark numerals. */
+  --font-num: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+
+  --text-hero: clamp(2.75rem, 5.2vw, 4.75rem);
+  --text-hero--line-height: 1;
+  --text-hero--letter-spacing: -0.045em;
+  --text-h2: clamp(1.875rem, 3vw, 2.625rem);
+  --text-h2--line-height: 1.08;
+  --text-h2--letter-spacing: -0.035em;
+  --text-h3: clamp(1.125rem, 1.4vw, 1.375rem);
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.015em;
+  --text-lead: clamp(1.0625rem, 1.2vw, 1.25rem);
+  --text-lead--line-height: 1.6;
+  --text-stat: clamp(2.25rem, 4vw, 3.5rem);
+  --text-stat--line-height: 1;
+  --text-label: 0.75rem;
+  --text-label--letter-spacing: 0.1em;
+}
+
+/*
+ * R26: a single secondary "brand gradient" accent — a light nod to the real Karter Cup
+ * palette (black base, checkered ring, red-to-orange gradient accent), not a palette swap.
+ * Starts at the existing --color-accent hue and warms toward orange so it reads as a natural
+ * extension, not a new colour system. Used sparingly: a couple of accent surfaces + one divider.
+ */
+:root {
+  --gradient-brand: linear-gradient(135deg, hsl(356 72% 52%), hsl(24 90% 55%));
+}
+
+/*
+ * Motion tokens (CSS mirror of src/lib/motion.ts; motion.test.ts keeps them in sync). Names are
+ * prefixed --motion-* so they never collide with Tailwind's own --ease-* theme variables, which the
+ * host console still uses unchanged.
+ */
+:root {
+  --motion-instant: 80ms;
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-ease-launch: cubic-bezier(0.16, 1, 0.3, 1);
+  /* R44: the owner's TrackMap outline draw duration. Deliberate; do not shorten. */
+  --track-draw-duration: 5s;
+  /* Kerb stripe (red / white blocks) used by link underlines, nav indicators and route sweeps. */
+  --kerb-stripes: repeating-linear-gradient(
+    90deg,
+    var(--color-accent) 0 8px,
+    var(--color-ink) 8px 16px
+  );
+}
+
+/* Kerb underline for links (public pages): a red/white kerb strip that sweeps in from the left on
+   hover/focus, transform-only. Reduced motion: it simply appears. */
+.kerb-link {
+  position: relative;
+  text-decoration: none;
+}
+.kerb-link::after {
+  position: absolute;
+  right: 0;
+  bottom: 0.45rem;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  content: "";
+  background-image: var(--kerb-stripes);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--motion-base) var(--motion-ease-out);
+  pointer-events: none;
+}
+.kerb-link:hover::after,
+.kerb-link:focus-visible::after,
+.kerb-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+/* Underline-style links that keep a resting underline: the kerb strip replaces it on hover. */
+.kerb-link--rest {
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--motion-fast) linear;
+}
+.kerb-link--rest:hover,
+.kerb-link--rest:focus-visible {
+  text-decoration-color: transparent;
+}
+
+/* Native <dialog> open: quick scale/fade in, backdrop fades (gallery lightbox). */
+.kc-dialog[open] {
+  animation: kc-dialog-in var(--motion-base) var(--motion-ease-out);
+}
+.kc-dialog[open]::backdrop {
+  animation: kc-fade-in var(--motion-base) linear;
+}
+@keyframes kc-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+}
+@keyframes kc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kc-dialog[open],
+  .kc-dialog[open]::backdrop {
+    animation: none;
+  }
+}
+
+/* Small chequered-flag strip (podium edges and header). Static. */
+.podium-chequer {
+  background-color: var(--color-chequer-light);
+  background-image: repeating-conic-gradient(var(--color-chequer-dark) 0 25%, transparent 0 50%);
+  background-size: 8px 8px;
+}
+
+/* Press feedback for any tappable surface: quick compress on press, spring-ish release. */
+.press {
+  transition: transform var(--motion-fast) var(--motion-ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+  transition-duration: var(--motion-instant);
+}
+
+/* Skeleton shimmer (public pages): a light band sweeps across, transform-only. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgb(255 255 255 / 0.06) 45%,
+    rgb(255 255 255 / 0.1) 50%,
+    rgb(255 255 255 / 0.06) 55%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: kc-shimmer 1.4s var(--motion-ease-in-out) infinite;
+}
+@keyframes kc-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Start-light loader: five red lights fill in sequence, hold, then reset (a route chunk is loading).
+   Limited iterations (WCAG 2.2.2): after ~5s it holds all five lit, still. */
+.start-lights {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+.start-lights > span {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.start-lights > span::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  content: "";
+  background: var(--color-accent);
+  box-shadow: 0 0 12px 2px rgb(216 30 54 / 0.55);
+  opacity: 0;
+  animation: kc-light 1.6s linear 3 forwards;
+}
+.start-lights > span:nth-child(2)::after { animation-delay: 0.12s; }
+.start-lights > span:nth-child(3)::after { animation-delay: 0.24s; }
+.start-lights > span:nth-child(4)::after { animation-delay: 0.36s; }
+.start-lights > span:nth-child(5)::after { animation-delay: 0.48s; }
+@keyframes kc-light {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  12%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Speed streaks behind fast-moving graphics (route sweep, hero accent). */
+@keyframes kc-streak {
+  from {
+    transform: translateX(-30%) scaleX(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(130%) scaleX(1.2);
+    opacity: 0;
+  }
+}
+
+/* Gentle idle drift for decorative racing-line glows (opacity only). */
+@keyframes kc-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kerb-link::after,
+  .kerb-link--rest,
+  .press,
+  .press:active {
+    transition: none;
+  }
+  .press:active {
+    transform: none;
+  }
+  .shimmer::after {
+    animation: none;
+    opacity: 0;
+  }
+  .start-lights > span::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+.bg-gradient-brand {
+  background-image: var(--gradient-brand);
+}
+
+.text-gradient-brand {
+  background-image: var(--gradient-brand);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/*
+ * R32: /events card grid — a CSS-only "3D" presentation of each race's REAL 2D circuit outline
+ * (TrackMap renders the validated geometry; nothing here invents elevation/depth data, it only
+ * tilts the flat SVG in perspective space for a premium/extruded feel). Static perspective tilt
+ * by default; hover/entrance easing is transform-only and skipped under reduced motion. Flattens
+ * on narrow screens where perspective tricks read poorly on touch (handled via Tailwind classes
+ * on the element, not here — this file only holds the shared tilt surface + hover easing).
+ */
+.track-tilt-stage {
+  perspective: 1400px;
+}
+.track-tilt {
+  transform: rotateX(18deg) rotateZ(-1deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 14px 16px rgb(0 0 0 / 0.45));
+  transition:
+    transform 400ms ease,
+    filter 400ms ease;
+  will-change: transform;
+}
+.group:hover .track-tilt {
+  transform: rotateX(10deg) rotateZ(-1deg) translateY(-3px) scale(1.02);
+  filter: drop-shadow(0 20px 22px rgb(0 0 0 / 0.5));
+}
+.track-tilt-featured {
+  transform: rotateX(20deg) rotateZ(-2deg);
+}
+.group:hover .track-tilt-featured {
+  transform: rotateX(12deg) rotateZ(-1deg) translateY(-4px) scale(1.015);
+}
+@media (max-width: 767px) {
+  .track-tilt,
+  .track-tilt-featured {
+    transform: rotateX(10deg);
+  }
+  .group:hover .track-tilt,
+  .group:hover .track-tilt-featured {
+    transform: rotateX(10deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Leftover bug: the hover rules used to jump to the pre-fix rotateX(28deg), reintroducing the
+     exact overflow the base-rotation reduction (28deg->18deg, 32deg->20deg) was meant to fix.
+     Under reduced motion the tilt should just hold still at its own base angle, never escalate. */
+  .track-tilt,
+  .group:hover .track-tilt {
+    transition: none;
+    transform: rotateX(18deg) rotateZ(-1deg);
+  }
+  .track-tilt-featured,
+  .group:hover .track-tilt-featured {
+    transition: none;
+    transform: rotateX(20deg) rotateZ(-2deg);
+  }
+}
+
+/* Subtle checkered-motif divider strip. Sparing use only (1-2 spots): under the hero, or as a
+   section divider. Static tile, no motion — respects prefers-reduced-motion trivially. */
+.divider-checker {
+  height: 0.5rem;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--color-line) 0,
+      var(--color-line) 0.5rem,
+      transparent 0.5rem,
+      transparent 1rem
+    ),
+    var(--gradient-brand);
+  background-size:
+    1rem 1rem,
+    100% 100%;
+  background-blend-mode: overlay;
+  opacity: 0.85;
+}
+
+/* Track outline draw-on (TrackMap). pathLength=1 on the path, so dash units are 0..1 of the lap.
+   Linear: ease-out front-loaded the motion. Reduced motion = no animation, fully drawn. */
+@keyframes track-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .track-draw {
+    stroke-dasharray: 1 1;
+    animation: track-draw var(--track-draw-duration) linear forwards;
+  }
+}
+
+/* Chequered racing line (TrackMap ChequeredLine): 10-unit squares, 20-unit period, so offsetting
+   by one period per cycle loops seamlessly. Static (still a chequered line) under reduced motion. */
+@keyframes track-chequered {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+.track-chequered {
+  stroke-dasharray: 10 10;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .track-chequered {
+    animation: track-chequered 0.5s linear infinite;
+  }
+}
+
+.race-state-backdrop {
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+.race-state-backdrop::before {
+  position: absolute;
+  inset: -35% -40%;
+  content: "";
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgb(255 255 255 / 0.035) 47%,
+    rgb(255 255 255 / 0.14) 50%,
+    rgb(255 255 255 / 0.035) 53%,
+    transparent 60%
+  );
+  transform: translate3d(-22%, 0, 0) skewX(-8deg);
+}
+.race-state-backdrop--wave::before {
+  opacity: 1;
+  animation: race-flag-wave 4.2s cubic-bezier(0.77, 0, 0.175, 1) infinite
+    alternate;
+}
+.race-state-backdrop--start::before {
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgb(248 113 113 / 0.16),
+    transparent 66%
+  );
+  opacity: 1;
+  transform: none;
+  animation: race-start-glow 1.2s ease-in-out infinite alternate;
+}
+.race-state-backdrop--chequered::before {
+  inset: 0;
+  opacity: 0.32;
+  background-image: repeating-conic-gradient(
+    rgb(255 255 255 / 0.2) 0% 25%,
+    transparent 0% 50%,
+    rgb(0 0 0 / 0.22) 0% 75%,
+    transparent 0%
+  );
+  background-size: 12px 12px;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0 14px,
+    transparent 14px calc(100% - 14px),
+    #000 calc(100% - 14px)
+  );
+  transform: translate3d(-10px, 0, 0);
+  animation: race-checker-wave 5.5s cubic-bezier(0.77, 0, 0.175, 1) infinite
+    alternate;
+}
+
+@keyframes race-flag-wave {
+  from {
+    transform: translate3d(-22%, -1%, 0) skewX(-8deg);
+  }
+  to {
+    transform: translate3d(22%, 1%, 0) skewX(-3deg);
+  }
+}
+@keyframes race-start-glow {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+@keyframes race-checker-wave {
+  from {
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    transform: translate3d(10px, 0, 0);
+  }
+}
+
+.green-flag-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    rgb(61 220 151 / 0.1) 22%,
+    rgb(61 220 151 / 0.22) 52%,
+    rgb(61 220 151 / 0.34) 100%
+  );
+  animation: green-flag-fade 10s ease-out forwards;
+}
+.green-flag-transition--viewport {
+  position: fixed;
+  z-index: 50;
+}
+@keyframes green-flag-fade {
+  from {
+    opacity: 0.82;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.lights-out-phase-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: radial-gradient(
+    circle at center,
+    rgb(248 113 113 / 0.2),
+    rgb(127 29 29 / 0.1) 42%,
+    transparent 76%
+  );
+  pointer-events: none;
+  animation: lights-out-phase 900ms ease-out forwards;
+}
+@keyframes lights-out-phase {
+  0% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-state-backdrop--wave::before,
+  .race-state-backdrop--start::before,
+  .race-state-backdrop--chequered::before,
+  .green-flag-transition {
+    animation: none;
+  }
+  .green-flag-transition {
+    opacity: 0.28;
+  }
+  .lights-out-phase-transition {
+    animation: none;
+    opacity: 0.18;
+  }
+}
+
+/*
+ * TrackLayout (race detail page): dark glass card behind the 3D circuit. Backdrop = two soft
+ * token-tinted glows over raised navy plus a faint grid that fades out toward the edges.
+ */
+.tl-backdrop {
+  background:
+    radial-gradient(70% 55% at 88% -8%, color-mix(in srgb, var(--color-accent) 15%, transparent), transparent 70%),
+    radial-gradient(60% 55% at -5% 108%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--color-raised), var(--color-base) 75%);
+}
+.tl-backdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.55;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(75% 60% at 50% 35%, #000 20%, transparent 80%);
+}
+

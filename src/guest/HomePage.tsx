@@ -1,0 +1,479 @@
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { DUR, EASE } from "../lib/motion";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Images,
+  InstagramLogo,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
+import { RaceStateBackdrop, RaceStateDisplay, type PodiumDriver, type RaceState } from "../components/RaceStateDisplay";
+import { fetchPodiumForRace } from "../lib/podium";
+import { computeRaceState } from "../lib/raceState";
+import { raceStartFor } from "../lib/f1api";
+import Divider from "../components/Divider";
+import { buttonCls } from "../components/Button";
+import Skeleton, { PageSkeleton } from "../components/Skeleton";
+import TrackMap from "../components/TrackMap";
+import { ALL_RACES, nextRace } from "../config/calendar";
+import { trackForRace } from "../config/tracks";
+import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
+import { istReadout } from "./model";
+import { useCommunityLink } from "../lib/useCommunityLink";
+import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
+import ChampionshipSection from "./Championship";
+import QuizBanner from "./QuizBanner";
+import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
+import { KerbDraw, Magnetic, Stagger, StaggerItem, SplitWords } from "../components/motion";
+import { useGuestSession } from "./useGuestSession";
+import { nextSession } from "../lib/f1api";
+import { useSchedule } from "../lib/useSchedule";
+import { usePageMeta } from "../lib/pageMeta";
+import { watchBookingEvents } from "../lib/bookings";
+import type { BookingEvent } from "../lib/types";
+import { nextHostedRace } from "./eventsModel";
+
+const GuestApp = lazy(() => import("./GuestApp"));
+
+const INSTAGRAM_CUP = "https://www.instagram.com/thekartercup/";
+const INSTAGRAM_CLUB = "https://www.instagram.com/thekarterclub/";
+
+const linkCls =
+  "kerb-link kerb-link--rest inline-flex min-h-11 w-fit items-center gap-2 text-ink";
+
+/** Section heading used across the community page (distinct from the quiz's H1 to keep the
+ * page's own type rhythm — same clamp scale, reused, not duplicated ad hoc). */
+function SectionHeading({
+  eyebrow,
+  children,
+}: {
+  eyebrow: string;
+  children: string;
+}) {
+  return (
+    <Reveal>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className={`mt-3 ${H2}`}>{children}</h2>
+    </Reveal>
+  );
+}
+
+/** R26: the checkered-motif divider is used sparingly (1-2 spots total) — under the hero, and
+ * once more as the single accent strip before "Join the community". Every other section break
+ * uses the plain Divider, not the brand motif. */
+function CheckerDivider() {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className="divider-checker my-16 w-full origin-left rounded-full md:my-24 lg:my-28"
+      aria-hidden="true"
+      initial={reduce ? false : { scaleX: 0 }}
+      whileInView={{ scaleX: 1 }}
+      viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+      transition={reduce ? { duration: 0 } : { duration: DUR.slow + 0.4, ease: EASE.launch }}
+    />
+  );
+}
+
+function PlainDivider() {
+  return <Divider className="my-16 md:my-24 lg:my-28" />;
+}
+
+/** Merged hero + "what's on next", per the user's explicit layout: hero text at 30-40% width,
+ * the next race (wall clock, track, details) at 60-70%, side by side at the TOP of the page —
+ * height-matched to the hero's own natural height (the right column scales its content down to
+ * fit, never the other way around). QuizBanner is NOT inside this row (kept below, full-width)
+ * so height-matching stays predictable regardless of quiz state. */
+function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: RaceState | null) => void }) {
+  // Ticks every 30s so the live flag state and the "next race" roll over without a reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const next = useMemo(() => nextRace(new Date(nowMs), ALL_RACES), [nowMs]);
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  // R47: "next watch party" is the next HOSTED race, which can be later than the next race
+  // on the calendar (e.g. Malaysia is not hosted, Singapore is). Until booking events load, or if
+  // they fail to, nothing watch-party related is claimed.
+  const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
+  useEffect(() => watchBookingEvents(setBookingEvents, () => setBookingEvents([])), []);
+  const hostedNext = useMemo(() => nextHostedRace(new Date(nowMs), ALL_RACES, bookingEvents), [bookingEvents, nowMs]);
+  const track = next ? trackForRace(next.id) : null;
+  const { schedule, settled } = useSchedule(next?.season);
+  const targetMs = next ? raceStartFor(next, schedule).ms : 0;
+
+  // Compute race state for live flag display
+  const raceStateInfo = useMemo(
+    () => (next ? computeRaceState(targetMs, next.id, nowMs) : null),
+    [next, targetMs, nowMs]
+  );
+  // The next watch party's lights-out from the real schedule of its own season (cached fetch).
+  const { schedule: hostedSchedule } = useSchedule(hostedNext?.season);
+  const hostedStart = hostedNext ? istReadout(raceStartFor(hostedNext, hostedSchedule).ms) : null;
+  const raceState = raceStateInfo?.state ?? null;
+
+  // Real podium (OpenF1) once the race has ended; cached per race, silent on failure (no podium).
+  const [podium, setPodium] = useState<PodiumDriver[] | null>(null);
+  const ended = raceStateInfo?.isEnded ?? false;
+  useEffect(() => {
+    if (!next || !ended) {
+      setPodium(null);
+      return;
+    }
+    let live = true;
+    void fetchPodiumForRace(next).then((p) => live && setPodium(p));
+    return () => {
+      live = false;
+    };
+  }, [next, ended]);
+
+  const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
+  const trackWrapRef = useRef<HTMLDivElement>(null);
+  const desktopMotion = useDesktopMotion();
+  const { scrollYProgress } = useScroll({
+    target: trackWrapRef,
+    offset: ["start start", "end start"],
+  });
+  const trackY = useTransform(scrollYProgress, [0, 1], [0, 24]);
+  const trackOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
+
+  return (
+    <div className="grid gap-10 lg:grid-cols-[44fr_56fr] lg:items-center lg:gap-14">
+      <div className="flex flex-col justify-center">
+        <Reveal kind="fade">
+          <Eyebrow>Chennai &amp; Coimbatore · motorsport community</Eyebrow>
+        </Reveal>
+        <h1 className={`mt-4 ${H1}`}>
+          <SplitWords text="The Karter Cup" delay={0.05} />
+        </h1>
+        <KerbDraw className="mt-5 h-[5px] w-20" delay={0.35} />
+        <Reveal index={2}>
+          <p className="mt-6 max-w-[40ch] text-lead text-pretty text-muted md:mt-7">
+            A leisure go-karting league and F1-style motorsport community —
+            karting days, sim racing and watch parties, run by people who
+            actually turn up.
+          </p>
+        </Reveal>
+        <Reveal index={3} className="mt-6">
+          <Magnetic>
+            <Link
+              to="/events"
+              className={buttonCls("secondary", "group/cta")}
+            >
+              See the full calendar
+              <ArrowRight
+                size={18}
+                weight="regular"
+                aria-hidden="true"
+                className="transition-transform duration-200 group-hover/cta:translate-x-1 motion-reduce:transition-none"
+              />
+            </Link>
+          </Magnetic>
+        </Reveal>
+      </div>
+
+      {next && raceStateInfo && (
+        <div
+          ref={trackWrapRef}
+          className="flex flex-col justify-center gap-6 rounded-none border-y border-line py-8 lg:flex-row lg:items-center lg:gap-10"
+        >
+          <div className="min-w-0">
+            <Reveal index={1}>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted">
+                Round {String(next.round).padStart(2, "0")} ·{" "}
+                {hostedNext?.id === next.id ? "watch-party night" : "next race"}
+              </p>
+              <p className="mt-1 text-h3 text-balance font-medium text-ink">
+                <Link to={`/races/${next.id}`} className="underline decoration-line underline-offset-4 hover:decoration-accent">
+                  {next.name}
+                </Link>
+              </p>
+              <p className="mt-1 text-sm text-muted lg:text-[1rem]">
+                {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
+                {next.locality}, {next.country}
+              </p>
+              {hostedNext && hostedNext.id !== next.id && (
+                <p className="mt-2 text-sm text-muted">
+                  Next watch party:{" "}
+                  <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent">
+                    {hostedNext.name}
+                  </Link>{" "}
+                  · {hostedStart?.day} {hostedStart?.month}
+                </p>
+              )}
+              {upNext && upNext.key !== "race" && (
+                <p className="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+                  <span className="relative flex size-2" aria-hidden="true">
+                    <span className="absolute inline-flex size-full rounded-full bg-info opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-info" />
+                  </span>
+                  Next on track: {upNext.label} · {istReadout(upNext.startMs).day}{" "}
+                  {istReadout(upNext.startMs).month} {istReadout(upNext.startMs).time} IST
+                </p>
+              )}
+            </Reveal>
+            <Reveal index={2} className="mt-5">
+              {settled ? (
+                <RaceStateDisplay
+                  state={raceStateInfo.state}
+                  raceStartMs={targetMs}
+                  drivers={podium ?? undefined}
+                  align="start"
+                  onDisplayStateChange={onRaceStateChange}
+                />
+              ) : (
+                <div className="flex flex-col items-start gap-3" aria-busy="true">
+                  <Skeleton variant="shimmer" className="h-6 w-28" />
+                  <Skeleton variant="shimmer" className="h-10 w-64 max-w-full" />
+                </div>
+              )}
+            </Reveal>
+          </div>
+          {track && (
+            <Reveal index={3} className="min-w-0 flex-1">
+              <motion.div
+                style={
+                  desktopMotion ? { y: trackY, opacity: trackOpacity } : undefined
+                }
+              >
+                <TrackMap track={track} state={raceState ?? undefined} animate className="mx-auto max-h-56 max-w-xs lg:max-h-64" />
+              </motion.div>
+            </Reveal>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AboutSection() {
+  return (
+    <div>
+      <SectionHeading eyebrow="About">
+        Karting, sim racing, watch parties
+      </SectionHeading>
+      <Reveal index={1} className="mt-6 grid gap-6 md:grid-cols-2">
+        <p className="max-w-[42ch] text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
+          The Karter Cup is a Chennai-founded, F1-style leisure go-karting
+          league and motorsport community — and a small community-led company
+          exploring how to run more of it: karting days, sim racing, and F1
+          watch parties.
+        </p>
+        <p className="max-w-[42ch] text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
+          It runs across two cities: karting events at{" "}
+          <strong className="text-ink">ECR Speedway</strong> in Chennai and{" "}
+          <strong className="text-ink">Prime Kart Zone</strong> in Coimbatore,
+          with watch parties at rented event spaces in between race weekends.
+        </p>
+      </Reveal>
+    </div>
+  );
+}
+
+/** R32 follow-up: only the NEXT event, with its real circuit visualization and a live countdown —
+ * the full schedule moved to its own page (/events), so this section stays a single, focused
+ * "what's on next" moment rather than a 3-up list. */
+/** The quiz's entry point (R25: minor, event-only) — race details/clock/track now live in
+ * HeroAndNextRace up top, so this is just the banner, full-width, no longer sharing a row. */
+function QuizBannerSection({
+  event,
+  status,
+  quizRevealed,
+  onReveal,
+}: {
+  event: ReturnType<typeof useGuestSession>["event"];
+  status: ReturnType<typeof useGuestSession>["status"];
+  quizRevealed: boolean;
+  onReveal: () => void;
+}) {
+  if (quizRevealed) return null;
+  return (
+    <div id="events">
+      <QuizBanner event={event} status={status} onReveal={onReveal} />
+    </div>
+  );
+}
+
+function PartnershipsSection() {
+  const slots = [
+    "Title partner slot",
+    "Venue partner slot",
+    "Community partner slot",
+  ];
+  return (
+    <div>
+      <SectionHeading eyebrow="Partnerships">Collaborations</SectionHeading>
+      <Stagger className="mt-6 grid gap-4 sm:grid-cols-3" step={0.09}>
+        {slots.map((label, i) => (
+          <StaggerItem
+            key={label}
+            kind="drs"
+            className="group relative flex min-h-24 items-center justify-center overflow-hidden rounded-lg border border-dashed border-line text-center text-sm text-muted transition-colors duration-200 hover:border-muted hover:text-ink"
+          >
+            {/* pit-board slot number */}
+            <span aria-hidden="true" className="absolute left-3 top-2 font-mono text-[0.625rem] tracking-widest text-muted/70">
+              P{i + 1}
+            </span>
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-[3px] origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+              style={{ backgroundImage: "var(--kerb-stripes)" }}
+            />
+            {label}
+          </StaggerItem>
+        ))}
+      </Stagger>
+      <Reveal index={2} className="mt-4">
+        <p className="text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
+          Also exploring a sim-racing collaboration with racesims.in —
+          exploratory only, not a confirmed partnership.
+        </p>
+      </Reveal>
+    </div>
+  );
+}
+
+function JoinCommunitySection() {
+  const wa = useCommunityLink();
+  return (
+    <div>
+      <SectionHeading eyebrow="Join in">Join the community</SectionHeading>
+      <Reveal index={1} className="mt-6 flex flex-col gap-4">
+        {wa ? (
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkCls}
+          >
+            <WhatsappLogo size={22} weight="regular" aria-hidden="true" />
+            Join the WhatsApp community
+          </a>
+        ) : (
+          <p className="text-muted">
+            WhatsApp link not open yet — ask at the event.
+          </p>
+        )}
+        <a
+          href={INSTAGRAM_CUP}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkCls}
+        >
+          <InstagramLogo size={22} weight="regular" aria-hidden="true" />
+          @thekartercup
+        </a>
+        <a
+          href={INSTAGRAM_CLUB}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkCls}
+        >
+          <InstagramLogo size={22} weight="regular" aria-hidden="true" />
+          @thekarterclub{" "}
+          <span className="text-sm text-muted">
+            — an initiative by The Karter Cup, for watch parties
+          </span>
+        </a>
+      </Reveal>
+    </div>
+  );
+}
+
+/** R29 follow-up: the gallery moved to its own page (/gallery, mirroring /events) — this is now a
+ * short teaser only, a few placeholder thumbnails plus a link, not the full horizontal-scroll strip. */
+function GallerySection() {
+  const preview = GALLERY_PLACEHOLDERS.slice(0, 4);
+  return (
+    <div>
+      <SectionHeading eyebrow="Past events">Gallery</SectionHeading>
+      <Stagger className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {preview.map((g) => (
+          <StaggerItem key={g.seed} kind="scale" className="overflow-hidden rounded-lg border border-line bg-raised">
+            <img
+              src={gallerySrc(g.seed, 320, 320)}
+              alt={g.caption}
+              loading="lazy"
+              className="aspect-square w-full object-cover transition-transform duration-500 hover:scale-[1.05] motion-reduce:transition-none"
+            />
+          </StaggerItem>
+        ))}
+      </Stagger>
+      <Reveal index={2} className="mt-5">
+        <Link
+          to="/gallery"
+          className="-mx-2 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-medium text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          <Images size={20} weight="regular" aria-hidden="true" />
+          See the full gallery
+          <ArrowRight size={16} weight="regular" aria-hidden="true" />
+        </Link>
+      </Reveal>
+    </div>
+  );
+}
+
+/** The Kartar CUP home page: a community/brand page. The quiz is demoted to a small, contextual
+ * banner (see QuizBanner + quizGate) — never the hero's main CTA or its own headline section. */
+export default function HomePage() {
+  usePageMeta({});
+  const s = useGuestSession();
+  const [quizRevealed, setQuizRevealed] = useState(false);
+  const [raceState, setRaceState] = useState<RaceState | null>(null);
+  // The mobile tab bar's Predict tab (and its Home tab, to leave the quiz) navigate here with
+  // router state; same-path navigations get a fresh key, so key drives the sync.
+  const location = useLocation();
+  useEffect(() => {
+    setQuizRevealed((location.state as { quiz?: boolean } | null)?.quiz === true);
+  }, [location.key, location.state]);
+
+  if (quizRevealed) {
+    return (
+      <Suspense fallback={<PageSkeleton />}>
+        <div className="mx-auto w-full max-w-[87.5rem] px-6 pt-4 md:px-10 md:pt-6 lg:px-16">
+          <button
+            type="button"
+            onClick={() => setQuizRevealed(false)}
+            className="inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink"
+          >
+            <ArrowLeft size={18} weight="regular" aria-hidden="true" />
+            Back to The Karter Cup
+          </button>
+        </div>
+        <GuestApp />
+      </Suspense>
+    );
+  }
+
+  return (
+    <>
+      <ScrollProgressPath />
+      {raceState && <RaceStateBackdrop state={raceState} className="fixed inset-0 z-0" />}
+      <div className="relative z-10">
+        <Shell>
+          <HeroAndNextRace onRaceStateChange={setRaceState} />
+          <div className="mt-10">
+            <QuizBannerSection
+              event={s.event}
+              status={s.status}
+              quizRevealed={quizRevealed}
+              onReveal={() => setQuizRevealed(true)}
+            />
+          </div>
+          <CheckerDivider />
+          <AboutSection />
+          <PlainDivider />
+          <ChampionshipSection season={nextRace(new Date(), ALL_RACES)?.season ?? 2026} />
+          <PlainDivider />
+          <JoinCommunitySection />
+          <CheckerDivider />
+          <GallerySection />
+          <PlainDivider />
+          <PartnershipsSection />
+        </Shell>
+      </div>
+    </>
+  );
+}
