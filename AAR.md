@@ -49,6 +49,12 @@ Not done / owner decisions:
 - Guest e2e specs are stale (see section 5); host e2e specs pass.
 - Branches `motion-redesign` and `motion-results-v2` can be deleted after PR #1 merges.
 
+## 4.1 DEPLOYED 2026-10-07
+Hosting (https://kartar-cup.web.app) and Firestore rules were deployed together from `worktree-build-v1` (commit 57d18fd) with the public Firebase web config
+(fetched via `firebase apps:sdkconfig`). NOT set at build: `VITE_PLACES_PROXY_URL` (venue search shows "not configured" until the Worker is deployed and
+the site rebuilt, README section 4). Tier counters start at 0 for events that already sold tickets.
+Still open from section 5: rotate the leaked Maps key, revoke the pasted Firebase CLI token, deploy the Cloudflare Worker.
+
 ## 5. BLOCKERS and risks before going live
 - **Rotate the Google Maps Embed key** that was hard-coded in `src/lib/mapEmbed.ts` (removed from code, but it is in the PUBLIC repo history).
 - **Revoke the Firebase CLI token** pasted in chat (myaccount.google.com/permissions, "Firebase CLI"): it can reach 12 projects.
