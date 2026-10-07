@@ -39,7 +39,7 @@ export function istReadout(startMs: number): { day: string; month: string; time:
   return {
     day: f({ day: '2-digit' }),
     month: f({ month: 'short' }).toUpperCase(),
-    time: f({ hour: '2-digit', minute: '2-digit', hour12: false }),
+    time: f({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
   };
 }
 

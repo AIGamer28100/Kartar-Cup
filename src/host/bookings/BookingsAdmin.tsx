@@ -106,7 +106,7 @@ export function BookingEventForm() {
 
   const backLink = (
     <button type="button" onClick={closeForm} className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
-      <ArrowLeft size={20} weight="regular" /> Booking events
+      <ArrowLeft size={20} weight="regular" aria-hidden="true" /> Booking events
     </button>
   );
 
@@ -225,7 +225,7 @@ export function BookingEventForm() {
             <textarea
               id="f-description"
               rows={10}
-              maxLength={3000}
+              maxLength={600}
               className={`${inputCls} py-2`}
               value={form.description}
               aria-invalid={!!show('description')}
@@ -243,7 +243,7 @@ export function BookingEventForm() {
             <textarea
               id="f-policy"
               rows={10}
-              maxLength={3000}
+              maxLength={300}
               className={`${inputCls} py-2`}
               value={form.policy}
               aria-invalid={!!show('policy')}
@@ -309,7 +309,7 @@ export function BookingEventForm() {
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
         <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
           <Button disabled={busy} onClick={() => void save()}>
-            <FloppyDisk size={20} weight="regular" /> {busy ? 'Saving...' : 'Save event'}
+            <FloppyDisk size={20} weight="regular" aria-hidden="true" /> {busy ? 'Saving...' : 'Save event'}
           </Button>
           {banner && (
             <p role={banner.ok ? 'status' : 'alert'} className={banner.ok ? 'text-ink' : 'text-accent-text'}>
@@ -322,18 +322,39 @@ export function BookingEventForm() {
   );
 }
 
+/** Live read of one booking event: undefined while loading, null when missing or unreadable. */
+function useBookingEventById(eventId: string | undefined): BookingEvent | null | undefined {
+  const [event, setEvent] = useState<BookingEvent | null | undefined>(undefined);
+  useEffect(() => {
+    setEvent(undefined);
+    if (!eventId) {
+      setEvent(null);
+      return;
+    }
+    return watchBookingEvent(eventId, setEvent, () => setEvent(null));
+  }, [eventId]);
+  return event;
+}
+
+function EventMissing({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="py-6">
+      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
+        <ArrowLeft size={20} weight="regular" aria-hidden="true" /> Booking events
+      </button>
+      <p role="alert" className="mt-4 text-accent-text">That booking event could not be found.</p>
+    </div>
+  );
+}
+
 /** Nested route: Attendees roster for an event. */
 export function BookingEventAttendees() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<BookingEvent | null>(null);
+  const event = useBookingEventById(eventId);
 
-  useEffect(() => {
-    if (!eventId) return;
-    return watchBookingEvent(eventId, setEvent, () => setEvent(null));
-  }, [eventId]);
-
-  if (!event) return <RowsSkeleton />;
+  if (event === undefined) return <RowsSkeleton />;
+  if (event === null) return <EventMissing onBack={() => navigate('..', { replace: true })} />;
 
   return (
     <AttendeeRoster
@@ -347,14 +368,10 @@ export function BookingEventAttendees() {
 export function BookingEventCards() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<BookingEvent | null>(null);
+  const event = useBookingEventById(eventId);
 
-  useEffect(() => {
-    if (!eventId) return;
-    return watchBookingEvent(eventId, setEvent, () => setEvent(null));
-  }, [eventId]);
-
-  if (!event) return <RowsSkeleton />;
+  if (event === undefined) return <RowsSkeleton />;
+  if (event === null) return <EventMissing onBack={() => navigate('..', { replace: true })} />;
 
   return (
     <CardsAdmin
@@ -386,7 +403,7 @@ export default function BookingsAdmin() {
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
         <h2 className="text-2xl font-semibold md:text-3xl">Booking events</h2>
         <Button onClick={() => navigate('new', { relative: 'path' })}>
-          <Plus size={20} weight="regular" /> New booking event
+          <Plus size={20} weight="regular" aria-hidden="true" /> New booking event
         </Button>
       </div>
 

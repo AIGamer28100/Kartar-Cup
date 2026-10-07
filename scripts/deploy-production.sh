@@ -7,7 +7,7 @@ set -e
 ENVIRONMENT=${1:-production}
 PROJECT_ID="kartar-cup"
 
-echo "🚀 Deploying Kartar Cup to $ENVIRONMENT..."
+echo "Deploying Kartar Cup to $ENVIRONMENT..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -23,7 +23,7 @@ check_tool() {
   fi
 }
 
-echo "🔍 Checking prerequisites..."
+echo "Checking prerequisites..."
 check_tool "npx"
 check_tool "firebase"
 
@@ -37,7 +37,7 @@ fi
 if [ "$ENVIRONMENT" = "production" ]; then
   if [ ! -f ".env.production.local" ]; then
     echo -e "${YELLOW}Warning: .env.production.local not found${NC}"
-    echo "Create it from .env.production.example with your production values"
+    echo "Create it from .env.example with your production values (see README section 1)"
   fi
 else
   if [ ! -f ".env.local" ]; then
@@ -46,26 +46,26 @@ else
 fi
 
 # Run tests
-echo "🧪 Running tests..."
+echo "Running tests..."
 npm run test
 if [ $? -ne 0 ]; then
   echo -e "${RED}Tests failed! Aborting deployment.${NC}"
   exit 1
 fi
-echo -e "${GREEN}✓ Tests passed${NC}"
+echo -e "${GREEN}Tests passed${NC}"
 
 # Build frontend
-echo "🏗️  Building frontend..."
+echo "Building frontend..."
 npm run build
 if [ $? -ne 0 ]; then
   echo -e "${RED}Frontend build failed! Aborting deployment.${NC}"
   exit 1
 fi
-echo -e "${GREEN}✓ Frontend built${NC}"
+echo -e "${GREEN}Frontend built${NC}"
 
 # Deploy based on environment
 if [ "$ENVIRONMENT" = "production" ]; then
-  echo "📦 Deploying to PRODUCTION..."
+  echo "Deploying to PRODUCTION..."
   echo -e "${YELLOW}⚠️  This will deploy to production. Continue? (y/N)${NC}"
   read -r CONFIRM
   if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
@@ -76,13 +76,13 @@ if [ "$ENVIRONMENT" = "production" ]; then
   # Deploy everything with explicit project flag
   firebase deploy --project $PROJECT_ID
 else
-  echo "📦 Deploying to STAGING..."
+  echo "Deploying to STAGING..."
   firebase deploy --project $PROJECT_ID-staging
 fi
 
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}✅ Deployment successful!${NC}"
-  echo "🌐 Your app is live at: https://$PROJECT_ID.web.app"
+  echo "Your app is live at: https://$PROJECT_ID.web.app"
 else
   echo -e "${RED}❌ Deployment failed!${NC}"
   exit 1

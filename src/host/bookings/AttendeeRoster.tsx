@@ -75,7 +75,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
     a.href = url;
     a.download = `${event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-bookings.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return (
@@ -175,7 +175,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
                       )}
                       {confirmId === b.id && (
                         <div role="group" aria-label={`Confirm cancelling ${b.buyerName}`} className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm">Cancel and release {b.qty} seat{b.qty === 1 ? '' : 's'}?</span>
+                          <span className="text-sm">Cancel and release {b.qty * (b.seatsPerTicket ?? 1)} seat{b.qty * (b.seatsPerTicket ?? 1) === 1 ? '' : 's'}?</span>
                           <Button disabled={busyId === b.id} onClick={() => void doCancel(b.id)}>
                             {busyId === b.id ? 'Cancelling...' : 'Confirm'}
                           </Button>

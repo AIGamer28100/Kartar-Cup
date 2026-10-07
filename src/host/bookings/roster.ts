@@ -46,7 +46,7 @@ export function tally(bookings: Booking[], ev: Pick<BookingEvent, 'capacity' | '
   let paid = 0, checkedIn = 0, cancelled = 0, reserved = 0, activeSeats = 0;
   for (const b of bookings) {
     if (b.status === 'cancelled') { cancelled++; continue; }
-    activeSeats += b.qty;
+    activeSeats += b.qty * (b.seatsPerTicket ?? 1);
     if (b.status === 'reserved') reserved++;
     else if (b.status === 'paid_mock') paid++;
     else if (b.status === 'checked_in') { paid++; checkedIn++; }
@@ -70,7 +70,7 @@ export function tierCounts(bookings: Booking[], ev: Pick<BookingEvent, 'tiers'> 
     if (b.status === 'cancelled') continue;
     const row = map.get(b.tierId) ?? { tierId: b.tierId, label: b.tierId, bookings: 0, seats: 0 };
     row.bookings++;
-    row.seats += b.qty;
+    row.seats += b.qty * (b.seatsPerTicket ?? 1);
     map.set(b.tierId, row);
   }
   return [...map.values()];

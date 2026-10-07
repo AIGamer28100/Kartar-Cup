@@ -57,11 +57,15 @@ export function useGuestSession(): GuestSession {
   useEffect(() => {
     setEntry(undefined);
     if (!uid) return;
-    return watchOwnEntry(uid, (e, p) => {
-      setEntry(e);
-      setPending(p);
-    });
-  }, [uid, eventId]);
+    return watchOwnEntry(
+      uid,
+      (e, p) => {
+        setEntry(e);
+        setPending(p);
+      },
+      setLoadError,
+    );
+  }, [uid]);
 
   const scored = status === 'scored';
   useEffect(() => {

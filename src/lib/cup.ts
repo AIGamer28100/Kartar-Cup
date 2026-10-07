@@ -11,6 +11,7 @@ import {
   type Timestamp,
   where,
   type Unsubscribe,
+  writeBatch,
 } from 'firebase/firestore';
 import { logAudit } from './audit';
 import { db } from './firebase';
@@ -157,8 +158,10 @@ export async function saveRound(sid: string, r: CupRound): Promise<string> {
 }
 
 export async function deleteRound(sid: string, r: CupRound): Promise<void> {
-  await deleteDoc(resultRef(sid, r.id));
-  await deleteDoc(doc(roundsCol(sid), r.id));
+  const batch = writeBatch(db);
+  batch.delete(resultRef(sid, r.id));
+  batch.delete(doc(roundsCol(sid), r.id));
+  await batch.commit();
   logAudit('cup.round', sid, `remove ${r.name}`.slice(0, 120));
   await thenRecompute(sid);
 }

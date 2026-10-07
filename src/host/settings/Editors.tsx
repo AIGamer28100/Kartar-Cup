@@ -23,7 +23,7 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
         {form.questions.map((q, i) => (
           <li key={q.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[1fr_12rem_6rem_auto]">
             <Field id={`q-prompt-${q.id}`} label={`Question ${i + 1} prompt (${q.id})`}>
-              <input id={`q-prompt-${q.id}`} className={inputCls} value={q.prompt} maxLength={140} onChange={(e) => set(q.id, { prompt: e.target.value })} />
+              <input id={`q-prompt-${q.id}`} className={inputCls} value={q.prompt} maxLength={80} onChange={(e) => set(q.id, { prompt: e.target.value })} />
             </Field>
             <Field id={`q-kind-${q.id}`} label="Answer kind">
               <select id={`q-kind-${q.id}`} className={inputCls} value={q.kind} onChange={(e) => set(q.id, { kind: e.target.value as QuestionKind })}>
@@ -47,17 +47,17 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
             </Field>
             <div className="flex items-end gap-1">
               <button type="button" className={iconBtn} aria-label={`Move question ${i + 1} up`} disabled={i === 0} onClick={() => patch((f) => ({ questions: move(f.questions, i, -1) }))}>
-                <ArrowUp size={20} weight="regular" />
+                <ArrowUp size={20} weight="regular" aria-hidden="true" />
               </button>
               <button type="button" className={iconBtn} aria-label={`Move question ${i + 1} down`} disabled={i === form.questions.length - 1} onClick={() => patch((f) => ({ questions: move(f.questions, i, 1) }))}>
-                <ArrowDown size={20} weight="regular" />
+                <ArrowDown size={20} weight="regular" aria-hidden="true" />
               </button>
               <button type="button" className={iconBtn} aria-label={`Remove question ${i + 1}`} disabled={form.questions.length <= 1} onClick={() => patch((f) => ({ questions: f.questions.filter((x) => x.id !== q.id) }))}>
-                <Trash size={20} weight="regular" />
+                <Trash size={20} weight="regular" aria-hidden="true" />
               </button>
             </div>
             <Field id={`q-hint-${q.id}`} label="Hint (optional)" className="md:col-span-4">
-              <input id={`q-hint-${q.id}`} className={inputCls} value={q.hint ?? ''} maxLength={200} onChange={(e) => set(q.id, { hint: e.target.value })} />
+              <input id={`q-hint-${q.id}`} className={inputCls} value={q.hint ?? ''} maxLength={160} onChange={(e) => set(q.id, { hint: e.target.value })} />
             </Field>
           </li>
         ))}
@@ -78,7 +78,7 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
           })
         }
       >
-        <Plus size={20} weight="regular" /> Add question ({form.questions.length}/{MAX_QUESTIONS})
+        <Plus size={20} weight="regular" aria-hidden="true" /> Add question ({form.questions.length}/{MAX_QUESTIONS})
       </Button>
     </Section>
   );

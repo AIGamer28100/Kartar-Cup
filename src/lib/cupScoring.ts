@@ -5,7 +5,6 @@ export type SeasonStatus = 'upcoming' | 'active' | 'completed';
 export type RoundStatus = 'scheduled' | 'completed';
 
 export const MAX_POINTS_POSITIONS = 20;
-export const MAX_DRIVERS = 100;
 /** Editable starting point only; the host sets the real table per season. */
 export const DEFAULT_POINTS_TABLE: number[] = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 

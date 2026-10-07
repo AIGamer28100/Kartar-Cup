@@ -94,9 +94,7 @@ describe('searchPlaces', () => {
     expect(places[0].label).toBe('Marina Beach, Chennai');
     expect(places[0].name).toBe('Marina Beach');
     expect(places[0].city).toBe('Chennai');
-    // lat/lng are placeholder 0 since Autocomplete doesn't return them directly
-    expect(places[0].lat).toBe(0);
-    expect(places[0].lng).toBe(0);
+    expect(places[0]).not.toHaveProperty('lat');
     expect(places[0].place_id).toBe('ChIInEezR91Ak8gR6YFW1U_r Mor');
   });
 

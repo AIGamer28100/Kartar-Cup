@@ -4,7 +4,6 @@ import type { DriverCfg, EventConfig, Option, Question, TeamCfg } from '../lib/t
 import { fetchSchedule, raceStartFor } from '../lib/f1api';
 import { fetchLineupForRace } from '../lib/openf1';
 
-export const LIGHTS_OUT_UTC = '2026-09-26T11:00:00Z';
 export const WHATSAPP_COMMUNITY_URL = '';
 export const SITE_TITLE = 'Kartar CUP';
 export const EVENT_NAME = 'Race Watch Party';
@@ -63,8 +62,6 @@ export const QUESTIONS: Question[] = [
 ];
 
 export const DEFAULT_RACE_DURATION_MIN = 90;
-// RaceInfo carries a date only; hosts adjust the start time on the settings page.
-export const DEFAULT_RACE_START_UTC_TIME = '13:00:00';
 
 /** Static fallback grid: today's hand-written 2026-era template, used when OpenF1 has no data. */
 function staticGrid(): { teams: TeamCfg[]; drivers: DriverCfg[] } {
@@ -159,6 +156,5 @@ export function validateEventConfig(): string[] {
     const team = (d.sub ?? '').split(' · ')[0];
     if (!TEAMS.some((t) => t.label === team)) errs.push(`driver ${d.id}: team not in TEAMS`);
   }
-  if (Number.isNaN(Date.parse(LIGHTS_OUT_UTC))) errs.push('LIGHTS_OUT_UTC does not parse');
   return errs;
 }

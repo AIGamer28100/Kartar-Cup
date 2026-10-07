@@ -156,7 +156,7 @@ export function PrivacyPage() {
         <ul>
           <li><strong>Google Firebase</strong> (Authentication, Firestore database and Hosting) stores and serves the site's data on behalf of the operator. Google may process data on servers outside India.</li>
           <li><strong>Hosts and admins</strong> of the operator can see entries and bookings for their events. Other guests cannot see your data.</li>
-          <li><strong>Public data services.</strong> Your browser fetches race information directly from OpenF1, Open-Meteo and Jolpica, driver photos from Formula 1's media servers, and, on some pages, an embedded Google Map. These services can see your IP address and basic browser details, as with any website you visit.</li>
+          <li><strong>Public data services.</strong> Your browser fetches race information directly from OpenF1, Open-Meteo and Jolpica, driver photos from Formula 1's media servers, placeholder gallery images from picsum.photos, and, on some pages, an embedded Google Map. These services can see your IP address and basic browser details, as with any website you visit.</li>
           <li>We do not sell your data. We may disclose it if the law requires.</li>
         </ul>
       </Section>

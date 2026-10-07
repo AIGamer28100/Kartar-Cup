@@ -44,12 +44,6 @@ export function applyDiscount(
   if (discount.validToUtc && nowMs > discount.validToUtc.toMillis()) {
     return noDiscount('Discount has expired.');
   }
-  if (
-    discount.maxRedemptions !== undefined &&
-    (discount.redeemed ?? 0) >= discount.maxRedemptions
-  ) {
-    return noDiscount('Discount has been fully redeemed.');
-  }
 
   let discountAmountInr = 0;
   switch (discount.kind) {

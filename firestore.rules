@@ -264,7 +264,9 @@ service cloud.firestore {
     function validTier(t) {
       return t.keys().hasAll(['id', 'label', 'priceInr']) && t.id is string
         && t.label is string && t.label.size() <= 60
-        && t.priceInr is number && t.priceInr >= 0;
+        && t.priceInr is number && t.priceInr >= 0
+        && (!('capacity' in t) || (t.capacity is int && t.capacity >= 0))
+        && (!('seatsPerTicket' in t) || (t.seatsPerTicket is int && t.seatsPerTicket >= 1 && t.seatsPerTicket <= 10));
     }
     function tiersOk(l, i) { return l.size() <= i || validTier(l[i]); }
     function validBookingEvent(eventId) {
@@ -276,8 +278,8 @@ service cloud.firestore {
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
         && d.title is string && d.title.size() >= 1 && d.title.size() <= 120
-        && d.venue is map
-        && d.dateUtc is string
+        && d.venue is map && d.venue.keys().size() <= 12
+        && d.dateUtc is string && d.dateUtc.size() >= 10 && d.dateUtc.size() <= 40
         && d.tiers is list && d.tiers.size() <= 10
         && tiersOk(d.tiers, 0) && tiersOk(d.tiers, 1) && tiersOk(d.tiers, 2) && tiersOk(d.tiers, 3)
         && tiersOk(d.tiers, 4) && tiersOk(d.tiers, 5) && tiersOk(d.tiers, 6) && tiersOk(d.tiers, 7)
@@ -318,6 +320,7 @@ service cloud.firestore {
         && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
         && after.bookedCount is int
         && after.bookedCount > before.bookedCount
+        && after.bookedCount - before.bookedCount <= 100
         && after.bookedCount <= before.capacity;
     }
     // Seat release on cancel. An event write cannot see which booking is involved, so the writer
@@ -372,7 +375,8 @@ service cloud.firestore {
         allow create: if signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
           && validTierCount() && request.resource.data.booked >= 1 && request.resource.data.booked <= 10;
         allow update: if (signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
-            && validTierCount() && request.resource.data.booked > resource.data.booked)
+            && validTierCount() && request.resource.data.booked > resource.data.booked
+            && request.resource.data.booked - resource.data.booked <= 10)
           || (canRunBookings() && validTierCount());
         allow delete: if canRunBookings();
       }
@@ -487,7 +491,7 @@ service cloud.firestore {
     }
     // Cancel: status -> 'cancelled' from reserved/paid_mock only (never from checked_in or
     // cancelled, so no un-cancel), touching only status + cancel* + refund. refund is
-    // 'mock_refunded' iff it was paid_mock (R23: a label, no real money). cancelledBy names the actor.
+    // 'mock_refunded' iff it was paid_mock (R23: a label, no real money). cancelledBy is the cancelling host's email.
     function cancelShape(by) {
       let before = resource.data;
       let after = request.resource.data;
@@ -513,10 +517,10 @@ service cloud.firestore {
       // (see the note above `bookingEvents` for why this scopes `list` safely).
       allow read: if signedIn() && (resource.data.buyerUid == request.auth.uid || canRunBookings());
 
-      allow create: if signedIn() && validBooking(bookingId);
+      allow create: if verifiedGoogle() && validBooking(bookingId);
 
       allow update: if signedIn()
-        && ((canRunBookings() && cancelShape('host') && releasesSeats(bookingId))
+        && ((canRunBookings() && cancelShape(request.auth.token.email.lower()) && releasesSeats(bookingId))
             || (resource.data.buyerUid == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paidAt'])
               && resource.data.status == 'reserved'

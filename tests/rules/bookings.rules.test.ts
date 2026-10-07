@@ -205,6 +205,12 @@ describe('reservation create', () => {
     await assertFails(setDoc(countDoc(guest()), { booked: 0, updatedAt: serverTimestamp() }));
     await assertSucceeds(setDoc(countDoc(host()), { booked: 0, updatedAt: serverTimestamp() }));
   });
+  it('a guest cannot jump a counter or the seat total by a large amount (sell-out griefing)', async () => {
+    await seed({ capacity: 500 });
+    await assertFails(setDoc(countDoc(guest()), { booked: 11, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 101, updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 100, updatedAt: serverTimestamp() }));
+  });
   describe('discounts', () => {
     const disc = { id: 'd1', code: 'EARLY', label: 'Early', kind: 'percent', value: 10, active: true };
     const withDisc = { discountCode: 'early', discountIndex: 0, discountAmountInr: 50, totalInr: 450 };
@@ -363,7 +369,7 @@ describe('delete', () => {
 
 describe('cancelBooking (host / host-control members only)', () => {
   const cf = (by: 'guest' | 'host', refund: 'mock_refunded' | 'none', extra: Record<string, unknown> = {}) => ({
-    status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: by, refund, ...extra,
+    status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: by === 'host' ? 'host@x.com' : by, refund, ...extra,
   });
   const setCount = (n: number, over: Record<string, unknown> = {}) =>
     env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'bookingEvents/' + BEID), bookingEventDoc({ bookedCount: n, ...over })); });

@@ -72,9 +72,9 @@ export default function Leaderboard({
                     }`}
                   >
                     {r.ticks[q.id] ? (
-                      <Check size={20} weight="regular" />
+                      <Check size={20} weight="regular" aria-hidden="true" />
                     ) : (
-                      <X size={16} weight="regular" />
+                      <X size={16} weight="regular" aria-hidden="true" />
                     )}
                   </span>
                 ))}

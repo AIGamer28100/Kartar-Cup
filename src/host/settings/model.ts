@@ -127,7 +127,9 @@ export function validate(f: FormState): Errors {
     e.teams = 'Every team needs a name (max 12 teams).';
   if (f.drivers.some((d) => !d.label.trim() || !f.teams.some((t) => t.id === d.teamId)))
     e.drivers = 'Every driver needs a label and a team.';
-  if (f.questions.length < 1 || f.questions.some((q) => !q.prompt.trim()))
+  if (f.questions.some((q) => q.prompt.length > 80 || (q.hint ?? '').length > 160))
+    e.questions = 'Keep each prompt to 80 characters and each hint to 160.';
+  else if (f.questions.length < 1 || f.questions.some((q) => !q.prompt.trim()))
     e.questions = 'Add at least one question; every question needs a prompt.';
   else if (f.questions.some((q) => q.points !== undefined && (!Number.isInteger(q.points) || q.points < 1 || q.points > MAX_QUESTION_POINTS)))
     e.questions = `Points per question must be a whole number from 1 to ${MAX_QUESTION_POINTS}.`;

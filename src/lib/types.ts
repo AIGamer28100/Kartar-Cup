@@ -6,12 +6,6 @@ export type Answers = Record<string, string>; // option id per question
 export type Results = Record<string, string[]>; // multiple accepted ids; [] = voided
 export type EventStatus = 'open' | 'locked' | 'scored';
 export type Provider = 'google';
-export interface EventDoc {
-  status: EventStatus;
-  lightsOutUtc: Timestamp;
-  winnerRevealed: boolean;
-  tiebreakOverride: string | null;
-}
 export interface ResultsDoc {
   answers: Results;
   source: string;
@@ -43,7 +37,7 @@ export interface ScreenState {
   mode: ScreenMode;
   stage: 0 | 1 | 2 | 3;
   overrideUid: string | null;
-  updatedAt: Timestamp;
+  updatedAt?: Timestamp;
 }
 export interface RankedRow extends ScorableEntry {
   /** Total = quiz points + Play-card bonus (R46). */
@@ -133,7 +127,6 @@ export interface PriceTier {
   id: string;
   label: string;
   priceInr: number;
-  perTicketDiscountPct?: number;
   /** Maximum seats this tier can sell. 0 = unlimited (subject to event capacity). */
   capacity?: number;
   /** How many seats one ticket consumes. 1 = standard, 2 = "ticket for 2 entries", etc. */
@@ -149,8 +142,6 @@ export interface Discount {
   minQty?: number;
   validFromUtc?: Timestamp;
   validToUtc?: Timestamp;
-  maxRedemptions?: number;
-  redeemed?: number;
   active: boolean;
 }
 /** R50: which section of /events an event belongs to. Missing on legacy docs = 'f1'. */
@@ -215,7 +206,8 @@ export interface Booking {
   checkedInAt?: Timestamp;
   checkedInBy?: string;
   cancelledAt?: Timestamp;
-  cancelledBy?: 'host';
+  /** Email of the host-control member who cancelled. */
+  cancelledBy?: string;
   cancelReason?: string;
   /** Mock payments only (R23): 'mock_refunded' = a paid_mock booking was cancelled; no real money moved. */
   refund?: 'mock_refunded' | 'none';

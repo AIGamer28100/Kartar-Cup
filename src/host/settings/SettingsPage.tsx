@@ -6,8 +6,7 @@ import FailurePage from '../../components/FailurePage';
 import Skeleton, { Busy } from '../../components/Skeleton';
 import { useTimedOut } from '../../lib/useTimedOut';
 import { ALL_RACES, nextRace, getRace } from '../../config/calendar';
-import { getActiveEventId, saveEventConfig, setActiveEvent, watchEventConfig } from '../../lib/db';
-import type { EventConfig } from '../../lib/types';
+import { getActiveEventId, getEventConfig, saveEventConfig, setActiveEvent } from '../../lib/db';
 import { QuestionsEditor } from './Editors';
 import { GridView, RefreshGridButton, TeamsView, useGridRefresh } from './GridTeamsView';
 import LiveControls from './LiveControls';
@@ -20,6 +19,7 @@ import {
   validate,
   type FormState,
 } from './model';
+import { fromLocalInput } from './time';
 import { Field, Section, TimeTriple, inputCls, linkBtn } from './ui';
 import { TabList, TabPanel, type TabDef } from './Tabs';
 
@@ -29,25 +29,6 @@ const TABS: TabDef[] = [
   { id: 'teams', label: 'Teams' },
   { id: 'questions', label: 'Questions' },
 ];
-import { fromLocalInput } from './time';
-
-/** One-shot read of an event config via the existing watcher (no getDoc helper in db.ts). */
-function readEvent(id: string): Promise<EventConfig | null> {
-  return new Promise((resolve, reject) => {
-    let unsub: (() => void) | null = null;
-    let done = false;
-    unsub = watchEventConfig(
-      id,
-      (c) => {
-        done = true;
-        unsub?.();
-        resolve(c);
-      },
-      reject,
-    );
-    if (done) unsub();
-  });
-}
 
 const snap = (f: FormState) => JSON.stringify(f);
 const CUSTOM = 'custom';
@@ -70,7 +51,7 @@ export default function SettingsPage() {
     (async () => {
       try {
         const activeId = await getActiveEventId();
-        const existing = activeId ? await readEvent(activeId) : null;
+        const existing = activeId ? await getEventConfig(activeId) : null;
         const f = existing
           ? configToForm(existing)
           : await raceToForm(nextRace(new Date(), ALL_RACES) ?? ALL_RACES[0]);
@@ -103,7 +84,7 @@ export default function SettingsPage() {
       }
       const race = getRace(id);
       if (!race) return;
-      const existing = await readEvent(race.id);
+      const existing = await getEventConfig(race.id);
       setForm(existing ? configToForm(existing) : await raceToForm(race));
       if (existing) setSaved(snap(configToForm(existing)));
     } catch (e) {
@@ -134,7 +115,7 @@ export default function SettingsPage() {
 
   const backLink = (
     <Link to="/host" className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
-      <ArrowLeft size={20} weight="regular" /> Race control
+      <ArrowLeft size={20} weight="regular" aria-hidden="true" /> Race control
     </Link>
   );
 
@@ -271,11 +252,11 @@ export default function SettingsPage() {
             </Field>
             {form.whatsapp && !whatsappErr ? (
               <a href={form.whatsapp} target="_blank" rel="noopener noreferrer" className={linkBtn}>
-                <ArrowSquareOut size={20} weight="regular" /> Test link
+                <ArrowSquareOut size={20} weight="regular" aria-hidden="true" /> Test link
               </a>
             ) : (
               <span aria-disabled="true" className={`${linkBtn} pointer-events-none opacity-50`}>
-                <ArrowSquareOut size={20} weight="regular" /> Test link
+                <ArrowSquareOut size={20} weight="regular" aria-hidden="true" /> Test link
               </span>
             )}
           </div>
@@ -307,10 +288,10 @@ export default function SettingsPage() {
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
         <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
           <Button disabled={busyAny} onClick={() => void save(false)}>
-            <FloppyDisk size={20} weight="regular" /> {busy === 'save' ? 'Saving...' : 'Save event'}
+            <FloppyDisk size={20} weight="regular" aria-hidden="true" /> {busy === 'save' ? 'Saving...' : 'Save event'}
           </Button>
           <Button variant="secondary" disabled={busyAny} onClick={() => void save(true)}>
-            <Broadcast size={20} weight="regular" /> {busy === 'live' ? 'Going live...' : 'Set as live event'}
+            <Broadcast size={20} weight="regular" aria-hidden="true" /> {busy === 'live' ? 'Going live...' : 'Set as live event'}
           </Button>
           {banner && (
             <p role={banner.ok ? 'status' : 'alert'} data-testid="save-banner" className={banner.ok ? 'text-ink' : 'text-accent-text'}>

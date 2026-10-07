@@ -6,11 +6,9 @@
  * VITE_PLACES_PROXY_URL to the Worker URL (see README, "Venue search (Google Places)").
  *
  * The chosen place becomes a Google Maps link so the guest-facing map is still Google's.
- * Data is from Google Places, not OpenStreetMap.
  *
- * Note: Google Places Autocomplete returns predictions with description/structured_text but
- * does not include lat/lng directly. Use the place_id with the Places Details API to obtain
- * coordinates if needed: https://maps.googleapis.com/maps/api/place/details/json?place_id=PLACE_ID&fields=geometry&key=KEY
+ * Autocomplete predictions carry no coordinates: pick() in VenueSearch fetches them with
+ * fetchPlaceDetails(place_id) (Places Details, geometry only) to build the pin link.
  */
 
 export interface PlaceResult {
@@ -20,10 +18,6 @@ export interface PlaceResult {
   name: string;
   /** City/town. */
   city: string;
-  /** Latitude. */
-  lat: number;
-  /** Longitude. */
-  lng: number;
   /** Place ID from Google Places Autocomplete response. */
   place_id?: string;
 }
@@ -114,36 +108,31 @@ export async function searchPlaces(
     return { status: data.status, error_message: data.error_message };
   }
 
-    return data.predictions.map((p: {
-      description: string;
-      structured_formatting: { main_text: string; secondary_text: string };
-      place_id: string;
-    }) => {
-      // Parse description like "Marina Beach, Chennai, Tamil Nadu"
-      const descParts = p.description.split(',');
-      const resultName = descParts[0].trim();
-      const resultCityRaw = descParts.slice(1).join(',').trim();
-      // Remove trailing state/country in parentheses that Photon-style parsing would include
-      const resultCity = resultCityRaw.replace(/\([^)]*\)/g, '').trim();
+  return data.predictions.map((p: {
+    description: string;
+    structured_formatting: { main_text: string; secondary_text: string };
+    place_id: string;
+  }) => {
+    // Parse description like "Marina Beach, Chennai, Tamil Nadu"
+    const descParts = p.description.split(',');
+    const resultName = descParts[0].trim();
+    const resultCityRaw = descParts.slice(1).join(',').trim();
+    // Drop trailing parenthesised qualifiers
+    const resultCity = resultCityRaw.replace(/\([^)]*\)/g, '').trim();
 
-      // Try to extract city from secondary formatting (e.g., "Chennai, Tamil Nadu")
-      const secondary = p.structured_formatting.secondary_text || '';
-      const cityMatch = secondary.match(/([^,]+), ([^,]+)/);
-      const extractedCity = cityMatch ? cityMatch[1].trim() : resultCity;
+    // Try to extract city from secondary formatting (e.g., "Chennai, Tamil Nadu")
+    const secondary = p.structured_formatting.secondary_text || '';
+    const cityMatch = secondary.match(/([^,]+), ([^,]+)/);
+    const extractedCity = cityMatch ? cityMatch[1].trim() : resultCity;
 
-      const resultLabel =
-        [resultName, extractedCity].filter(Boolean).join(', ') || q;
+    const resultLabel =
+      [resultName, extractedCity].filter(Boolean).join(', ') || q;
 
-      // Google Places Autocomplete does not return lat/lng directly.
-      // We return placeholder coordinates (0,0) and provide the place_id
-      // so callers can fetch details via the Places Details API if needed.
-      return {
-        label: resultLabel,
-        name: resultName,
-        city: extractedCity,
-        lat: 0,
-        lng: 0,
-        place_id: p.place_id,
-      };
-    });
+    return {
+      label: resultLabel,
+      name: resultName,
+      city: extractedCity,
+      place_id: p.place_id,
+    };
+  });
 }

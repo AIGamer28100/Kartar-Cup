@@ -45,10 +45,6 @@ export function venueEmbedUrl(v: VenueLike): string | null {
   const fromLink = v.mapUrl ? toMapEmbedUrl(v.mapUrl) : null;
   if (fromLink) return fromLink;
   if (!v.name.trim()) return null;
-  // Use place_id for exact venue embed if available
-  if (v.place_id) {
-    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyCcUnPz_Ic1KWIPjH0uRbgCB39tUKr9NDk&q=place_id:${v.place_id}`;
-  }
   return `https://www.google.com/maps?q=${encodeURIComponent(placeQuery(v))}&output=embed`;
 }
 

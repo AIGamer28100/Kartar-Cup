@@ -110,7 +110,7 @@ export default function ResultsForm({
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="secondary" disabled={!race || pulling} onClick={() => void pull()}>
-          <CloudArrowDown size={20} weight="regular" className={pulling ? 'animate-pulse' : undefined} />
+          <CloudArrowDown size={20} weight="regular" className={pulling ? 'animate-pulse' : undefined} aria-hidden="true" />
           {pulling ? 'Pulling...' : 'Pull from OpenF1'}
         </Button>
         <p className="text-sm text-muted">
@@ -189,7 +189,7 @@ export default function ResultsForm({
       </label>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <Button disabled={busy} onClick={save}>
-          <FloppyDisk size={20} weight="regular" /> Save results
+          <FloppyDisk size={20} weight="regular" aria-hidden="true" /> Save results
         </Button>
         {msg && (
           <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? 'text-muted' : 'text-accent-text'}>

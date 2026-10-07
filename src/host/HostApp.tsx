@@ -18,12 +18,16 @@ export default function HostApp() {
   return (
     <HostFrame signedIn>
       <nav aria-label="Host sections" className="flex gap-2 overflow-x-auto border-b border-line py-2">
-        <NavLink to="/host" end className={tabCls}>
-          Console
-        </NavLink>
-        <NavLink to="/host/settings" className={tabCls}>
-          Settings
-        </NavLink>
+        {access?.isHost && (
+          <NavLink to="/host" end className={tabCls}>
+            Console
+          </NavLink>
+        )}
+        {access?.isHost && (
+          <NavLink to="/host/settings" className={tabCls}>
+            Settings
+          </NavLink>
+        )}
         <NavLink to="/host/bookings" className={tabCls}>
           Bookings
         </NavLink>
@@ -35,9 +39,11 @@ export default function HostApp() {
         <NavLink to="/host/checkin" className={tabCls}>
           Check-in
         </NavLink>
-        <NavLink to="/host/activity" className={tabCls}>
-          Activity
-        </NavLink>
+        {access?.isHost && (
+          <NavLink to="/host/activity" className={tabCls}>
+            Activity
+          </NavLink>
+        )}
         {access?.isHost && (
           <NavLink to="/host/content" className={tabCls}>
             Content
@@ -50,8 +56,10 @@ export default function HostApp() {
         )}
       </nav>
       <Routes>
-        <Route index element={<HostConsole />} />
-        <Route path="settings" element={<SettingsPage />} />
+        {/* A venue_host runs bookings and check-in only: the quiz console, settings and activity are
+            isHost-only in firestore.rules, so send them to bookings instead of a permission error. */}
+        <Route index element={access?.isHost ? <HostConsole /> : <Navigate to="/host/bookings" replace />} />
+        <Route path="settings" element={access?.isHost ? <SettingsPage /> : <Navigate to="/host/bookings" replace />} />
         <Route path="bookings" element={<BookingsAdmin />}>
           <Route path="new" element={<BookingEventForm />} />
           <Route path=":eventId/edit" element={<BookingEventForm />} />
@@ -60,7 +68,7 @@ export default function HostApp() {
         </Route>
         <Route path="cup" element={<CupAdmin />} />
         <Route path="checkin" element={<CheckinScanner />} />
-        <Route path="activity" element={<ActivityLog />} />
+        <Route path="activity" element={access?.isHost ? <ActivityLog /> : <Navigate to="/host/bookings" replace />} />
         <Route path="content" element={<ContentAdmin />} />
         <Route path="users" element={<UsersAdmin />} />
         <Route path="*" element={<Navigate to="/host" replace />} />

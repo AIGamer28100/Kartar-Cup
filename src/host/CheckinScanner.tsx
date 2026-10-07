@@ -2,32 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { CheckCircle, Warning, QrCode, XCircle } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { checkIn, lookupBookingById, watchBookingEvent } from '../lib/bookings';
+import { checkIn, getBookingEvent, lookupBookingById } from '../lib/bookings';
+import { formatInr } from '../guest/profileModel';
 import { useAuth } from '../lib/auth';
 import type { Booking, BookingEvent } from '../lib/types';
 import CardAssign from './CardAssign';
 import { inputCls } from './settings/ui';
-
-const formatInr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-
-/** One-shot read of a booking event via the existing watcher (mirrors readEvent in
- * src/host/settings/SettingsPage.tsx — no getDoc-based helper for bookingEvents in bookings.ts). */
-function readBookingEvent(id: string): Promise<BookingEvent | null> {
-  return new Promise((resolve, reject) => {
-    let unsub: (() => void) | null = null;
-    let done = false;
-    unsub = watchBookingEvent(
-      id,
-      (ev) => {
-        done = true;
-        unsub?.();
-        resolve(ev);
-      },
-      reject,
-    );
-    if (done) unsub();
-  });
-}
 
 type ScanState =
   | { kind: 'scanning' }
@@ -60,6 +40,7 @@ export default function CheckinScanner() {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const scanningRef = useRef(false);
+  const lastScanRef = useRef(0);
 
   const [state, setState] = useState<ScanState>({ kind: 'scanning' });
   const [manualId, setManualId] = useState('');
@@ -78,6 +59,7 @@ export default function CheckinScanner() {
 
   const lookup = useCallback(async (id: string) => {
     scanningRef.current = false;
+    stopCamera(); // no live camera (battery/privacy) while a result is on screen; "Scan next" restarts it
     setState({ kind: 'looking-up' });
     setCheckinErr(null);
     setCheckedOk(false);
@@ -87,21 +69,29 @@ export default function CheckinScanner() {
         setState({ kind: 'not-found' });
         return;
       }
-      const event = await readBookingEvent(booking.bookingEventId).catch(() => null);
+      const event = await getBookingEvent(booking.bookingEventId).catch(() => null);
       setState({ kind: 'found', booking, event });
     } catch {
       setState({ kind: 'not-found' });
     }
-  }, []);
+  }, [stopCamera]);
 
   const tick = useCallback(() => {
     if (!scanningRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    const now = performance.now();
+    if (now - lastScanRef.current < 100) {
+      rafRef.current = requestAnimationFrame(tick);
+      return;
+    }
+    lastScanRef.current = now;
     if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
+      // Decode a downscaled frame (<= 640px): plenty for a ticket QR and far cheaper than full HD.
+      const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -189,7 +179,7 @@ export default function CheckinScanner() {
             />
             {state.kind === 'camera-unavailable' && (
               <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted">
-                <QrCode size={32} weight="regular" />
+                <QrCode size={32} weight="regular" aria-hidden="true" />
                 <p>Camera access denied — use manual entry below.</p>
               </div>
             )}
@@ -206,7 +196,7 @@ export default function CheckinScanner() {
 
       {state.kind === 'not-found' && (
         <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <XCircle size={32} weight="regular" className="text-accent-text" />
+          <XCircle size={32} weight="regular" className="text-accent-text" aria-hidden="true" />
           <p className="font-medium">Booking not found.</p>
           <Button onClick={scanNext}>Scan again</Button>
         </div>
@@ -300,7 +290,7 @@ function ResultCard({
 
       {ok ? (
         <div className="mt-4 flex items-center gap-2 text-ink">
-          <CheckCircle size={20} weight="regular" />
+          <CheckCircle size={20} weight="regular" aria-hidden="true" />
           <p role="status">Checked in.</p>
         </div>
       ) : (
@@ -308,7 +298,7 @@ function ResultCard({
           role={copy.tone === 'ok' ? 'status' : 'alert'}
           className={`mt-4 flex items-center gap-2 ${copy.tone === 'ok' ? 'text-ink' : 'text-accent-text'}`}
         >
-          {copy.tone !== 'ok' && <Warning size={20} weight="regular" />}
+          {copy.tone !== 'ok' && <Warning size={20} weight="regular" aria-hidden="true" />}
           {booking.status === 'checked_in' && booking.checkedInBy
             ? `Already checked in by ${booking.checkedInBy}.`
             : isPartiallyCheckedIn

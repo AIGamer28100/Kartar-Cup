@@ -68,31 +68,12 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
                 type="number"
                 inputMode="numeric"
                 min={1}
+                max={10}
                 className={`${inputCls} font-mono w-20`}
                 value={t.seatsPerTicket ?? 1}
                 onChange={(e) =>
                   patch((f) => ({
-                    tiers: f.tiers.map((x) => (x.id === t.id ? { ...x, seatsPerTicket: Number(e.target.value) || 1 } : x)),
-                  }))
-                }
-              />
-            </Field>
-            <Field id={`tier-discount-${t.id}`} label="Per-ticket discount % (optional)">
-              <input
-                id={`tier-discount-${t.id}`}
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={100}
-                className={`${inputCls} font-mono`}
-                value={t.perTicketDiscountPct ?? ''}
-                onChange={(e) =>
-                  patch((f) => ({
-                    tiers: f.tiers.map((x) =>
-                      x.id === t.id
-                        ? { ...x, perTicketDiscountPct: e.target.value === '' ? undefined : Number(e.target.value) }
-                        : x,
-                    ),
+                    tiers: f.tiers.map((x) => (x.id === t.id ? { ...x, seatsPerTicket: Math.min(10, Math.max(1, Math.round(Number(e.target.value)) || 1)) } : x)),
                   }))
                 }
               />
@@ -104,7 +85,7 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
               disabled={form.tiers.length <= 1}
               onClick={() => patch((f) => ({ tiers: f.tiers.filter((x) => x.id !== t.id) }))}
             >
-              <Trash size={20} weight="regular" />
+              <Trash size={20} weight="regular" aria-hidden="true" />
             </button>
           </li>
         ))}
@@ -115,7 +96,7 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
         </p>
       )}
       <Button variant="secondary" className="mt-4" disabled={form.tiers.length >= MAX_TIERS} onClick={add}>
-        <Plus size={20} weight="regular" /> Add tier ({form.tiers.length}/{MAX_TIERS})
+        <Plus size={20} weight="regular" aria-hidden="true" /> Add tier ({form.tiers.length}/{MAX_TIERS})
       </Button>
     </Section>
   );
@@ -141,7 +122,6 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
             minQty: '',
             validFromUtc: '',
             validToUtc: '',
-            maxRedemptions: '',
             active: true,
           },
         ],
@@ -154,7 +134,7 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
       <ul className="divide-y divide-line border-y border-line">
         {form.discounts.map((d, i) => (
           <li key={d.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-4">
-            <Field id={`disc-code-${d.id}`} label={`Discount ${i + 1} code (optional)`}>
+            <Field id={`disc-code-${d.id}`} label={`Discount ${i + 1} code`}>
               <input
                 id={`disc-code-${d.id}`}
                 className={inputCls}
@@ -206,17 +186,6 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
                 onChange={(e) => set(d.id, { minQty: e.target.value })}
               />
             </Field>
-            <Field id={`disc-maxred-${d.id}`} label="Max redemptions (optional)">
-              <input
-                id={`disc-maxred-${d.id}`}
-                type="number"
-                inputMode="numeric"
-                min={0}
-                className={`${inputCls} font-mono`}
-                value={d.maxRedemptions}
-                onChange={(e) => set(d.id, { maxRedemptions: e.target.value })}
-              />
-            </Field>
             <Field id={`disc-from-${d.id}`} label="Valid from (optional)">
               <input
                 id={`disc-from-${d.id}`}
@@ -246,7 +215,7 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
                 aria-label={`Remove ${d.label || `discount ${i + 1}`}`}
                 onClick={() => patch((f) => ({ discounts: f.discounts.filter((x) => x.id !== d.id) }))}
               >
-                <Trash size={20} weight="regular" />
+                <Trash size={20} weight="regular" aria-hidden="true" />
               </button>
             </div>
           </li>
@@ -258,7 +227,7 @@ export function DiscountsEditor({ form, errors, patch }: { form: FormState; erro
         </p>
       )}
       <Button variant="secondary" className="mt-4" disabled={form.discounts.length >= MAX_DISCOUNTS} onClick={add}>
-        <Plus size={20} weight="regular" /> Add discount ({form.discounts.length}/{MAX_DISCOUNTS})
+        <Plus size={20} weight="regular" aria-hidden="true" /> Add discount ({form.discounts.length}/{MAX_DISCOUNTS})
       </Button>
     </Section>
   );

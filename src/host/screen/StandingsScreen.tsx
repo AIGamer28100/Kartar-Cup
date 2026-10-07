@@ -55,7 +55,7 @@ export default function StandingsScreen({ config, ranked }: { config: EventConfi
                     r.ticks[id] ? 'border-accent text-accent-text' : 'border-line text-muted'
                   }`}
                 >
-                  {r.ticks[id] ? <Check size={18} weight="regular" /> : <X size={14} weight="regular" />}
+                  {r.ticks[id] ? <Check size={18} weight="regular" aria-hidden="true" /> : <X size={14} weight="regular" aria-hidden="true" />}
                 </span>
               ))}
             </span>

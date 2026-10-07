@@ -17,7 +17,6 @@ export interface DiscountForm {
   minQty: string;
   validFromUtc: string; // datetime-local
   validToUtc: string; // datetime-local
-  maxRedemptions: string;
   active: boolean;
 }
 
@@ -73,7 +72,6 @@ function discountToForm(d: Discount): DiscountForm {
     minQty: d.minQty != null ? String(d.minQty) : '',
     validFromUtc: d.validFromUtc ? toLocalInput(d.validFromUtc.toMillis()) : '',
     validToUtc: d.validToUtc ? toLocalInput(d.validToUtc.toMillis()) : '',
-    maxRedemptions: d.maxRedemptions != null ? String(d.maxRedemptions) : '',
     active: d.active,
   };
 }
@@ -119,7 +117,6 @@ function formToDiscount(f: DiscountForm): Discount {
     d.validFromUtc = Timestamp.fromMillis(fromLocalInput(f.validFromUtc));
   if (f.validToUtc.trim() && !Number.isNaN(fromLocalInput(f.validToUtc)))
     d.validToUtc = Timestamp.fromMillis(fromLocalInput(f.validToUtc));
-  if (f.maxRedemptions.trim()) d.maxRedemptions = Number(f.maxRedemptions);
   return d;
 }
 
@@ -187,7 +184,7 @@ export function validate(f: FormState): Errors {
 
   if (f.description.trim().length > 600) errs.description = 'Keep the description to 600 characters or fewer.';
 
-  if (f.policy.trim().length > 3000) errs.policy = 'Keep the policy to 3000 characters or fewer.';
+  if (f.policy.trim().length > 300) errs.policy = 'Keep the policy to 300 characters or fewer.';
 
   const cap = Number(f.capacity);
   if (!f.capacity.trim() || !Number.isInteger(cap) || cap <= 0) {
@@ -213,6 +210,10 @@ export function validate(f: FormState): Errors {
   }
 
   if (f.discounts.length > MAX_DISCOUNTS) errs.discounts = `At most ${MAX_DISCOUNTS} discounts.`;
+  else if (f.discounts.some((d) => !d.code.trim()))
+    errs.discounts = 'Every discount needs a code (guests enter it at checkout).';
+  if (f.tiers.some((t) => t.seatsPerTicket !== undefined && (!Number.isInteger(t.seatsPerTicket) || t.seatsPerTicket < 1 || t.seatsPerTicket > 10)))
+    errs.tiers = 'Seats per ticket must be a whole number from 1 to 10.';
 
   return errs;
 }

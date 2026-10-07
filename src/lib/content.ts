@@ -10,6 +10,7 @@ import {
   where,
   type Timestamp,
   type Unsubscribe,
+  writeBatch,
 } from 'firebase/firestore';
 import { logAudit } from './audit';
 import { db } from './firebase';
@@ -139,15 +140,20 @@ export async function savePartner(
   priv: PartnerPrivate,
 ): Promise<string> {
   const pid = id ?? doc(partnersCol()).id;
-  await setDoc(doc(db, 'partners', pid), { ...clean(data), published: data.published, updatedAt: serverTimestamp() });
-  await setDoc(doc(db, 'partnerPrivate', pid), { ...clean(priv), updatedAt: serverTimestamp() });
+  // One batch: the public card and its private contact notes are saved together or not at all.
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'partners', pid), { ...clean(data), published: data.published, updatedAt: serverTimestamp() });
+  batch.set(doc(db, 'partnerPrivate', pid), { ...clean(priv), updatedAt: serverTimestamp() });
+  await batch.commit();
   logAudit('content.partner', pid, data.name);
   return pid;
 }
 
 export async function deletePartner(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'partners', id));
-  await deleteDoc(doc(db, 'partnerPrivate', id));
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'partners', id));
+  batch.delete(doc(db, 'partnerPrivate', id));
+  await batch.commit();
   logAudit('content.partner', id, 'deleted');
 }
 

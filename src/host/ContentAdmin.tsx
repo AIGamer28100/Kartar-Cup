@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { TabList, TabPanel } from './settings/Tabs';
 import { ArrowSquareOut, Trash } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { RowsSkeleton } from '../components/Skeleton';
@@ -467,26 +468,20 @@ export default function ContentAdmin() {
   return (
     <section aria-label="Content" className="py-6">
       <h2 className="text-2xl font-semibold md:text-3xl">Content</h2>
-      <div role="group" aria-label="Content sections" className="mt-4 flex flex-wrap gap-2">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            aria-pressed={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={`min-h-11 rounded-full border px-4 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-              tab === t.id ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="mt-4">
+        <TabList tabs={tabs} active={tab} onChange={(id) => setTab(id as Tab)} label="Content sections" />
       </div>
-      <div className="mt-6">
-        {tab === 'partners' && <PartnersTab />}
-        {tab === 'stories' && <StoriesTab />}
-        {tab === 'legal' && access?.isAdmin && <LegalTab />}
-      </div>
+      <TabPanel id="partners" active={tab === 'partners'}>
+        <PartnersTab />
+      </TabPanel>
+      <TabPanel id="stories" active={tab === 'stories'}>
+        <StoriesTab />
+      </TabPanel>
+      {access?.isAdmin && (
+        <TabPanel id="legal" active={tab === 'legal'}>
+          <LegalTab />
+        </TabPanel>
+      )}
     </section>
   );
 }

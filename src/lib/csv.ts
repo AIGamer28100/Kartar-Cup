@@ -2,7 +2,8 @@ import type { RankedRow } from './types';
 
 function cell(v: unknown): string {
   let s = v === undefined || v === null ? '' : String(v);
-  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  // Formula-injection guard. A plain phone number (+91 98765 43210) is left alone; other + text is not.
+  if (/^[=\-@|\t\r]/.test(s) || (/^\+/.test(s) && !/^\+[\d\s\-()]+$/.test(s))) s = "'" + s;
   if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
   return s;
 }

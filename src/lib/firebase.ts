@@ -12,7 +12,7 @@ import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
 
-const projectId: string = import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'kartar-cup-baku';
+const projectId: string = import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'kartar-cup';
 
 export const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? (useEmulators ? 'demo-key' : undefined),

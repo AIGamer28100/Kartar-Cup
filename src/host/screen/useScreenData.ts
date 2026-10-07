@@ -25,7 +25,6 @@ const SEALED: ScreenState = {
   mode: 'lobby',
   stage: 0,
   overrideUid: null,
-  updatedAt: undefined as never,
 };
 
 /** Everything the big screen (and the PodiumController) need for the active event: config,

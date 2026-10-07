@@ -40,6 +40,18 @@ npx firebase emulators:exec --only firestore --project demo-kartar \
   "npx vitest run --config vitest.rules.config.ts"
 ```
 
+End-to-end tests (Playwright, against the Auth + Firestore emulators; `firebase.json` defines their ports):
+
+```bash
+VITE_USE_EMULATORS=true VITE_FIREBASE_PROJECT_ID=demo-kartar npx firebase emulators:exec \
+  --only auth,firestore --project demo-kartar \
+  "bash -c 'npx vite --port 5173 --host 127.0.0.1 & sleep 6; npx playwright test'"
+```
+
+`tests/e2e/helpers.ts` `resetAndSeed()` wipes both emulators and seeds a live event, three guest entries and the
+host account `host@example.com`. The host specs pass; the guest specs were written for an older guest UI and need
+updating before they can be trusted.
+
 ## 2. Who can do what (roles)
 
 * **Guests** sign in with Google, buy tickets, play the quiz, see only their own bookings.
@@ -84,11 +96,11 @@ One-time setup:
    npx wrangler deploy                               # prints https://kartar-places-proxy.<you>.workers.dev
    ```
    Check `wrangler.toml`: `FIREBASE_PROJECT_ID` must match your project, and `ALLOWED_ORIGINS` must list
-   every site origin that may call the Worker (your Hosting URLs and `http://localhost:5173`).
+   every production site origin that may call the Worker (your Hosting URLs). `http://localhost:5173` is allowed only in the `dev` environment.
 3. Put the printed URL in `VITE_PLACES_PROXY_URL` (in `.env.local` for dev, and in your build
    environment for production), then rebuild and redeploy the site.
 
-Local Worker testing: `npx wrangler dev`, with the key in `worker/places-proxy/.dev.vars` (a line `GOOGLE_PLACES_API_KEY=...`,
+Local Worker testing: `npx wrangler dev --env dev`, with the key in `worker/places-proxy/.dev.vars` (a line `GOOGLE_PLACES_API_KEY=...`,
 git-ignored, never commit it), and point `VITE_PLACES_PROXY_URL` at the printed localhost URL.
 
 If the key ever leaks, rotate it in Google Cloud and run `npx wrangler secret put GOOGLE_PLACES_API_KEY` again.

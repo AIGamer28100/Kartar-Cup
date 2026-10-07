@@ -13,7 +13,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { logAudit } from './audit';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import { applyDiscount } from './pricing';
 import type { Booking, BookingEvent } from './types';
 
@@ -87,7 +87,7 @@ export function watchBookingEvents(
 }
 
 /** Host only: unfiltered listen over all booking events (open and closed). Allowed by firestore.rules
- * because `allow read: if resource.data.salesOpen == true || isHost();` passes every doc for a host. */
+ * because `allow read: if salesOpen == true || hosted == true || canRunBookings();` passes every doc for them. */
 export function watchAllBookingEvents(
   cb: (events: BookingEvent[]) => void,
   onErr?: (e: Error) => void,
@@ -97,6 +97,12 @@ export function watchAllBookingEvents(
     (s) => cb(s.docs.map((d) => ({ ...d.data(), id: d.id }) as BookingEvent)),
     onErr,
   );
+}
+
+/** One-shot read of a booking event (null when it does not exist). */
+export async function getBookingEvent(id: string): Promise<BookingEvent | null> {
+  const s = await getDoc(bookingEventRef(id));
+  return s.exists() ? ({ ...s.data(), id: s.id } as BookingEvent) : null;
 }
 
 export function watchBookingEvent(
@@ -274,6 +280,7 @@ export async function checkIn(
     
     // If no count specified, check in all remaining
     const toCheckIn = count ?? (totalSeats - alreadyCheckedIn);
+    if (!Number.isInteger(toCheckIn) || toCheckIn < 1) throw new Error('Check in at least one seat.');
     const newCheckedInCount = alreadyCheckedIn + toCheckIn;
     
     if (newCheckedInCount > totalSeats) {
@@ -312,6 +319,8 @@ export async function cancelBooking(
   bookingId: string,
   reason?: string,
 ): Promise<void> {
+  const hostEmail = auth.currentUser?.email?.toLowerCase();
+  if (!hostEmail) throw new CancelBookingError('not-found', 'Sign in as a host to cancel a booking.');
   const ref = bookingRef(bookingId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -326,11 +335,13 @@ export async function cancelBooking(
     tx.update(ref, {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
-      cancelledBy: 'host',
+      cancelledBy: hostEmail,
       ...(trimmed ? { cancelReason: trimmed } : {}),
       refund: b.status === 'paid_mock' ? 'mock_refunded' : 'none',
     });
-    if (evSnap.exists()) {
+    // The rules require the seat release in the same write; a missing event would fail opaquely.
+    if (!evSnap.exists()) throw new CancelBookingError('not-found', 'The booking event no longer exists.');
+    {
       const ev = evSnap.data() as BookingEvent;
       const seatsToRelease = b.qty * (b.seatsPerTicket ?? 1);
       tx.update(evRef, {

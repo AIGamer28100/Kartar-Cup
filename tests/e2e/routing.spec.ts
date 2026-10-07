@@ -44,7 +44,7 @@ test('signed-out /host is redirected to / with no host UI', async ({ page }) => 
 test('host sees the Host console link and can open /host; guest never sees it', async ({ page }) => {
   await page.goto('/');
   await hostLogin(page, 'guest@example.com');
-  await expect(page.getByRole('link', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Profile' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Host console' })).toHaveCount(0);
   await hostLogin(page, 'host@example.com');
   await page.getByRole('link', { name: 'Host console' }).click();
@@ -55,6 +55,7 @@ test('host sees the Host console link and can open /host; guest never sees it', 
 test('/logout signs out and redirects home', async ({ page }) => {
   await page.goto('/');
   await hostLogin(page, 'guest@example.com');
+  await page.goto('/profile'); // sign out lives on the Profile page only (owner request)
   await expect(page.getByRole('link', { name: 'Sign out' })).toBeVisible();
   await page.getByRole('link', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/logout$/);

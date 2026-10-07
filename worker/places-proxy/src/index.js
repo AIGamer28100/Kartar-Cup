@@ -1,17 +1,20 @@
 // Google Places proxy for the Kartar Cup host console.
 // The Google API key lives ONLY here (Worker secret GOOGLE_PLACES_API_KEY); the browser never sees it.
-// Callers must send a Firebase ID token of someone who can run bookings. Deploy: see worker/places-proxy/README.md.
+// Callers must send a Firebase ID token of someone who can run bookings. Setup: README.md section 4.
 
 import { JWKS_URL, canRunBookings, verifyFirebaseIdToken } from './verify.js';
 
 const GOOGLE = 'https://maps.googleapis.com/maps/api/place';
-const AUTH_CACHE_MS = 5 * 60 * 1000;
+const AUTH_CACHE_MS = 60 * 1000; // short, so a removed host loses access within a minute
+const RATE_LIMIT = 30; // requests per uid per minute, per Worker isolate (add a Cloudflare rate rule for a hard global limit)
+const rate = new Map(); // uid -> { windowStart, count }
 const authCache = new Map(); // uid -> expiry ms (only successes are cached)
 let jwksCache = { at: 0, jwks: null };
 
-async function getJwks() {
-  if (jwksCache.jwks && Date.now() - jwksCache.at < 60 * 60 * 1000) return jwksCache.jwks;
-  const res = await fetch(JWKS_URL, { cf: { cacheTtl: 3600, cacheEverything: true } });
+async function getJwks(force = false) {
+  if (!force && jwksCache.jwks && Date.now() - jwksCache.at < 60 * 60 * 1000) return jwksCache.jwks;
+  // Forced refetch (Google rotated its signing keys) must bypass Cloudflare's edge cache too.
+  const res = await fetch(JWKS_URL, force ? { cache: 'no-store' } : { cf: { cacheTtl: 3600, cacheEverything: true } });
   if (!res.ok) throw new Error('jwks unavailable');
   jwksCache = { at: Date.now(), jwks: await res.json() };
   return jwksCache.jwks;
@@ -53,9 +56,18 @@ export default {
     let payload;
     try {
       payload = await verifyFirebaseIdToken(idToken, { projectId: env.FIREBASE_PROJECT_ID, jwks: await getJwks() });
-    } catch {
-      return json({ status: 'UNAUTHENTICATED' }, 401, cors);
+    } catch (e) {
+      // Unknown key id = Google probably rotated keys: refetch once instead of 401-ing everyone for an hour.
+      if (!String(e?.message).includes('unknown key')) return json({ status: 'UNAUTHENTICATED' }, 401, cors);
+      try {
+        payload = await verifyFirebaseIdToken(idToken, { projectId: env.FIREBASE_PROJECT_ID, jwks: await getJwks(true) });
+      } catch {
+        return json({ status: 'UNAUTHENTICATED' }, 401, cors);
+      }
     }
+    const slot = rate.get(payload.sub);
+    if (!slot || Date.now() - slot.windowStart > 60_000) rate.set(payload.sub, { windowStart: Date.now(), count: 1 });
+    else if (++slot.count > RATE_LIMIT) return json({ status: 'RATE_LIMITED' }, 429, cors);
     if ((authCache.get(payload.sub) ?? 0) < Date.now()) {
       const ok = await canRunBookings(payload, idToken, { projectId: env.FIREBASE_PROJECT_ID }).catch(() => false);
       if (!ok) return json({ status: 'FORBIDDEN' }, 403, cors);

@@ -49,9 +49,7 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
     let mapUrl = '';
     if (p.place_id) {
       const details = await fetchPlaceDetails(p.place_id);
-      if (Array.isArray(details)) {
-        // Should never happen - details returns object or PlacesError
-      } else if ('lat' in details && 'lng' in details) {
+      if ('lat' in details && 'lng' in details) {
         mapUrl = googleMapsPinUrl(details);
       } else {
         // Details fetch failed - fall back to search
@@ -95,7 +93,7 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
       {results && results.length > 0 && (
         <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-raised">
           {results.map((r) => (
-            <li key={r.label}>
+            <li key={r.place_id ?? r.label}>
               <button
                 type="button"
                 onClick={() => pick(r)}
@@ -108,7 +106,7 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
           ))}
         </ul>
       )}
-      <p className="mt-2 text-xs text-muted">Search data © Google Places API</p>
+      <p className="mt-2 text-xs text-muted">Powered by Google</p>
     </div>
   );
 }

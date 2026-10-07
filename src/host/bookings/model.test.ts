@@ -21,7 +21,6 @@ function makeEvent(): BookingEvent {
         minQty: 2,
         validFromUtc: Timestamp.fromMillis(1_700_000_040_000),
         validToUtc: Timestamp.fromMillis(1_700_100_060_000),
-        maxRedemptions: 20,
         active: true,
       },
     ],

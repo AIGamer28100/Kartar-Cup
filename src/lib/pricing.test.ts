@@ -94,21 +94,6 @@ describe('applyDiscount', () => {
     expect(r.totalSeats).toBe(1);
   });
 
-  it('maxRedemptions exhausted is rejected gracefully', () => {
-    const d = discount({ maxRedemptions: 10, redeemed: 10 });
-    const r = applyDiscount(tier(), d, 1);
-    expect(r.rejectedReason).toBe('Discount has been fully redeemed.');
-    expect(r.discountAmountInr).toBe(0);
-    expect(r.totalSeats).toBe(1);
-  });
-
-  it('maxRedemptions not yet exhausted applies', () => {
-    const d = discount({ maxRedemptions: 10, redeemed: 9 });
-    const r = applyDiscount(tier(), d, 1);
-    expect(r.rejectedReason).toBeNull();
-    expect(r.totalSeats).toBe(1);
-  });
-
   it('inactive discount is rejected gracefully', () => {
     const r = applyDiscount(tier(), discount({ active: false }), 1);
     expect(r.rejectedReason).toBe('Discount is not active.');

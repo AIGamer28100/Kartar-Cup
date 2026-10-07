@@ -248,7 +248,6 @@ function UserList() {
   );
 }
 
-export { UserList };
 
 /** Host-area page: admins manage people and roles; hosts get the invite panel only (the rules
  * let any host mint community links but only admins list everyone). */

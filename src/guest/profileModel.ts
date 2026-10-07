@@ -19,7 +19,7 @@ export function sortOwnEntries(rows: OwnEntryRow[]): OwnEntryRow[] {
 }
 
 export function entryStatusLabel(row: OwnEntryRow): string {
-  return row.score === null ? 'Picks locked in — pending results' : `Scored ${row.score}/5`;
+  return row.score === null ? 'Picks locked in — pending results' : `Scored ${row.score}/${row.maxScore ?? 5}`;
 }
 
 const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {

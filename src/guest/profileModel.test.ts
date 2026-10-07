@@ -31,6 +31,7 @@ describe('entryStatusLabel', () => {
   });
   it('shows the score once available', () => {
     expect(entryStatusLabel({ eventId: 'a', eventName: 'A', submittedAtMs: 1, score: 4 })).toBe('Scored 4/5');
+    expect(entryStatusLabel({ eventId: 'a', eventName: 'A', submittedAtMs: 1, score: 7, maxScore: 12 })).toBe('Scored 7/12');
   });
 });
 

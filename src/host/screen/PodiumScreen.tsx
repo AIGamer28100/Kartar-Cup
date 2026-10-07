@@ -51,15 +51,10 @@ function Step({ place, row, revealed, active, totalQuestions, weighted, heightCl
               {finale && !reduce && (
                 <motion.span
                   aria-hidden="true"
-                  className="absolute inset-0 -z-10 rounded-full"
-                  initial={{ boxShadow: '0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent)' }}
-                  animate={{
-                    boxShadow: [
-                      '0 0 0 0 color-mix(in srgb, var(--color-accent) 50%, transparent)',
-                      '0 0 0 40px color-mix(in srgb, var(--color-accent) 0%, transparent)',
-                      '0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent)',
-                    ],
-                  }}
+                  className="absolute inset-0 -z-10 rounded-full border-2 border-accent"
+                  initial={{ opacity: 0.6, scale: 1 }}
+                  // transform + opacity only (framer-motion cannot interpolate color-mix box-shadows)
+                  animate={{ opacity: [0.6, 0, 0], scale: [1, 1.7, 1.7] }}
                   transition={{ duration: 1.6, repeat: 2 }}
                 />
               )}

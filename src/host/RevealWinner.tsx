@@ -47,7 +47,7 @@ export default function RevealWinner({
     <section aria-label="Winner" className="border-t border-line py-8">
       <div className="flex flex-wrap items-center gap-4">
         <Button disabled={busy || !winner} onClick={reveal}>
-          <Trophy size={20} weight="regular" />
+          <Trophy size={20} weight="regular" aria-hidden="true" />
           {revealed ? 'Replay the reveal' : 'Reveal the winner'}
         </Button>
         {!winner && <p className="text-muted">Nobody to crown yet.</p>}

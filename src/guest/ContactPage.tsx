@@ -48,7 +48,7 @@ export default function ContactPage() {
             {CONTACT.whatsappUrl ? (
               <WhatsAppCta url={CONTACT.whatsappUrl} />
             ) : (
-              <Pending>Link coming soon (host: set WHATSAPP_COMMUNITY_URL in src/config/event.ts).</Pending>
+              <Pending>Link coming soon.</Pending>
             )}
           </dd>
         </Reveal>
@@ -60,7 +60,7 @@ export default function ContactPage() {
                 {CONTACT.email}
               </a>
             ) : (
-              <Pending>Host: add the contact email in src/config/contact.ts.</Pending>
+              <Pending>Email coming soon.</Pending>
             )}
           </dd>
         </Reveal>
@@ -72,7 +72,7 @@ export default function ContactPage() {
                 {CONTACT.phone}
               </a>
             ) : (
-              <Pending>Host: add the contact phone number in src/config/contact.ts.</Pending>
+              <Pending>Phone number coming soon.</Pending>
             )}
           </dd>
         </Reveal>

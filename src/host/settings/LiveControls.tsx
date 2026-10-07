@@ -61,25 +61,25 @@ export default function LiveControls() {
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button variant="secondary" disabled={busy} onClick={() => run((id) => setOverride(id, 'open'))}>
-              <LockSimpleOpen size={20} weight="regular" /> Open now
+              <LockSimpleOpen size={20} weight="regular" aria-hidden="true" /> Open now
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => run((id) => setOverride(id, 'closed'))}>
-              <LockSimple size={20} weight="regular" /> Close now
+              <LockSimple size={20} weight="regular" aria-hidden="true" /> Close now
             </Button>
             {[5, 10, 15].map((m) => (
               <Button key={m} variant="secondary" disabled={busy} onClick={() => run((id) => extendCloses(id, m))}>
-                <Plus size={20} weight="regular" /> Extend closing +{m} min
+                <Plus size={20} weight="regular" aria-hidden="true" /> Extend closing +{m} min
               </Button>
             ))}
             <Button variant="ghost" disabled={busy} onClick={() => run((id) => setOverride(id, 'none'))}>
-              <ArrowCounterClockwise size={20} weight="regular" /> Clear override
+              <ArrowCounterClockwise size={20} weight="regular" aria-hidden="true" /> Clear override
             </Button>
           </div>
         </>
       )}
       {err && (
         <p role="alert" className="mt-4 text-accent-text">
-          <Lightning size={16} weight="regular" className="mr-1 inline" />
+          <Lightning size={16} weight="regular" className="mr-1 inline" aria-hidden="true" />
           {err}
         </p>
       )}

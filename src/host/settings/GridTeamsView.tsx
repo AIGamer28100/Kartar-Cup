@@ -66,7 +66,7 @@ export function useGridRefresh(form: FormState | null, patch: Patch, race: RaceI
 export function RefreshGridButton({ busy, onRefresh, disabled }: { busy: boolean; onRefresh: () => void; disabled: boolean }) {
   return (
     <Button variant="secondary" disabled={disabled || busy} onClick={onRefresh}>
-      <ArrowsClockwise size={20} weight="regular" className={busy ? 'animate-spin' : undefined} />
+      <ArrowsClockwise size={20} weight="regular" className={busy ? 'animate-spin' : undefined} aria-hidden="true" />
       {busy ? 'Refreshing...' : 'Refresh from OpenF1'}
     </Button>
   );

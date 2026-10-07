@@ -12,17 +12,17 @@ import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
 import PodiumController from './screen/PodiumController';
 import ResultsForm from './ResultsForm';
+import RaceControl from './RaceControl';
 import RevealWinner from './RevealWinner';
-import StatusPanel from './StatusPanel';
 import { useCardBonus } from './useCardBonus';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
-  const { loading, error, event, config, entries, resultsDoc, results } = useHostData();
+  const { loading, error, config, entries, resultsDoc, results } = useHostData();
   const stuck = useTimedOut(loading);
   const cardBonus = useCardBonus(config?.raceId);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
-  const overrideUid = localOverride !== undefined ? localOverride : (event?.tiebreakOverride ?? null);
+  const overrideUid = localOverride !== undefined ? localOverride : (config?.tiebreakOverride ?? null);
 
   const ranked = useMemo(() => {
     const scorable: ScorableEntry[] = entries.map((e) => ({
@@ -49,9 +49,9 @@ export default function HostConsole() {
     const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${EVENT_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-entries.csv`;
+    a.download = `${(config?.name ?? EVENT_NAME).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-entries.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   if (loading) {
@@ -67,18 +67,18 @@ export default function HostConsole() {
           Results feed hiccup: {error}
         </p>
       )}
-      <StatusPanel event={event} count={entries.length} />
+      <RaceControl config={config} count={entries.length} />
       <Leaderboard
         rows={ranked}
         overrideUid={overrideUid}
-        canPick={!event?.winnerRevealed}
+        canPick={!config?.winnerRevealed}
         questions={config?.questions}
         onPick={setLocalOverride}
       />
       <RevealWinner
         winner={winner(ranked)}
         overrideUid={overrideUid}
-        revealed={event?.winnerRevealed ?? false}
+        revealed={config?.winnerRevealed ?? false}
         max={config ? maxScore(config.questions) : undefined}
       />
       <CrowdReveal config={config} entries={entries} results={results} />
@@ -86,7 +86,7 @@ export default function HostConsole() {
       <PodiumController />
       <div className="py-8">
         <Button variant="secondary" disabled={entries.length === 0} onClick={exportCsv}>
-          <DownloadSimple size={20} weight="regular" /> Export entries CSV
+          <DownloadSimple size={20} weight="regular" aria-hidden="true" /> Export entries CSV
         </Button>
       </div>
     </div>
