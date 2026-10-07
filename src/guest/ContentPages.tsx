@@ -11,6 +11,7 @@ import {
 } from '../lib/content';
 import { usePageMeta } from '../lib/pageMeta';
 import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
+import { Stagger, StaggerItem, StartLightsLoader } from '../components/motion';
 
 /* /partners and /stories(/:id). Public, read-only, and driven entirely by what the host enters in
  * Host > Content (R26/R27: no seed or invented names, logos or posts). Empty states say so honestly. */
@@ -37,7 +38,7 @@ function Cover({ url }: { url?: string }) {
 function PartnerCard({ p }: { p: Partner }) {
   const [broken, setBroken] = useState(false);
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-lg border border-line p-4">
+    <StaggerItem as="li" className="group relative flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-line p-4 transition-colors hover:border-muted">
       <div className="flex h-14 items-center">
         {p.logoUrl && !broken ? (
           <img src={p.logoUrl} alt={`${p.name} logo`} loading="lazy" onError={() => setBroken(true)} className="max-h-14 w-auto max-w-[70%] object-contain" />
@@ -49,11 +50,16 @@ function PartnerCard({ p }: { p: Partner }) {
       <span className="w-fit rounded-full border border-line px-2.5 font-mono text-xs uppercase tracking-widest text-muted">{partnerKindLabel(p.kind)}</span>
       {p.blurb && <p className="text-pretty text-sm text-muted">{p.blurb}</p>}
       {p.website && (
-        <a href={p.website} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex min-h-11 items-center text-sm text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent">
+        <a href={p.website} target="_blank" rel="noopener noreferrer" className="kerb-link kerb-link--rest mt-auto inline-flex min-h-11 w-fit items-center text-sm text-accent-text">
           Visit website<span className="sr-only"> for {p.name} (opens in a new tab)</span>
         </a>
       )}
-    </li>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-within:scale-x-100 motion-reduce:transition-none"
+        style={{ backgroundImage: 'var(--kerb-stripes)' }}
+      />
+    </StaggerItem>
   );
 }
 
@@ -69,7 +75,7 @@ export function PartnersPage() {
       </Reveal>
       <Reveal index={1} className="mt-8">
         {failed && <p role="alert" className="text-accent-text">We could not load the partners right now. Try again in a moment.</p>}
-        {!failed && items === null && <p role="status" className="text-muted">Loading partners...</p>}
+        {!failed && items === null && <p role="status" className="flex items-center gap-3 text-muted"><StartLightsLoader label="Loading partners" />Loading partners...</p>}
         {items && items.length === 0 && <p className="text-muted">Our partners will appear here once they are announced.</p>}
         {items && items.length > 0 && (
           <div className="grid gap-8">
@@ -78,11 +84,11 @@ export function PartnersPage() {
               return group.length === 0 ? null : (
                 <section key={k.id} aria-labelledby={`pk-${k.id}`}>
                   <h2 id={`pk-${k.id}`} className={H3}>{k.label}s</h2>
-                  <ul className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Stagger as="ul" className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {group.map((p) => (
                       <PartnerCard key={p.id} p={p} />
                     ))}
-                  </ul>
+                  </Stagger>
                 </section>
               );
             })}
@@ -97,7 +103,7 @@ export function PartnersPage() {
 
 function StoryCard({ s }: { s: Story }) {
   return (
-    <li className="group relative flex min-w-0 flex-col gap-3 rounded-lg border border-line p-4 transition-colors hover:border-accent">
+    <StaggerItem as="li" className="group relative overflow-hidden flex min-w-0 flex-col gap-3 rounded-lg border border-line p-4 transition-colors hover:border-accent">
       <Cover url={s.coverUrl} />
       <p className={`${mono} text-xs uppercase tracking-widest text-muted`}>
         {storyTagLabel(s.tag)} - {dateFmt(s.date)}
@@ -108,7 +114,12 @@ function StoryCard({ s }: { s: Story }) {
         </Link>
       </h2>
       {s.summary && <p className="text-pretty text-sm text-muted">{s.summary}</p>}
-    </li>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-within:scale-x-100 motion-reduce:transition-none"
+        style={{ backgroundImage: 'var(--kerb-stripes)' }}
+      />
+    </StaggerItem>
   );
 }
 
@@ -125,7 +136,7 @@ export function StoriesPage() {
     return (
       <Shell>
         <Reveal>
-          <Link to="/stories" className="inline-flex min-h-11 items-center text-sm text-accent-text underline decoration-line underline-offset-4">All stories</Link>
+          <Link to="/stories" className="kerb-link kerb-link--rest inline-flex min-h-11 items-center text-sm text-accent-text">All stories</Link>
           {failed && <p role="alert" className="mt-4 text-accent-text">We could not load this story right now.</p>}
           {!failed && items === null && <p role="status" className="mt-4 text-muted">Loading...</p>}
           {items && !story && <p className="mt-4 text-muted">We could not find that story. It may have been removed.</p>}
@@ -165,14 +176,14 @@ export function StoriesPage() {
       </Reveal>
       <Reveal index={1} className="mt-8">
         {failed && <p role="alert" className="text-accent-text">We could not load the stories right now. Try again in a moment.</p>}
-        {!failed && items === null && <p role="status" className="text-muted">Loading stories...</p>}
+        {!failed && items === null && <p role="status" className="flex items-center gap-3 text-muted"><StartLightsLoader label="Loading stories" />Loading stories...</p>}
         {items && items.length === 0 && <p className="text-muted">Our first stories will be posted here soon.</p>}
         {items && items.length > 0 && (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Stagger as="ul" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((s) => (
               <StoryCard key={s.id} s={s} />
             ))}
-          </ul>
+          </Stagger>
         )}
       </Reveal>
     </Shell>
