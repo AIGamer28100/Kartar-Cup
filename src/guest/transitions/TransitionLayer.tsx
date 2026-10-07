@@ -1,22 +1,31 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation, useNavigationType, type Location } from 'react-router';
-import { TransitionOverlay } from './graphics';
+import { preloadRoute } from '../../routes';
+import { DUR, EASE } from '../../lib/motion';
+import { TransitionOverlay, type Phase } from './graphics';
 import {
   forMotionPreference,
+  isPublicPath,
+  MAX_HOLD_MS,
   routeMeta,
-  SWAP_AT,
   transitionFor,
+  type Dir,
   type RouteMeta,
   type TransitionKind,
 } from './variants';
 
 /*
  * R40: themed page transitions for the PUBLIC routes (declarative <Routes>, no data router).
- * The rendered location lags the real one until the overlay fully covers the page, then swaps, so
- * the new page mounts exactly once (no double render) and is never seen half-built. Swap, end and
- * cleanup are driven by setTimeout, never by animation callbacks, so navigation always completes
- * even if the tab is hidden or the animation fails. Host / excluded routes swap synchronously.
+ *
+ * Order of events for one navigation:
+ *   1. cover: the overlay sweeps in over the old page while the new route's code preloads;
+ *   2. swap: once covered AND the code is ready (or after MAX_HOLD_MS), the rendered location
+ *      switches, scroll is restored, and the new page mounts exactly once, hidden under the overlay;
+ *   3. reveal: the overlay clears while the new page glides in (PageEnter).
+ * Every step is driven by timers and a promise, never animation callbacks, so navigation always
+ * completes (hidden tab, failed animation, slow network). The overlay never takes pointer events.
+ * Host / excluded routes swap synchronously. Total time with code ready: < 450ms.
  */
 
 const LIGHTS_KEY = 'kc-lights-out-seen';
@@ -52,22 +61,52 @@ function focusHeading(tries = 12) {
 interface Run {
   id: number;
   kind: TransitionKind;
-  durationMs: number;
+  phase: Phase;
+  dir: Dir;
+  coverMs: number;
+  revealMs: number;
+  startCovered: boolean;
   meta: RouteMeta;
 }
 
-/** Entrance wrapper: opacity + small rise, spring. Mounted fresh (keyed) after each transition. */
-export function PageEnter({ animate, children }: { animate: boolean; children: ReactNode }) {
+/** Entrance for the freshly swapped page: a short glide in the travel direction plus fade, while
+ * the overlay clears. Reduced motion: opacity only. First load: no entrance (sections reveal
+ * themselves). */
+export function PageEnter({ animate, dir, children }: { animate: boolean; dir: Dir; children: ReactNode }) {
   const reduce = useReducedMotion();
   return (
     <motion.div
-      initial={animate ? (reduce ? { opacity: 0 } : { opacity: 0, y: 16 }) : false}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+      initial={animate ? (reduce ? { opacity: 0 } : { opacity: 0, x: dir * 28 }) : false}
+      animate={{ opacity: 1, x: 0 }}
+      transition={reduce ? { duration: DUR.fast } : { duration: DUR.slow, ease: EASE.out }}
     >
       {children}
     </motion.div>
   );
+}
+
+/** Warm up a public route's code on link intent (hover, focus, touch), once per path. */
+function useIntentPreload() {
+  useEffect(() => {
+    const seen = new Set<string>();
+    const onIntent = (e: Event) => {
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || a.target === '_blank' || a.origin !== window.location.origin) return;
+      const path = a.pathname;
+      if (seen.has(path) || !isPublicPath(path)) return;
+      seen.add(path);
+      void preloadRoute(path);
+    };
+    const opts = { passive: true, capture: true } as const;
+    document.addEventListener('pointerover', onIntent, opts);
+    document.addEventListener('focusin', onIntent, opts);
+    document.addEventListener('touchstart', onIntent, opts);
+    return () => {
+      document.removeEventListener('pointerover', onIntent, opts);
+      document.removeEventListener('focusin', onIntent, opts);
+      document.removeEventListener('touchstart', onIntent, opts);
+    };
+  }, []);
 }
 
 export default function TransitionLayer({ children }: { children: (location: Location) => ReactNode }) {
@@ -78,11 +117,15 @@ export default function TransitionLayer({ children }: { children: (location: Loc
   reduceRef.current = reduce;
   const [displayed, setDisplayed] = useState<Location>(location);
   const [run, setRun] = useState<Run | null>(null);
-  const [enterId, setEnterId] = useState(0);
+  const runRef = useRef<Run | null>(null);
+  runRef.current = run;
+  const [enter, setEnter] = useState<{ id: number; dir: Dir }>({ id: 0, dir: 1 });
   const [announce, setAnnounce] = useState('');
   const prev = useRef<Location>(location);
   const scrollByKey = useRef(new Map<string, number>());
   const seq = useRef(0);
+
+  useIntentPreload();
 
   useLayoutEffect(() => {
     const prevScroll = 'scrollRestoration' in history ? history.scrollRestoration : null;
@@ -113,12 +156,13 @@ export default function TransitionLayer({ children }: { children: (location: Loc
       window.scrollTo({ top: restoreY, left: 0, behavior: 'instant' });
       setAnnounce(`${meta.title} page`);
     };
+    const ready = preloadRoute(location.pathname);
 
     // Hidden tab: animations would not run, so swap straight away.
     if (document.hidden) {
       setRun(null);
       setDisplayed(location);
-      setEnterId(++seq.current);
+      setEnter({ id: ++seq.current, dir: base.dir });
       settle();
       const t = window.setTimeout(() => focusHeading(), 50);
       return () => window.clearTimeout(t);
@@ -126,22 +170,49 @@ export default function TransitionLayer({ children }: { children: (location: Loc
 
     const t = forMotionPreference(base, reduceRef.current);
     const runId = ++seq.current;
-    const enterId = ++seq.current;
-    setRun({ id: runId, kind: t.kind, durationMs: t.durationMs, meta });
-    const swap = window.setTimeout(() => {
+    // A previous transition still covering the screen: continue from covered instead of
+    // uncovering and re-covering (no flash on rapid clicks).
+    const startCovered = runRef.current?.phase === 'cover';
+    setRun({ id: runId, kind: t.kind, phase: 'cover', dir: t.dir, coverMs: t.coverMs, revealMs: t.revealMs, startCovered, meta });
+
+    let cancelled = false;
+    let covered = false;
+    let loaded = false;
+    let swapped = false;
+    const timers: number[] = [];
+    const swap = () => {
+      if (cancelled || swapped) return;
+      swapped = true;
       setDisplayed(location);
-      setEnterId(enterId);
+      setEnter({ id: ++seq.current, dir: t.dir });
       settle();
-    }, t.durationMs * SWAP_AT[t.kind]);
-    const end = window.setTimeout(() => {
-      setRun(null);
-      window.scrollTo({ top: restoreY, left: 0, behavior: 'instant' });
-      focusHeading();
-    }, t.durationMs);
+      setRun((r) => (r && r.id === runId ? { ...r, phase: 'reveal' } : r));
+      timers.push(
+        window.setTimeout(() => {
+          setRun((r) => (r && r.id === runId ? null : r));
+          window.scrollTo({ top: restoreY, left: 0, behavior: 'instant' });
+          focusHeading();
+        }, t.revealMs),
+      );
+    };
+    timers.push(
+      window.setTimeout(
+        () => {
+          covered = true;
+          if (loaded) swap();
+          else timers.push(window.setTimeout(swap, MAX_HOLD_MS));
+        },
+        startCovered ? 0 : t.coverMs,
+      ),
+    );
+    void ready.then(() => {
+      loaded = true;
+      if (covered) swap();
+    });
     return () => {
-      // A newer navigation superseded this one: finish it instantly rather than stalling.
-      window.clearTimeout(swap);
-      window.clearTimeout(end);
+      // A newer navigation superseded this one; it takes over from here.
+      cancelled = true;
+      timers.forEach((id) => window.clearTimeout(id));
     };
     // navType changes together with location; reduce is read through a ref so a preference flip
     // mid-run cannot cancel the pending swap.
@@ -150,10 +221,21 @@ export default function TransitionLayer({ children }: { children: (location: Loc
 
   return (
     <>
-      <PageEnter key={enterId} animate={enterId > 0}>
+      <PageEnter key={enter.id} animate={enter.id > 0} dir={enter.dir}>
         {children(displayed)}
       </PageEnter>
-      {run && <TransitionOverlay key={run.id} kind={run.kind} durationMs={run.durationMs} meta={run.meta} />}
+      {run && (
+        <TransitionOverlay
+          key={run.id}
+          kind={run.kind}
+          phase={run.phase}
+          dir={run.dir}
+          coverMs={run.coverMs}
+          revealMs={run.revealMs}
+          startCovered={run.startCovered}
+          meta={run.meta}
+        />
+      )}
       <div role="status" aria-live="polite" className="sr-only">
         {announce}
       </div>

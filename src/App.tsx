@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Route, Routes, useLocation } from 'react-router';
-import { PageSkeleton } from './components/Skeleton';
+import { PageSkeleton, RouteSkeleton } from './components/Skeleton';
+import { load } from './routes';
+import { isPublicPath } from './guest/transitions/variants';
 import LogoutPage from './pages/LogoutPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RequireHost from './pages/RequireHost';
@@ -9,22 +11,22 @@ import TransitionLayer from './guest/transitions/TransitionLayer';
 import MobileNav from './guest/MobileNav';
 import { chromeVisible } from './guest/mobileChrome';
 
-const HomePage = lazy(() => import('./guest/HomePage'));
-const EventsPage = lazy(() => import('./guest/EventsPage'));
-const BookingCheckout = lazy(() => import('./guest/BookingCheckout'));
-const GalleryPage = lazy(() => import('./guest/GalleryPage'));
-const CupPage = lazy(() => import('./guest/CupPage'));
-const RaceDetailPage = lazy(() => import('./guest/RaceDetailPage'));
-const ProfilePage = lazy(() => import('./guest/ProfilePage'));
+const HomePage = lazy(load.home);
+const EventsPage = lazy(load.events);
+const BookingCheckout = lazy(load.checkout);
+const GalleryPage = lazy(load.gallery);
+const CupPage = lazy(load.cup);
+const RaceDetailPage = lazy(load.race);
+const ProfilePage = lazy(load.profile);
 const RaceStateMockPage = lazy(() => import('./pages/RaceStateMockPage'));
-const TicketPage = lazy(() => import('./guest/TicketView'));
-const AboutPage = lazy(() => import('./guest/AboutPage'));
-const ContactPage = lazy(() => import('./guest/ContactPage'));
-const PartnersPage = lazy(() => import('./guest/ContentPages').then((m) => ({ default: m.PartnersPage })));
-const StoriesPage = lazy(() => import('./guest/ContentPages').then((m) => ({ default: m.StoriesPage })));
-const TermsPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.TermsPage })));
-const PrivacyPage = lazy(() => import('./guest/LegalPages').then((m) => ({ default: m.PrivacyPage })));
-const JoinPage = lazy(() => import('./pages/JoinPage'));
+const TicketPage = lazy(load.ticket);
+const AboutPage = lazy(load.about);
+const ContactPage = lazy(load.contact);
+const PartnersPage = lazy(() => load.content().then((m) => ({ default: m.PartnersPage })));
+const StoriesPage = lazy(() => load.content().then((m) => ({ default: m.StoriesPage })));
+const TermsPage = lazy(() => load.legal().then((m) => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => load.legal().then((m) => ({ default: m.PrivacyPage })));
+const JoinPage = lazy(load.join);
 const HostApp = lazy(() => import('./host/HostApp'));
 const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
 
@@ -34,7 +36,7 @@ export default function App() {
     <div className={`min-h-[100dvh] bg-base text-ink ${chromeVisible(pathname) ? 'max-md:pb-[calc(6.5rem+env(safe-area-inset-bottom))]' : ''}`}>
       <TransitionLayer>
         {(location) => (
-          <Suspense fallback={<PageSkeleton />}>
+          <Suspense fallback={isPublicPath(location.pathname) ? <RouteSkeleton /> : <PageSkeleton />}>
             <Routes location={location}>
               <Route path="/" element={<HomePage />} />
               <Route path="/events" element={<EventsPage />} />
