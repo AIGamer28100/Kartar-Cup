@@ -1,5 +1,6 @@
 import { Trophy } from '@phosphor-icons/react';
 import { useState, useEffect, useRef } from 'react';
+import { DigitRoll } from './motion';
 
 export type RaceState =
   | 'scheduled'
@@ -437,11 +438,15 @@ function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: nu
 
 function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceState }) {
   const [now, setNow] = useState(Date.now());
+  // Centiseconds are only shown in the lights-out countdown; every other readout changes once a
+  // second, so a 250ms tick is plenty (it used to re-render every 10ms in every state).
+  const tickMs = state === 'lights-out-countdown' ? 10 : 250;
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 10);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, []);
+  }, [tickMs]);
 
   const delta = raceStartMs - now;
 
@@ -493,10 +498,12 @@ function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceSta
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
+    const text = `${days > 0 ? `${days}d ` : ''}${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
     return (
       <div className="font-mono text-4xl font-bold tabular-nums text-ink">
-        {days > 0 && `${days}d `}
-        {String(hours).padStart(2, '0')}h {String(minutes).padStart(2, '0')}m {String(seconds).padStart(2, '0')}s
+        {/* Timing-screen digit roll; the plain text stays available to assistive tech. */}
+        <DigitRoll text={text} />
+        <span className="sr-only">{text}</span>
       </div>
     );
   }

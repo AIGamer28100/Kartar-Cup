@@ -1,5 +1,6 @@
 import {
   Children,
+  Fragment,
   useEffect,
   useRef,
   type CSSProperties,
@@ -243,7 +244,8 @@ export function Ticker({
  */
 export function DigitRoll({ text, className = '' }: { text: string; className?: string }) {
   const reduce = useReducedMotion();
-  const chars = text.split('');
+  // Non-breaking spaces so a space slot keeps its width inside the inline-block cells.
+  const chars = text.replace(/ /g, ' ').split('');
   return (
     <span className={`inline-flex tabular-nums ${className}`} aria-hidden="true">
       {chars.map((c, i) => (
@@ -363,6 +365,50 @@ export function SkeletonSwap({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/**
+ * Headline reveal: each word rises out of its own clipping slot, staggered, like a grid lining up.
+ * Text stays real text (selectable, read once by screen readers). Reduced motion: static.
+ */
+export function SplitWords({ text, delay = 0, step = STAGGER.base }: { text: string; delay?: number; step?: number }) {
+  const reduce = useReducedMotion();
+  const words = text.split(' ');
+  return (
+    <>
+      {words.map((w, i) => (
+        <Fragment key={`${w}-${i}`}>
+          <span className="inline-block overflow-hidden pb-[0.08em] align-bottom">
+            <motion.span
+              className="inline-block"
+              initial={reduce ? false : { y: '105%' }}
+              animate={{ y: '0%' }}
+              transition={reduce ? { duration: 0 } : { duration: DUR.slow + 0.16, ease: EASE.out, delay: delay + i * step }}
+            >
+              {w}
+            </motion.span>
+          </span>
+          {i < words.length - 1 ? ' ' : null}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/** A red/white kerb strip that draws itself (scaleX) when it scrolls into view. Decorative. */
+export function KerbDraw({ className = '', delay = 0, origin = 'left' }: { className?: string; delay?: number; origin?: 'left' | 'right' }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      aria-hidden="true"
+      className={`block rounded-[2px] ${className}`}
+      style={{ backgroundImage: 'var(--kerb-stripes)', transformOrigin: origin === 'left' ? '0% 50%' : '100% 50%' }}
+      initial={reduce ? false : { scaleX: 0 }}
+      whileInView={{ scaleX: 1 }}
+      viewport={{ once: true }}
+      transition={reduce ? { duration: 0 } : { duration: DUR.slow + 0.2, ease: EASE.launch, delay }}
+    />
   );
 }
 
