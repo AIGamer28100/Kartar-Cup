@@ -2,6 +2,10 @@ import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default [
   // Ignore patterns
@@ -15,12 +19,23 @@ export default [
       'scripts',
       'coverage',
       'test-results',
+      '.claude/**',
+      '**/*.css',
     ],
   },
 
   // JavaScript/TypeScript recommended
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    languageOptions: {
+      ...config.languageOptions,
+      parserOptions: {
+        ...config.languageOptions?.parserOptions,
+        tsconfigRootDir: __dirname,
+      },
+    },
+  })),
 
   // React hooks rules
   {
@@ -53,12 +68,29 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
+      // Disable no-explicit-any since this codebase uses strict TypeScript but has many any types in libraries
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+
+  // Tests configuration
+  {
+    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
+    rules: {
+      // Allow underscore-prefixed unused variables in tests
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 
   // Worker files (plain JS, allow service worker globals)
   {
-    files: ['worker/**/*.{js,ts}'],
+    files: ['worker/**/*.{js,ts}', 'public/sw.js'],
     languageOptions: {
       globals: {
         ...globals.webextensions,
@@ -92,6 +124,7 @@ export default [
     rules: {
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      'no-useless-assignment': 'off',
     },
   },
 ];

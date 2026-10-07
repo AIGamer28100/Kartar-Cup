@@ -45,7 +45,7 @@ export function applyDiscount(
     return noDiscount('Discount has expired.');
   }
 
-  let discountAmountInr = 0;
+  let discountAmountInr: number;
   switch (discount.kind) {
     case 'percent':
     case 'earlybird':

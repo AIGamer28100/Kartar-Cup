@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import type { Page } from '@playwright/test';
 import { DRIVERS, QUESTIONS, TEAMS } from '../../src/config/event';
 

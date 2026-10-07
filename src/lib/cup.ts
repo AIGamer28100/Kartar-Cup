@@ -106,7 +106,7 @@ async function thenRecompute(sid: string): Promise<void> {
   try {
     await recomputeStandings(sid, true);
   } catch (e) {
-    throw new Error(`Saved, but standings could not be updated: ${e instanceof Error ? e.message : 'unknown error'}. Use Recompute standings to retry.`);
+    throw new Error(`Saved, but standings could not be updated: ${e instanceof Error ? e.message : 'unknown error'}. Use Recompute standings to retry.`, { cause: e });
   }
 }
 

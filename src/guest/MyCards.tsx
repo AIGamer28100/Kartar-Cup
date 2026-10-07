@@ -27,7 +27,7 @@ export default function MyCards({ booking }: { booking: Booking }) {
       }
     };
     load();
-  }, [booking.bookingEventId, booking.playCard?.cardId]);
+  }, [booking.bookingEventId, booking.playCard]);
 
   const play = booking.playCard;
   const hasAny = booking.passNumber != null || play;

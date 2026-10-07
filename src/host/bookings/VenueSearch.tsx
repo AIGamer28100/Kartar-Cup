@@ -46,17 +46,13 @@ export default function VenueSearch({ onPick }: { onPick: (p: { name: string; ci
   async function pick(p: PlaceResult) {
     // If we have a place_id, fetch details to get real lat/lng for a proper pin URL.
     // Otherwise fall back to search URL.
-    let mapUrl = '';
+    const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.city)}`;
+    let mapUrl = fallbackUrl;
     if (p.place_id) {
       const details = await fetchPlaceDetails(p.place_id);
       if ('lat' in details && 'lng' in details) {
         mapUrl = googleMapsPinUrl(details);
-      } else {
-        // Details fetch failed - fall back to search
-        mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.city)}`;
       }
-    } else {
-      mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.city)}`;
     }
     onPick({ name: p.name, city: p.city, mapUrl, place_id: p.place_id });
     setText('');
