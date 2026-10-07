@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "lint": "eslint .",
     "deploy": "firebase deploy --project kartar-cup --only hosting,firestore:rules",
     "deploy:all": "firebase deploy --project kartar-cup"
   },
@@ -27,14 +28,19 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "firebase-tools": "^15.31.0",
+    "globals": "^17.13.0",
     "typescript": "^7.0.2",
+    "typescript-eslint": "^8.71.1",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
   }

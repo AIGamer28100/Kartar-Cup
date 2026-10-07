@@ -9,7 +9,7 @@ import type { RaceState as DisplayRaceState } from '../components/RaceStateDispl
 /** The states computeRaceState can produce: a subset of the display component's RaceState. */
 export type RaceState = Extract<
   DisplayRaceState,
-  'scheduled' | 'in-progress' | 'yellow-flag' | 'yellow-flag-sector' | 'red-flag' | 'virtual-safety-car' | 'last-lap' | 'chequered-flag' | 'completed' | 'cancelled-by-host'
+  'scheduled' | 'in-progress' | 'yellow-flag' | 'yellow-flag-sector' | 'red-flag' | 'virtual-safety-car' | 'chequered-flag' | 'completed' | 'cancelled-by-host'
 >;
 
 export interface RaceStateInfo {
@@ -34,9 +34,6 @@ const PRE_RACE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 /** Time after race end to show podium before next race (24 hours) */
 const POST_RACE_PODIUM_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Last lap detection window (last 5% of race) */
-const LAST_LAP_WINDOW_MS = RACE_DURATION_MS * 0.05;
-
 /** Compute race state based on race start time and current time */
 export function computeRaceState(
   raceStartMs: number,
@@ -60,10 +57,6 @@ export function computeRaceState(
 
   // Race in progress
   if (timeSinceStart >= 0 && timeToEnd > 0) {
-    // Last lap detection
-    if (timeToEnd > 0 && timeToEnd <= LAST_LAP_WINDOW_MS) {
-      return stateInfo('last-lap');
-    }
     // Yellow/Red flag would be manual override only (not auto-detected)
     return stateInfo('in-progress');
   }
@@ -108,13 +101,6 @@ function stateInfo(state: RaceState): RaceStateInfo {
       label: 'RED FLAG',
       description: 'Race suspended',
       tone: 'bad',
-      showTimer: true,
-      isEnded: false,
-    },
-    'last-lap': {
-      label: 'LAST LAP',
-      description: 'Final lap - chequered flag incoming',
-      tone: 'accent',
       showTimer: true,
       isEnded: false,
     },

@@ -16,6 +16,25 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
       return { tiers: [...f.tiers, { id: `tier-${n}`, label: '', priceInr: 0, capacity: 0, seatsPerTicket: 1 }] };
     });
   }
+
+  // Check if there are leftover seats to distribute
+  const capacity = Number(form.capacity) || 0;
+  const allHaveCapacity = form.tiers.every((t) => t.capacity && t.capacity > 0);
+  let leftovers = 0;
+  let lowestTierLabel = '';
+  if (capacity > 0 && allHaveCapacity) {
+    const totalSeats = form.tiers.reduce((sum, t) => sum + (t.capacity ?? 0) * ((t.seatsPerTicket ?? 1)), 0);
+    if (totalSeats < capacity) {
+      leftovers = capacity - totalSeats;
+      const lowestTier = form.tiers.reduce((min, t) => {
+        const minSeats = min.seatsPerTicket ?? 1;
+        const tSeats = t.seatsPerTicket ?? 1;
+        return tSeats < minSeats ? t : min;
+      });
+      lowestTierLabel = lowestTier.label || `tier ${form.tiers.indexOf(lowestTier) + 1}`;
+    }
+  }
+
   return (
     <Section title="Price tiers" intro="Up to 10 tiers. New events start with one placeholder tier at ₹0 — set real prices before opening sales.">
       <ul className="divide-y divide-line border-y border-line">
@@ -90,6 +109,11 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
           </li>
         ))}
       </ul>
+      {leftovers > 0 && (
+        <p role="status" className="mt-3 text-sm text-muted">
+          {Math.floor(leftovers / (lowestTierLabel ? 1 : 1))} extra seats will be added to <span className="font-medium">{lowestTierLabel}</span> when you save.
+        </p>
+      )}
       {errors.tiers && (
         <p role="alert" className="mt-3 text-sm text-accent-text">
           {errors.tiers}
