@@ -33,7 +33,7 @@ npm run dev                       # http://localhost:5173
 Firebase web config values are public by design (security comes from `firestore.rules`). The Google
 Places key is **not** one of them and never goes in `.env*` files.
 
-Checks: `npm run build` (type-check + bundle), `npm test` (unit tests), rules tests need the emulator:
+Checks: `npm run build` (type-check + bundle), `npm test` (unit tests), `npm run lint` (lint with ESLint, 0 errors expected), rules tests need the emulator:
 
 ```bash
 npx firebase emulators:exec --only firestore --project demo-kartar \
@@ -71,6 +71,17 @@ rules enforce what the app shows, so a modified browser cannot cheat:
 * **Tier capacity** (tickets, `0` = unlimited): a counter document per tier,
   `bookingEvents/{eventId}/tierCounts/{tierId}`, must rise by exactly `qty` and may not pass the tier's capacity.
   Guests can only raise a counter; host cancellations lower it.
+* **Leftover seats**: when the sum of capped tier capacities is less than event capacity, extra seats go to the
+  tier with the fewest seats per ticket (e.g. Single=1 seat, Couple=2 seats). The remainder stays unsold.
+* **QR tokens**: each booking gets a separate random `qrToken` (distinct from the booking id). The QR code
+  encodes only this token, not the booking id or personal details, so guests cannot infer another's booking
+  from their own code.
+* **Guest cancellations**: guests cannot cancel bookings; only hosts can cancel them from the Bookings admin.
+  A cancelled booking releases its seats and, if paid, the guest receives a sample refund (no money moves).
+* **Event cancellation**: hosts can cancel an event from the Bookings list (Booking Event > Cancel event button).
+  Cancellation closes sales immediately, refunds and marks every booking (including checked-in ones) as cancelled,
+  and keeps all records for audit. The event stays in the history and is never deleted by the app (only by hand
+  in the Firestore console). Guests see "Cancelled" immediately on their tickets.
 * Payments are mock for now (`paid_mock`). Before wiring a real provider, remove the buyer's own
   `reserved -> paid_mock` update path in `firestore.rules`.
 
@@ -129,6 +140,21 @@ You must be logged in. Pick one:
   `GOOGLE_APPLICATION_CREDENTIALS` to the file path instead.
 
 Always run the rules tests (section 1) before deploying rules.
+
+## 5.1. Terms and Privacy placeholders
+
+The public `/terms` and `/privacy` pages are generated from src/config/legal.ts and src/guest/LegalPages.tsx.
+Before launch, the operator must fill in these placeholder fields (see `src/config/legal.ts` `OPERATOR` object):
+
+* **`legalName`**: Legal name of the registered entity or individual running the site
+* **`address`**: Registered or postal address for service of process
+* **`email`**: Contact email for users (privacy requests, support)
+* **`phone`**: Optional phone or WhatsApp contact
+* **`grievanceOfficer`**: Name and contact of the privacy officer (required under India's DPDP Act and IT Rules)
+
+Until these are filled in, the legal pages show "[operator to complete: ...]" markers. The operator's
+lawyer should review the generated pages before the site takes real bookings: these texts are a drafting
+aid, not legal advice. Update the `lastReviewed` date once reviewed.
 
 ## 6. Troubleshooting
 

@@ -31,17 +31,36 @@ Commit messages in this repo must be plain: NO Co-Authored-By / Claude-Session t
   session tabs + classification table + Drivers/Teams switcher, no click-to-open text link).
 - Hero alignment (open question, my recommendation: left-align the race-state block, rules.md R9 says no centred hero).
 
-## 3. Work IN FLIGHT when this was written (two background agents, may have been cut off)
-1. Haiku agent, main checkout `/home/user/kartar-cup`, does NOT commit. Tasks: fix 2 failing cards rules tests + add event-cancel /
-   no-delete / checked_in-cancel tests; play cards by reference (`toSnapshot`, `getCard`, MyCards); host "Cancel event" UI in
-   `src/host/bookings/BookingsAdmin.tsx` (confirm panel, progress, Cancelled badge, "Finish refunds"); `distributeLeftoverSeats`
-   in `src/host/bookings/model.ts` + info note; remove last-lap from `src/lib/raceState.ts`; `src/lib/useCommunityLink.ts` + ContactPage;
-   ESLint flat config + `npm run lint`; README notes (T&C location, ticket/cancel rules) and rules.md R44 = 5 s.
-2. Opus agent, isolated worktree on a new branch from worktree-build-v1, commits itself. Tasks: finish/polish motion on all public screens;
-   F1-style results/standings on RaceDetailPage; ticket QR must encode `qrToken`; cancelled-event display (EventsPage, BookingCheckout,
-   TicketView); checkout `col-span-12` + no double booking on payment retry; RaceTimer tick rate (10 ms only for lights-out countdown);
-   footer/home WhatsApp via `useCommunityLink`; HomePage dead code + left-aligned race-state block.
-   If it did not finish: its branch (see `git worktree list` / `git branch -a`) holds partial commits; merge it with `git merge <branch>`.
+## 3. Agent status (snapshot 2026-10-07; both agents were still running)
+Verified at snapshot: `npx tsc -b` clean, `npx vitest run` 443 passed. Rules tests, `vite build` and `npm run lint` were NOT re-run at snapshot.
+Note: the first Opus and first Haiku agents were stopped by an interruption and could not be resumed; fresh agents were started on the same briefs.
+Messages about commit/push cadence were first sent to the wrong agents (ids swapped) and then corrected; check that neither agent committed the other's tree.
+
+### Haiku agent (main checkout, branch `worktree-build-v1`, pushes there)
+| Task | Status |
+| --- | --- |
+| 1 Rules tests (cards tests fixed, event-cancel / no-delete / checked_in-cancel tests) | NOT CONFIRMED: run the rules command (section 1) and check `tests/rules/cards.rules.test.ts` + new cancel tests |
+| 2 Play cards by reference (`toSnapshot`, `getCard`, MyCards) | IN PROGRESS: `src/guest/MyCards.tsx` has uncommitted edits; verify `toSnapshot` drops image/imageUrl |
+| 3 Host "Cancel event" UI (BookingsAdmin) | PARTLY DONE: "Cancel event" present in BookingsAdmin; verify confirm panel, progress, Cancelled badge, "Finish refunds", cancelled-event read-only form |
+| 4 Leftover seats (`distributeLeftoverSeats`) | PARTLY DONE: function exists in `src/host/bookings/model.ts`; verify it is applied in formToEvent, the blocking validate error is gone, info note shows, tests exist |
+| 5 Remove last-lap (`src/lib/raceState.ts`) | DONE (no `last-lap` left in that file); confirm its tests were updated |
+| 6 WhatsApp hook | DONE for the hook (`src/lib/useCommunityLink.ts`); ContactPage wiring to verify (Opus also did footer/home) |
+| 7 Lint | MOSTLY DONE: `eslint.config.js` + `"lint": "eslint ."`; uncommitted edits in eslint.config.js/package.json; confirm `npm run lint` has 0 errors |
+| 8 Docs | DONE: README "Terms and Privacy placeholders" (5.1) and event cancellation notes; rules.md R44 states 5 s |
+
+### Opus agent (isolated worktree `.claude/worktrees/agent-adaa5e2bac746cb82`, branch `motion-results-v2`)
+| Task | Status |
+| --- | --- |
+| Audit/finish motion on all public screens | PARTLY DONE (inherited from first Opus work already merged in 3c84dce; more commits on its branch) |
+| 3D track layout, stepped podium | DONE and merged earlier (3c84dce); needs a visual re-check |
+| F1-style results hub on RaceDetailPage | IN PROGRESS: commit "Race detail results hub: session tabs, F1-style classification and team tables, fastest lap" (new `src/guest/results/`, `resultsModel.ts` + tests); RaceDetailPage/raceData/motion.tsx have uncommitted edits |
+| WhatsApp from settings in footer/home, hero race-state left-aligned, tick rates per state | DONE per commit 4e68070 |
+| Ticket QR encodes `qrToken` (TicketView/BookingCheckout) | NOT CONFIRMED |
+| Cancelled-event display (EventsPage, BookingCheckout, TicketView) | NOT CONFIRMED |
+| Checkout `col-span-12` + no double booking on payment retry | NOT CONFIRMED |
+
+### Leftovers from the FIRST (stopped) Opus agent
+Its uncommitted edits were saved to branch `motion-redesign` (commit c50c0ca: BookingCheckout, ContactPage, CupPage, GalleryPage, ProfilePage, TicketView, tokens.css). These may overlap with the new agent's work: when merging, prefer `motion-results-v2` and cherry-pick only what is missing (`git diff worktree-build-v1 motion-redesign -- <file>`).
 
 ## 4. How to resume (cheapest order)
 1. `git status`, `git log --oneline -10`, `git worktree list`. Commit any leftover Haiku work (plain message) after
