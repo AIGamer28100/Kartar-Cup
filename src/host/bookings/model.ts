@@ -38,6 +38,7 @@ export interface FormState {
   venueCapacityDefault: string;
   tiers: PriceTier[];
   discounts: DiscountForm[];
+  cancelled?: boolean;
 }
 
 export function blankForm(): FormState {
@@ -100,6 +101,7 @@ export function eventToForm(e: BookingEvent): FormState {
       seatsPerTicket: t.seatsPerTicket ?? 1,
     })),
     discounts: e.discounts.map(discountToForm),
+    cancelled: e.cancelled,
   };
 }
 

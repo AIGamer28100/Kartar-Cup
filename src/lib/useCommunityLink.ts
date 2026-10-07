@@ -1,22 +1,41 @@
-import { useEffect, useState } from 'react';
-import { watchActiveEventConfig } from './db';
+import { useEffect, useRef, useState } from 'react';
+import { watchActiveEventId, watchEventConfig } from './db';
 import { safeWhatsappUrl } from '../guest/model';
 
-/** The live event's WhatsApp community link from the event settings (R11).
- * Follows the active event (watchActiveEventId -> watchEventConfig), validated with
- * safeWhatsappUrl; '' when there is no live event, no link, or the read fails. */
+/** Get the active event's WhatsApp community link from Firestore (live event settings).
+ * Returns the URL string if available and valid, or empty string otherwise.
+ * Unsubscribes on unmount. */
 export function useCommunityLink(): string {
   const [whatsappUrl, setWhatsappUrl] = useState('');
+  const configUnsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    try {
-      return watchActiveEventConfig(
-        (config) => setWhatsappUrl(safeWhatsappUrl(config?.whatsappUrl)),
+    const unsubbId = watchActiveEventId((eventId) => {
+      // Unsubscribe from previous config watch
+      if (configUnsubRef.current) configUnsubRef.current();
+
+      if (!eventId) {
+        setWhatsappUrl('');
+        return;
+      }
+
+      configUnsubRef.current = watchEventConfig(
+        eventId,
+        (config) => {
+          if (!config) {
+            setWhatsappUrl('');
+            return;
+          }
+          setWhatsappUrl(safeWhatsappUrl(config.whatsappUrl));
+        },
         () => setWhatsappUrl(''),
       );
-    } catch {
-      return undefined;
-    }
+    });
+
+    return () => {
+      unsubbId();
+      if (configUnsubRef.current) configUnsubRef.current();
+    };
   }, []);
 
   return whatsappUrl;
