@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   query,
   runTransaction,
@@ -21,6 +22,16 @@ const cardsCol = (eventId: string) => collection(db, 'bookingEvents', eventId, '
 const cardRef = (eventId: string, cardId: string) => doc(db, 'bookingEvents', eventId, 'cards', cardId);
 
 const byOrder = (a: CardDoc, b: CardDoc) => a.order - b.order || a.id.localeCompare(b.id);
+
+/** Guest: fetch a single Play card design by id (loaded from the snapshot's cardId). */
+export async function getCard(eventId: string, cardId: string): Promise<CardDoc | null> {
+  try {
+    const snap = await getDoc(cardRef(eventId, cardId));
+    return snap.exists() ? ({ ...snap.data(), id: snap.id } as CardDoc) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Host: every design for the event (VIP + all Play cards). */
 export function watchCards(eventId: string, cb: (c: CardDoc[]) => void, onErr?: (e: Error) => void): Unsubscribe {
@@ -76,8 +87,6 @@ export function toSnapshot(c: CardDoc): PlayCardSnapshot {
     code: c.code,
     number: c.number,
     points: c.points ?? 0,
-    image: c.image,
-    imageUrl: c.imageUrl,
   }) as PlayCardSnapshot;
 }
 
