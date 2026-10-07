@@ -31,38 +31,23 @@ Commit messages in this repo must be plain: NO Co-Authored-By / Claude-Session t
   session tabs + classification table + Drivers/Teams switcher, no click-to-open text link).
 - Hero alignment (open question, my recommendation: left-align the race-state block, rules.md R9 says no centred hero).
 
-## 3. Agent status (snapshot 2026-10-07; both agents were still running)
-Verified at snapshot: `npx tsc -b` clean, `npx vitest run` 443 passed. Rules tests, `vite build` and `npm run lint` were NOT re-run at snapshot.
-Note: the first Opus and first Haiku agents were stopped by an interruption and could not be resumed; fresh agents were started on the same briefs.
-Messages about commit/push cadence were first sent to the wrong agents (ids swapped) and then corrected; check that neither agent committed the other's tree.
+## 3. Agent status: BOTH FINISHED, everything merged into `worktree-build-v1`
+Final verified state of the merged branch: `npx tsc -b` clean, `npx vitest run` 460 pass, rules tests 251 pass, `npx vite build` ok,
+`npm run lint` 0 errors / 9 warnings (hook-dependency warnings in RaceStateDisplay, BookingCheckout, EventsPage).
+Merged: Haiku work (host cancel-event UI, leftover seats, cards by reference, WhatsApp hook, lint, docs), Opus work branch `motion-results-v2`
+(F1-style results hub in `src/guest/results/`, ticket QR encodes `qrToken` + void QR, cancelled-event notices on events/checkout/ticket,
+checkout full-width below 1024 px + payment-only retry, timer tick rates, WhatsApp in footer/home, left-aligned hero race state) and the
+older `motion-redesign` leftovers (newer branch won every conflict). Open PR #1 (base `master`) carries all of it.
 
-### Haiku agent: FINISHED and verified (main checkout, pushed to `worktree-build-v1`)
-All 8 tasks done. Verified by the lead: `npx tsc -b` clean, unit tests 443 pass, rules tests 251 pass (agent report), `npm run lint` 0 errors / 9 warnings
-(in files owned by the Opus work), event-cancel / no-delete / un-cancel rules tests present in `tests/rules/bookings.rules.test.ts`.
-Delivered: play cards by reference (`getCard`, MyCards), host Cancel event UI with refunds progress and Finish refunds, `distributeLeftoverSeats`
-in `src/host/bookings/model.ts` + editor note, last-lap removed, `useCommunityLink` + ContactPage, ESLint flat config + `npm run lint`,
-README (5.1 Terms/Privacy placeholders, ticket and cancel rules), rules.md R44 = 5 s.
-Not manually exercised in a browser: the Cancel event UI and the leftover-seats note (logic is unit tested only).
-
-### Opus agent (isolated worktree `.claude/worktrees/agent-adaa5e2bac746cb82`, branch `motion-results-v2`)
-| Task | Status |
-| --- | --- |
-| Audit/finish motion on all public screens | PARTLY DONE (inherited from first Opus work already merged in 3c84dce; more commits on its branch) |
-| 3D track layout, stepped podium | DONE and merged earlier (3c84dce); needs a visual re-check |
-| F1-style results hub on RaceDetailPage | IN PROGRESS: commit "Race detail results hub: session tabs, F1-style classification and team tables, fastest lap" (new `src/guest/results/`, `resultsModel.ts` + tests); RaceDetailPage/raceData/motion.tsx have uncommitted edits |
-| WhatsApp from settings in footer/home, hero race-state left-aligned, tick rates per state | DONE per commit 4e68070 |
-| Ticket QR encodes `qrToken` (TicketView/BookingCheckout) | NOT CONFIRMED |
-| Cancelled-event display (EventsPage, BookingCheckout, TicketView) | NOT CONFIRMED |
-| Checkout `col-span-12` + no double booking on payment retry | NOT CONFIRMED |
-
-### Leftovers from the FIRST (stopped) Opus agent
-Its uncommitted edits were saved to branch `motion-redesign` (commit c50c0ca: BookingCheckout, ContactPage, CupPage, GalleryPage, ProfilePage, TicketView, tokens.css). These may overlap with the new agent's work: when merging, prefer `motion-results-v2` and cherry-pick only what is missing (`git diff worktree-build-v1 motion-redesign -- <file>`).
-
-## 4. How to resume (cheapest order)
-1. `git status`, `git log --oneline -10`, `git worktree list`. Commit any leftover Haiku work (plain message) after
-   `npx tsc -b`, `npx vitest run`, rules tests, `npx vite build`, `npm run lint` all pass.
-2. Merge the Opus branch if present, resolve conflicts (it avoided host/rules/bookings files), re-run the same checks.
-3. Push, then update PR #1. Open items below.
+## 4. How to resume
+Nothing is in flight. Remaining work is the list below plus the blockers in section 5.
+Not done / owner decisions:
+- Opus did not finish a full motion audit of gallery, stories, partners, about, contact, quiz, profile and page transitions (stopped to save credits).
+- Cancelled events stay listed on /events with a badge while `hosted` is true: decide whether old cancelled events should drop off the list.
+- Fastest-lap badge downloads the full lap list (a few hundred KB) when a race/sprint tab is opened.
+- The Cancel event UI and the leftover-seats note were verified by unit/rules tests only, not clicked through in a browser; run them against the emulators once.
+- Guest e2e specs are stale (see section 5); host e2e specs pass.
+- Branches `motion-redesign` and `motion-results-v2` can be deleted after PR #1 merges.
 
 ## 5. BLOCKERS and risks before going live
 - **Rotate the Google Maps Embed key** that was hard-coded in `src/lib/mapEmbed.ts` (removed from code, but it is in the PUBLIC repo history).
