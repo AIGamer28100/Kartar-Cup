@@ -3,6 +3,8 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
   query,
   runTransaction,
@@ -141,6 +143,12 @@ export async function updateBookingEvent(id: string, patch: Partial<BookingEvent
 
 /* ---------- bookings (guest side) ---------- */
 
+/** 128 random bits as hex: the ticket's QR content. Not guessable, contains no PII. */
+export function newQrToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export interface CreateReservationInput {
   bookingEventId: string;
   buyerUid: string;
@@ -157,6 +165,8 @@ export interface CreateReservationInput {
 export async function createReservation(input: CreateReservationInput): Promise<string> {
   const { bookingEventId, buyerUid, buyerName, buyerEmail, tierId, qty, discountCode } = input;
   const bookingId = doc(bookingsCol()).id;
+  // The QR token is a separate secret: the booking id is named on public counters (see firestore.rules).
+  const qrToken = newQrToken();
   const evRef = bookingEventRef(bookingEventId);
 
   await runTransaction(db, async (tx) => {
@@ -191,8 +201,9 @@ export async function createReservation(input: CreateReservationInput): Promise<
     // Only record a discount that actually applied; the rules verify code, index and amount.
     const discountApplied = discount !== null && rejectedReason === null;
 
-    tx.update(evRef, { bookedCount: nextEventCount, updatedAt: serverTimestamp() });
-    tx.set(countRef, { booked: tierSold + qty, updatedAt: serverTimestamp() });
+    // Both counters name this booking so firestore.rules can tie the bump to a real booking of ours.
+    tx.update(evRef, { bookedCount: nextEventCount, lastReserveBookingId: bookingId, updatedAt: serverTimestamp() });
+    tx.set(countRef, { booked: tierSold + qty, lastBookingId: bookingId, updatedAt: serverTimestamp() });
     tx.set(bookingRef(bookingId), {
       id: bookingId,
       bookingEventId,
@@ -208,7 +219,7 @@ export async function createReservation(input: CreateReservationInput): Promise<
       discountAmountInr,
       totalInr,
       status: 'reserved',
-      qrToken: bookingId,
+      qrToken,
       createdAt: serverTimestamp(),
     });
   });
@@ -327,17 +338,20 @@ export async function cancelBooking(
     if (!snap.exists()) throw new CancelBookingError('not-found', 'Booking not found.');
     const b = snap.data() as Booking;
     if (b.status === 'cancelled') throw new CancelBookingError('already-cancelled', 'Already cancelled.');
-    if (b.status === 'checked_in') throw new CancelBookingError('checked-in', 'Checked-in bookings cannot be cancelled.');
     const evRef = bookingEventRef(b.bookingEventId);
     const countRef = tierCountRef(b.bookingEventId, b.tierId);
     const [evSnap, countSnap] = await Promise.all([tx.get(evRef), tx.get(countRef)]);
+    // Someone already at the door cannot be cancelled, unless the whole event was cancelled.
+    if (b.status === 'checked_in' && !(evSnap.exists() && (evSnap.data() as BookingEvent).cancelled)) {
+      throw new CancelBookingError('checked-in', 'Checked-in bookings cannot be cancelled.');
+    }
     const trimmed = reason?.trim().slice(0, 200);
     tx.update(ref, {
       status: 'cancelled',
       cancelledAt: serverTimestamp(),
       cancelledBy: hostEmail,
       ...(trimmed ? { cancelReason: trimmed } : {}),
-      refund: b.status === 'paid_mock' ? 'mock_refunded' : 'none',
+      refund: b.status === 'reserved' ? 'none' : 'mock_refunded',
     });
     // The rules require the seat release in the same write; a missing event would fail opaquely.
     if (!evSnap.exists()) throw new CancelBookingError('not-found', 'The booking event no longer exists.');
@@ -359,10 +373,73 @@ export async function cancelBooking(
   logAudit('booking.cancel', bookingId, reason?.trim() || undefined);
 }
 
-/** Host only. For scanner/manual search by booking id (== qrToken). */
-export async function lookupBookingById(id: string): Promise<Booking | null> {
-  const s = await getDoc(bookingRef(id));
-  return s.exists() ? ({ ...s.data(), id: s.id } as Booking) : null;
+/** Host only. The scanner reads a QR (the booking's qrToken) or a typed booking id: tries the id first
+ * (older tickets used the id as their token), then looks the token up. */
+export async function lookupBookingById(idOrToken: string): Promise<Booking | null> {
+  const key = idOrToken.trim();
+  if (!key) return null;
+  const direct = await getDoc(bookingRef(key));
+  if (direct.exists()) return { ...direct.data(), id: direct.id } as Booking;
+  const hit = await getDocs(query(bookingsCol(), where('qrToken', '==', key), limit(1)));
+  const d = hit.docs[0];
+  return d ? ({ ...d.data(), id: d.id } as Booking) : null;
+}
+
+/* ---------- cancelling a whole event (never a delete: the records stay for audit) ---------- */
+
+/** Host: mark the event cancelled and close sales. From this moment guests see it as cancelled. Idempotent.
+ * Follow with settleCancelledEvent to cancel and refund every ticket. */
+export async function cancelBookingEvent(eventId: string, reason?: string): Promise<void> {
+  const email = auth.currentUser?.email?.toLowerCase();
+  if (!email) throw new Error('Sign in as a host to cancel an event.');
+  const trimmed = reason?.trim().slice(0, 300);
+  await updateDoc(bookingEventRef(eventId), {
+    cancelled: true,
+    salesOpen: false,
+    cancelledAt: serverTimestamp(),
+    cancelledBy: email,
+    ...(trimmed ? { cancelReason: trimmed } : {}),
+    updatedAt: serverTimestamp(),
+  });
+  logAudit('booking-event.cancel', eventId, trimmed || undefined);
+}
+
+/** Host: every booking of the event that is not yet cancelled (these still need cancelling + refunding). */
+export async function pendingEventRefunds(eventId: string): Promise<Booking[]> {
+  const snap = await getDocs(query(bookingsCol(), where('bookingEventId', '==', eventId)));
+  return snap.docs
+    .map((d) => ({ ...d.data(), id: d.id }) as Booking)
+    .filter((b) => b.status !== 'cancelled');
+}
+
+export interface SettleResult {
+  cancelled: number;
+  failed: number;
+}
+
+/** Host: cancel (and mock-refund) every remaining booking of a cancelled event, one transaction each,
+ * then stamp `cancelSettledAt`. Safe to run again after a failure: only what is left is processed. */
+export async function settleCancelledEvent(
+  eventId: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<SettleResult> {
+  const pending = await pendingEventRefunds(eventId);
+  let cancelled = 0;
+  let failed = 0;
+  for (const b of pending) {
+    try {
+      await cancelBooking(b.id, 'Event cancelled');
+      cancelled++;
+    } catch {
+      failed++;
+    }
+    onProgress?.(cancelled + failed, pending.length);
+  }
+  if (failed === 0) {
+    await updateDoc(bookingEventRef(eventId), { cancelSettledAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    logAudit('booking-event.settled', eventId, `${cancelled} tickets cancelled and refunded`);
+  }
+  return { cancelled, failed };
 }
 
 // re-export Timestamp for consumers that need to build validFromUtc/validToUtc without importing firestore directly

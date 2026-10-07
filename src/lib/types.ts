@@ -160,6 +160,15 @@ export interface BookingEvent {
   bookedCount: number;
   /** Id of the booking whose cancellation last released seats; the rules require it on every seat release. */
   lastReleaseBookingId?: string;
+  /** Names the booking whose seats were last added to bookedCount (firestore.rules tie bump to booking). */
+  lastReserveBookingId?: string;
+  /** Cancelled by a host (the record is kept for audit); sales are closed and tickets are being/were refunded. */
+  cancelled?: boolean;
+  cancelledAt?: Timestamp;
+  cancelledBy?: string;
+  cancelReason?: string;
+  /** Set once every ticket of the cancelled event is cancelled and refunded. */
+  cancelSettledAt?: Timestamp;
   salesOpen: boolean;
   /** R50: events-page section. Absent on legacy docs, which read as 'f1'. */
   category?: EventCategory;
@@ -178,7 +187,7 @@ export interface BookingEvent {
   updatedAt: Timestamp;
 }
 export type BookingStatus = 'reserved' | 'paid_mock' | 'checked_in' | 'cancelled';
-/** qrToken == booking id; contains NO PII (R23). */
+/** qrToken: random secret in the ticket QR, separate from the booking id; contains NO PII (R23). */
 export interface Booking {
   id: string;
   bookingEventId: string;

@@ -43,7 +43,7 @@ async function seed(over: Record<string, unknown> = {}) {
 const booking = (id: string, over: Record<string, unknown> = {}) => ({
   id, bookingEventId: BEID, buyerUid: 'g1', buyerName: 'Guest One', buyerEmail: 'guest1@example.com',
   tierId: 't1', tierIndex: 0, qty: 1, seatsPerTicket: 1, unitPriceInr: 500, discountAmountInr: 0, totalInr: 500, status: 'reserved',
-  qrToken: id, createdAt: serverTimestamp(), ...over,
+  qrToken: `tok-${id}-0123456789abcdefghij`, createdAt: serverTimestamp(), ...over,
 });
 
 async function seedBooking(id: string, over: Record<string, unknown> = {}) {
@@ -168,8 +168,8 @@ async function reserveBatch(id: string, over: Record<string, unknown> = {}, opts
   const seats = (over.seatsPerTicket as number | undefined) ?? 1;
   const b = writeBatch(db);
   b.set(doc(db, 'bookings/' + id), booking(id, over));
-  b.update(doc(db, 'bookingEvents/' + BEID), { bookedCount: ev.bookedCount + (opts.bump ?? qty * seats), updatedAt: serverTimestamp() });
-  if (!opts.skipTier) b.set(countDoc(db, tierId), { booked: sold + (opts.tierBump ?? qty), updatedAt: serverTimestamp() });
+  b.update(doc(db, 'bookingEvents/' + BEID), { bookedCount: ev.bookedCount + (opts.bump ?? qty * seats), lastReserveBookingId: id, updatedAt: serverTimestamp() });
+  if (!opts.skipTier) b.set(countDoc(db, tierId), { booked: sold + (opts.tierBump ?? qty), lastBookingId: id, updatedAt: serverTimestamp() });
   return b.commit();
 }
 
@@ -205,11 +205,24 @@ describe('reservation create', () => {
     await assertFails(setDoc(countDoc(guest()), { booked: 0, updatedAt: serverTimestamp() }));
     await assertSucceeds(setDoc(countDoc(host()), { booked: 0, updatedAt: serverTimestamp() }));
   });
-  it('a guest cannot jump a counter or the seat total by a large amount (sell-out griefing)', async () => {
+  it('a seat or tier bump without a booking of the caller is denied (no sell-out griefing)', async () => {
     await seed({ capacity: 500 });
-    await assertFails(setDoc(countDoc(guest()), { booked: 11, updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 101, updatedAt: serverTimestamp() }));
-    await assertSucceeds(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 100, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(countDoc(guest()), { booked: 1, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(countDoc(guest()), { booked: 1, lastBookingId: 'ghost', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 5, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(guest(), 'bookingEvents/' + BEID), { bookedCount: 5, lastReserveBookingId: 'ghost', updatedAt: serverTimestamp() }));
+  });
+  it('a bump cannot ride on someone else\'s booking or reuse an existing one', async () => {
+    await seedBooking('b1'); // already exists, owned by g1
+    const g = guest();
+    const batch = writeBatch(g);
+    batch.update(doc(g, 'bookingEvents/' + BEID), { bookedCount: 1, lastReserveBookingId: 'b1', updatedAt: serverTimestamp() });
+    await assertFails(batch.commit());
+    const o = other();
+    const b2 = writeBatch(o);
+    b2.set(doc(o, 'bookings/b9'), booking('b9')); // buyerUid g1, written by g2
+    b2.update(doc(o, 'bookingEvents/' + BEID), { bookedCount: 1, lastReserveBookingId: 'b9', updatedAt: serverTimestamp() });
+    await assertFails(b2.commit());
   });
   describe('discounts', () => {
     const disc = { id: 'd1', code: 'EARLY', label: 'Early', kind: 'percent', value: 10, active: true };
@@ -236,7 +249,7 @@ describe('reservation create', () => {
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1')));
   });
   it('booking id must equal the document id', async () => {
-    await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('other', { qrToken: 'other' })));
+    await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('other')));
   });
   it('denied for mismatched buyerUid', async () => {
     await assertFails(setDoc(doc(guest(), 'bookings/b1'), booking('b1', { buyerUid: 'g2' })));
@@ -367,6 +380,64 @@ describe('delete', () => {
   });
 });
 
+describe('cancelBookingEvent (host only)', () => {
+  it('host can cancel an event (close sales + mark cancelled)', async () => {
+    await assertSucceeds(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    }));
+  });
+  it('host can add an optional cancelReason (max 300 chars)', async () => {
+    await assertSucceeds(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', cancelReason: 'Venue unavailable', updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', cancelReason: 'x'.repeat(301), updatedAt: serverTimestamp(),
+    }));
+  });
+  it('a cancelled event cannot be un-cancelled', async () => {
+    await updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    });
+    await assertFails(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      cancelled: false, updatedAt: serverTimestamp(),
+    }));
+  });
+  it('a cancelled event cannot have salesOpen reopened', async () => {
+    await updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    });
+    await assertFails(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: true, updatedAt: serverTimestamp(),
+    }));
+  });
+  it('cancelled=true with salesOpen=true is rejected', async () => {
+    await assertFails(updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: true, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    }));
+  });
+  it('a guest can read a cancelled event even when salesOpen and hosted are false', async () => {
+    await updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(getDoc(doc(guest(), 'bookingEvents/' + BEID)));
+  });
+  it('anonymous can read a cancelled event', async () => {
+    const anon = () => env.unauthenticatedContext().firestore();
+    await updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(getDoc(doc(anon(), 'bookingEvents/' + BEID)));
+  });
+  it('host cannot delete a bookingEvent', async () => {
+    await assertFails(deleteDoc(doc(host(), 'bookingEvents/' + BEID)));
+  });
+  it('nobody can delete a tierCounts doc', async () => {
+    await seedBooking('b1');
+    await assertFails(deleteDoc(doc(guest(), `bookingEvents/${BEID}/tierCounts/t1`)));
+    await assertFails(deleteDoc(doc(host(), `bookingEvents/${BEID}/tierCounts/t1`)));
+  });
+});
+
 describe('cancelBooking (host / host-control members only)', () => {
   const cf = (by: 'guest' | 'host', refund: 'mock_refunded' | 'none', extra: Record<string, unknown> = {}) => ({
     status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: by === 'host' ? 'host@x.com' : by, refund, ...extra,
@@ -429,7 +500,7 @@ describe('cancelBooking (host / host-control members only)', () => {
     b.set(countDoc(db), { booked: 0, updatedAt: serverTimestamp() });
     await assertSucceeds(b.commit());
   });
-  it('cannot release twice, un-cancel, cancel twice, or cancel a checked_in booking', async () => {
+  it('cannot release twice, un-cancel, cancel twice, or cancel a checked_in booking normally', async () => {
     await setCount(2);
     await seedBooking('b1');
     await assertSucceeds(cancelWithRelease(host(), 'b1', cf('host', 'none'), 1));
@@ -437,6 +508,24 @@ describe('cancelBooking (host / host-control members only)', () => {
     await assertFails(updateDoc(doc(host(), 'bookings/b1'), { status: 'paid_mock' }));
     await seedBooking('b2', { status: 'checked_in', paidAt: Timestamp.now(), checkedInAt: Timestamp.now(), checkedInBy: 'host@x.com' });
     await assertFails(cancelWithRelease(host(), 'b2', cf('host', 'mock_refunded'), 0));
+  });
+  it('host can cancel a checked_in booking only when its event is cancelled', async () => {
+    await setCount(2);
+    await seedBooking('b1', { status: 'checked_in', paidAt: Timestamp.now(), checkedInAt: Timestamp.now(), checkedInBy: 'host@x.com' });
+    // Cannot cancel checked_in normally
+    await assertFails(cancelWithRelease(host(), 'b1', cf('host', 'mock_refunded'), 1));
+    // Cancel the event first
+    await updateDoc(doc(host(), 'bookingEvents/' + BEID), {
+      salesOpen: false, cancelled: true, cancelledAt: serverTimestamp(), cancelledBy: 'host@x.com', updatedAt: serverTimestamp(),
+    });
+    // Now can cancel the checked_in booking with matching seat release
+    await assertSucceeds(cancelWithRelease(host(), 'b1', cf('host', 'mock_refunded'), 1));
+  });
+  it('a reserved booking cancel must have refund none', async () => {
+    await setCount(1);
+    await seedBooking('b1', { status: 'reserved' });
+    await assertFails(cancelWithRelease(host(), 'b1', cf('host', 'mock_refunded'), 0));
+    await assertSucceeds(cancelWithRelease(host(), 'b1', cf('host', 'none'), 0));
   });
   it('a cancel cannot edit price/tier/qty/uid, and the reason is length-limited', async () => {
     await setCount(1);

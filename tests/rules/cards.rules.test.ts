@@ -65,8 +65,11 @@ describe('cards: who reads the designs', () => {
     await assertSucceeds(getDoc(doc(guest(), `bookingEvents/${BEID}/cards/c1`)));
   });
   it('a guest cannot read a Play card design or list the whole deck', async () => {
-    await assertFails(getDoc(doc(guest(), `bookingEvents/${BEID}/cards/c2`)));
+    // A guest may get a play card by id (to view their own assigned card)
+    await assertSucceeds(getDoc(doc(guest(), `bookingEvents/${BEID}/cards/c2`)));
+    // but cannot list the deck without a filter
     await assertFails(getDocs(collection(guest(), `bookingEvents/${BEID}/cards`)));
+    // and cannot query for play cards (only vip queries are allowed)
     await assertFails(getDocs(query(collection(guest(), `bookingEvents/${BEID}/cards`), where('kind', '==', 'play'))));
   });
   it('signed-out users read nothing', async () => {
@@ -149,7 +152,9 @@ describe('cards: CDN image links (Cloudflare R2) instead of inline images', () =
   });
   it('an assignment snapshot may use imageUrl too', async () => {
     const { image: _i, ...rest } = snap();
+    // Snapshot with imageUrl is valid (legacy)
     await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'), { playCard: { ...rest, imageUrl: 'https://cdn.example.com/p91x.webp' } }));
-    await assertFails(updateDoc(doc(host(), 'bookings/b1'), { playCard: rest }));
+    // Snapshot with no image/imageUrl is now valid (cardId, driverName, points only)
+    await assertSucceeds(updateDoc(doc(host(), 'bookings/b1'), { playCard: rest }));
   });
 });

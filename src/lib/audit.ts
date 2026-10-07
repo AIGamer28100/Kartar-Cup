@@ -29,6 +29,8 @@ export type AuditAction =
   | 'cup.standings'
   | 'booking.check-in'
   | 'booking.cancel'
+  | 'booking-event.cancel'
+  | 'booking-event.settled'
   | 'card.save'
   | 'card.delete'
   | 'card.assign'

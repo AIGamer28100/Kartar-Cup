@@ -273,7 +273,8 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly(['id','raceId','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','policy','lastReleaseBookingId','createdAt','updatedAt',
-                'category','hosted','description','cardSpec','cardSeq'])
+                'category','hosted','description','cardSpec','cardSeq',
+                'cancelled','cancelledAt','cancelledBy','cancelReason','cancelSettledAt','lastReserveBookingId'])
         && d.keys().hasAll(['id','title','venue','dateUtc','tiers','discounts',
                 'capacity','bookedCount','salesOpen','createdAt','updatedAt'])
         && d.id == eventId
@@ -294,7 +295,15 @@ service cloud.firestore {
         && (!('description' in d) || (d.description is string && d.description.size() <= 600))
         && (!('cardSpec' in d) || (d.cardSpec is map && d.cardSpec.keys().hasOnly(['widthMm', 'heightMm', 'note'])))
         && (!('cardSeq' in d) || (d.cardSeq is int && d.cardSeq >= 0 && d.cardSeq <= 100000))
-        && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64));
+        && (!('lastReleaseBookingId' in d) || (d.lastReleaseBookingId is string && d.lastReleaseBookingId.size() <= 64))
+        && (!('lastReserveBookingId' in d) || (d.lastReserveBookingId is string && d.lastReserveBookingId.size() <= 64))
+        // Cancelling an event (host action, never a delete: the record stays for audit) closes sales.
+        && (!('cancelled' in d) || d.cancelled is bool)
+        && (d.get('cancelled', false) == false
+            || (d.salesOpen == false && d.cancelledAt is timestamp
+                && d.cancelledBy is string && d.cancelledBy.size() <= 120))
+        && (!('cancelReason' in d) || (d.cancelReason is string && d.cancelReason.size() <= 300))
+        && (!('cancelSettledAt' in d) || d.cancelSettledAt is timestamp);
     }
     // NOTE on the list-query pattern below: Firestore evaluates a `list` rule once PER DOCUMENT
     // that a query would return, using that document's `resource.data` (same as `get`). A query
@@ -312,16 +321,24 @@ service cloud.firestore {
     // This path is deliberately narrow: it may touch ONLY bookedCount (+updatedAt), the new
     // value must be a strictly-larger int, and it can never push bookedCount past capacity —
     // so real capacity is enforced here by rules, not just trusted from the client.
-    function capacityBump() {
+    function capacityBump(eventId) {
       let before = resource.data;
       let after = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(after.lastReserveBookingId);
       return signedIn()
         && before.salesOpen == true
-        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+        && after.diff(before).affectedKeys().hasOnly(['bookedCount', 'updatedAt', 'lastReserveBookingId'])
         && after.bookedCount is int
         && after.bookedCount > before.bookedCount
-        && after.bookedCount - before.bookedCount <= 100
-        && after.bookedCount <= before.capacity;
+        && after.bookedCount <= before.capacity
+        && after.lastReserveBookingId is string && after.lastReserveBookingId.size() >= 1 && after.lastReserveBookingId.size() <= 64
+        // The bump must come with a NEW booking of this caller for this event, created in the same
+        // transaction, and must equal exactly that booking's seats: no booking, no bump.
+        && !exists(bpath) && existsAfter(bpath)
+        && getAfter(bpath).data.bookingEventId == eventId
+        && getAfter(bpath).data.buyerUid == request.auth.uid
+        && getAfter(bpath).data.status == 'reserved'
+        && after.bookedCount - before.bookedCount == getAfter(bpath).data.qty * getAfter(bpath).data.seatsPerTicket;
     }
     // Seat release on cancel. An event write cannot see which booking is involved, so the writer
     // NAMES it in the transient-but-persisted field `lastReleaseBookingId`, and the rule then
@@ -358,10 +375,17 @@ service cloud.firestore {
     match /bookingEvents/{eventId} {
       // hosted==true lists a closed event publicly ("booking opening soon"); it exposes only what a
       // sales-open event already does (R15: no per-guest data lives on this doc).
-      allow read: if resource.data.salesOpen == true || resource.data.hosted == true || canRunBookings();
+      // A cancelled event stays readable so people holding tickets can see it was cancelled.
+      allow read: if resource.data.salesOpen == true || resource.data.hosted == true
+        || resource.data.get('cancelled', false) == true || canRunBookings();
       allow create: if canRunBookings() && validBookingEvent(eventId);
-      allow update: if (canRunBookings() && validBookingEvent(eventId)) || capacityBump() || capacityRelease(eventId);
-      allow delete: if canRunBookings();
+      // A cancelled event can never be reopened by the app.
+      allow update: if (canRunBookings() && validBookingEvent(eventId)
+            && (resource.data.get('cancelled', false) == false || request.resource.data.get('cancelled', false) == true))
+        || capacityBump(eventId) || capacityRelease(eventId);
+      // Events are never deleted by the app: "cancel" keeps the record for audit. Only a person with
+      // the Firestore console can remove one by hand.
+      allow delete: if false;
 
       // R45: per-event card designs, stored as small compressed images (no Storage on this plan).
       // The VIP design is the same for every attendee, so any signed-in guest may read it (their query
@@ -373,16 +397,18 @@ service cloud.firestore {
       match /tierCounts/{tierId} {
         allow read: if true;
         allow create: if signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
-          && validTierCount() && request.resource.data.booked >= 1 && request.resource.data.booked <= 10;
+          && validTierCount() && tierBumpFor(eventId, tierId, 0);
         allow update: if (signedIn() && get(/databases/$(database)/documents/bookingEvents/$(eventId)).data.salesOpen == true
-            && validTierCount() && request.resource.data.booked > resource.data.booked
-            && request.resource.data.booked - resource.data.booked <= 10)
+            && validTierCount() && tierBumpFor(eventId, tierId, resource.data.booked))
           || (canRunBookings() && validTierCount());
-        allow delete: if canRunBookings();
+        allow delete: if false;
       }
 
       match /cards/{cardId} {
-        allow read: if canRunBookings() || (signedIn() && resource.data.kind == 'vip');
+        // get by id: a guest holding a Play card is handed its (unguessable) id on their booking and loads
+        // the design from here instead of a copy. Listing the deck stays host-only (VIP designs excepted).
+        allow get: if signedIn();
+        allow list: if canRunBookings() || (signedIn() && resource.data.kind == 'vip');
         allow create, update: if canRunBookings() && validCard();
         allow delete: if canRunBookings();
       }
@@ -390,8 +416,21 @@ service cloud.firestore {
 
     function validTierCount() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['booked', 'updatedAt']) && d.keys().hasAll(['booked', 'updatedAt'])
-        && d.booked is int && d.booked >= 0 && d.updatedAt == request.time;
+      return d.keys().hasOnly(['booked', 'updatedAt', 'lastBookingId']) && d.keys().hasAll(['booked', 'updatedAt'])
+        && d.booked is int && d.booked >= 0 && d.updatedAt == request.time
+        && (!('lastBookingId' in d) || (d.lastBookingId is string && d.lastBookingId.size() <= 64));
+    }
+    // A guest raises a tier counter only together with a NEW booking of theirs for that tier, by
+    // exactly that booking's ticket count (so the counter cannot be griefed without a real booking).
+    function tierBumpFor(eventId, tierId, before) {
+      let d = request.resource.data;
+      let bpath = /databases/$(database)/documents/bookings/$(d.lastBookingId);
+      return 'lastBookingId' in d
+        && !exists(bpath) && existsAfter(bpath)
+        && getAfter(bpath).data.bookingEventId == eventId
+        && getAfter(bpath).data.buyerUid == request.auth.uid
+        && getAfter(bpath).data.tierId == tierId
+        && d.booked - before == getAfter(bpath).data.qty;
     }
 
     function validCard() {
@@ -416,7 +455,6 @@ service cloud.firestore {
         && (!('playCard' in d) || (d.playCard is map
               && d.playCard.keys().hasOnly(['cardId', 'driverName', 'code', 'number', 'points', 'image', 'imageUrl'])
               && d.playCard.keys().hasAll(['cardId', 'driverName', 'points'])
-              && ('image' in d.playCard || 'imageUrl' in d.playCard)
               && (!('imageUrl' in d.playCard) || (d.playCard.imageUrl is string && d.playCard.imageUrl.matches('https://.*') && d.playCard.imageUrl.size() <= 500))
               && d.playCard.cardId is string
               && d.playCard.driverName is string && d.playCard.driverName.size() <= 60
@@ -469,7 +507,9 @@ service cloud.firestore {
                 'createdAt','paidAt','checkedInAt','checkedInBy','checkedInCount'])
         && d.keys().hasAll(['id','bookingEventId','buyerUid','buyerName','buyerEmail','tierId',
                 'tierIndex','qty','seatsPerTicket','unitPriceInr','discountAmountInr','totalInr','status','qrToken','createdAt'])
-        && d.id == bookingId && d.id == d.qrToken
+        && d.id == bookingId
+        // The QR token is a separate random secret: the booking id can then be named on public counters.
+        && d.qrToken is string && d.qrToken.size() >= 24 && d.qrToken.size() <= 64
         && d.buyerUid == request.auth.uid
         && d.buyerName is string && d.buyerName.size() >= 1 && d.buyerName.size() <= 80
         && d.buyerEmail is string && d.buyerEmail.lower() == request.auth.token.email.lower()
@@ -489,19 +529,21 @@ service cloud.firestore {
              == bookingEv(d.bookingEventId).bookedCount + d.qty * d.seatsPerTicket
         && d.createdAt == request.time;
     }
-    // Cancel: status -> 'cancelled' from reserved/paid_mock only (never from checked_in or
-    // cancelled, so no un-cancel), touching only status + cancel* + refund. refund is
-    // 'mock_refunded' iff it was paid_mock (R23: a label, no real money). cancelledBy is the cancelling host's email.
+    // Cancel: status -> 'cancelled' from reserved/paid_mock (and checked_in, but only once the whole
+    // event was cancelled), never from cancelled, so no un-cancel. Touches only status + cancel* + refund.
+    // refund is 'none' for a reserved (unpaid) booking, else 'mock_refunded' (R23: a label, no real
+    // money). cancelledBy is the cancelling host's email.
     function cancelShape(by) {
       let before = resource.data;
       let after = request.resource.data;
       return after.diff(before).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelReason', 'refund'])
-        && (before.status == 'reserved' || before.status == 'paid_mock')
+        && (before.status == 'reserved' || before.status == 'paid_mock'
+            || (before.status == 'checked_in' && get(/databases/$(database)/documents/bookingEvents/$(before.bookingEventId)).data.get('cancelled', false) == true))
         && after.status == 'cancelled'
         && after.cancelledAt == request.time
         && after.cancelledBy == by
         && (!('cancelReason' in after) || (after.cancelReason is string && after.cancelReason.size() <= 200))
-        && after.refund == (before.status == 'paid_mock' ? 'mock_refunded' : 'none');
+        && after.refund == (before.status == 'reserved' ? 'none' : 'mock_refunded');
     }
     // Every cancel must come with the matching seat release on the event, in the same batch:
     // bookedCount drops by exactly qty and lastReleaseBookingId names this booking (host included).
