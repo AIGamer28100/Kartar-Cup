@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { DUR, EASE } from "../lib/motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,7 +9,8 @@ import {
   InstagramLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import { RaceStateBackdrop, RaceStateDisplay, type RaceState } from "../components/RaceStateDisplay";
+import { RaceStateBackdrop, RaceStateDisplay, type PodiumDriver, type RaceState } from "../components/RaceStateDisplay";
+import { fetchPodiumForRace } from "../lib/podium";
 import { computeRaceState } from "../lib/raceState";
 import { raceStartFor } from "../lib/f1api";
 import Divider from "../components/Divider";
@@ -23,6 +25,7 @@ import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
 import ChampionshipSection from "./Championship";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
+import { DigitRoll, KerbDraw, Magnetic, Stagger, StaggerItem, SplitWords } from "../components/motion";
 import { useGuestSession } from "./useGuestSession";
 import { useCountdown } from "../lib/useCountdown";
 import { nextSession } from "../lib/f1api";
@@ -38,7 +41,7 @@ const INSTAGRAM_CUP = "https://www.instagram.com/thekartercup/";
 const INSTAGRAM_CLUB = "https://www.instagram.com/thekarterclub/";
 
 const linkCls =
-  "inline-flex min-h-11 items-center gap-2 text-ink underline decoration-line underline-offset-4 transition hover:decoration-accent";
+  "kerb-link kerb-link--rest inline-flex min-h-11 w-fit items-center gap-2 text-ink";
 
 /** Section heading used across the community page (distinct from the quiz's H1 to keep the
  * page's own type rhythm — same clamp scale, reused, not duplicated ad hoc). */
@@ -61,10 +64,15 @@ function SectionHeading({
  * once more as the single accent strip before "Join the community". Every other section break
  * uses the plain Divider, not the brand motif. */
 function CheckerDivider() {
+  const reduce = useReducedMotion();
   return (
-    <div
-      className="divider-checker my-16 w-full rounded-full md:my-24 lg:my-28"
+    <motion.div
+      className="divider-checker my-16 w-full origin-left rounded-full md:my-24 lg:my-28"
       aria-hidden="true"
+      initial={reduce ? false : { scaleX: 0 }}
+      whileInView={{ scaleX: 1 }}
+      viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+      transition={reduce ? { duration: 0 } : { duration: DUR.slow + 0.4, ease: EASE.launch }}
     />
   );
 }
@@ -103,6 +111,21 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
   );
   const raceState = raceStateInfo?.state ?? null;
 
+  // Real podium (OpenF1) once the race has ended; cached per race, silent on failure (no podium).
+  const [podium, setPodium] = useState<PodiumDriver[] | null>(null);
+  const ended = raceStateInfo?.isEnded ?? false;
+  useEffect(() => {
+    if (!next || !ended) {
+      setPodium(null);
+      return;
+    }
+    let live = true;
+    void fetchPodiumForRace(next).then((p) => live && setPodium(p));
+    return () => {
+      live = false;
+    };
+  }, [next, ended]);
+
   const upNext = next ? nextSession(schedule?.get(next.round), Date.now()) : null;
   const trackWrapRef = useRef<HTMLDivElement>(null);
   const desktopMotion = useDesktopMotion();
@@ -116,22 +139,35 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
   return (
     <div className="grid gap-10 lg:grid-cols-[44fr_56fr] lg:items-center lg:gap-14">
       <div className="flex flex-col justify-center">
-        <Reveal>
+        <Reveal kind="fade">
           <Eyebrow>Chennai &amp; Coimbatore · motorsport community</Eyebrow>
-          <h1 className={`mt-4 ${H1}`}>The Karter Cup</h1>
-          <p className="mt-6 max-w-[40ch] text-lead text-pretty text-muted md:mt-8">
+        </Reveal>
+        <h1 className={`mt-4 ${H1}`}>
+          <SplitWords text="The Karter Cup" delay={0.05} />
+        </h1>
+        <KerbDraw className="mt-5 h-[5px] w-20" delay={0.35} />
+        <Reveal index={2}>
+          <p className="mt-6 max-w-[40ch] text-lead text-pretty text-muted md:mt-7">
             A leisure go-karting league and F1-style motorsport community —
             karting days, sim racing and watch parties, run by people who
             actually turn up.
           </p>
         </Reveal>
-        <Reveal index={1} className="mt-6">
-          <Link
-            to="/events"
-            className={buttonCls("secondary")}
-          >
-            See the full calendar
-          </Link>
+        <Reveal index={3} className="mt-6">
+          <Magnetic>
+            <Link
+              to="/events"
+              className={buttonCls("secondary", "group/cta")}
+            >
+              See the full calendar
+              <ArrowRight
+                size={18}
+                weight="regular"
+                aria-hidden="true"
+                className="transition-transform duration-200 group-hover/cta:translate-x-1 motion-reduce:transition-none"
+              />
+            </Link>
+          </Magnetic>
         </Reveal>
       </div>
 
@@ -180,6 +216,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                 <RaceStateDisplay
                   state={raceStateInfo.state}
                   raceStartMs={targetMs}
+                  drivers={podium ?? undefined}
                   onDisplayStateChange={onRaceStateChange}
                 />
               ) : (
@@ -191,7 +228,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                     {settled ? (
                       <CountdownReadout targetMs={targetMs} />
                     ) : (
-                      <Skeleton className="h-16 w-72 max-w-full" />
+                      <Skeleton variant="shimmer" className="h-16 w-72 max-w-full" />
                     )}
                   </div>
                 </div>
@@ -272,7 +309,7 @@ function TimeSegment({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-center px-6 first:pl-0 last:pr-0 sm:px-8">
       <p className="font-mono text-stat font-semibold tabular-nums text-ink">
-        {value}
+        <DigitRoll text={value} />
       </p>
       <p className="mt-2 font-mono text-label uppercase text-muted">
         {label}
@@ -309,8 +346,8 @@ function CountdownReadout({ targetMs }: { targetMs: number }) {
         <TimeSegment value={pad(hours)} label="Hrs" />
         <TimeSegment value={pad(minutes)} label="Min" />
         <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
-          <p className="font-mono text-stat font-semibold tabular-nums text-ink motion-safe:animate-pulse motion-reduce:animate-none">
-            {pad(seconds)}
+          <p className="font-mono text-stat font-semibold tabular-nums text-ink">
+            <DigitRoll text={pad(seconds)} />
           </p>
           <p className="mt-2 font-mono text-label uppercase text-muted">
             Sec
@@ -360,16 +397,26 @@ function PartnershipsSection() {
   return (
     <div>
       <SectionHeading eyebrow="Partnerships">Collaborations</SectionHeading>
-      <Reveal index={1} className="mt-6 grid gap-4 sm:grid-cols-3">
-        {slots.map((label) => (
-          <div
+      <Stagger className="mt-6 grid gap-4 sm:grid-cols-3" step={0.09}>
+        {slots.map((label, i) => (
+          <StaggerItem
             key={label}
-            className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-line text-center text-sm text-muted"
+            kind="drs"
+            className="group relative flex min-h-24 items-center justify-center overflow-hidden rounded-lg border border-dashed border-line text-center text-sm text-muted transition-colors duration-200 hover:border-muted hover:text-ink"
           >
+            {/* pit-board slot number */}
+            <span aria-hidden="true" className="absolute left-3 top-2 font-mono text-[0.625rem] tracking-widest text-muted/70">
+              P{i + 1}
+            </span>
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-[3px] origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+              style={{ backgroundImage: "var(--kerb-stripes)" }}
+            />
             {label}
-          </div>
+          </StaggerItem>
         ))}
-      </Reveal>
+      </Stagger>
       <Reveal index={2} className="mt-4">
         <p className="text-[1rem] leading-relaxed text-pretty text-muted md:text-lg">
           Also exploring a sim-racing collaboration with racesims.in —
@@ -438,17 +485,18 @@ function GallerySection() {
   return (
     <div>
       <SectionHeading eyebrow="Past events">Gallery</SectionHeading>
-      <Reveal index={1} className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <Stagger className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {preview.map((g) => (
-          <img
-            key={g.seed}
-            src={gallerySrc(g.seed, 320, 320)}
-            alt={g.caption}
-            loading="lazy"
-            className="aspect-square w-full rounded-lg border border-line object-cover"
-          />
+          <StaggerItem key={g.seed} kind="scale" className="overflow-hidden rounded-lg border border-line bg-raised">
+            <img
+              src={gallerySrc(g.seed, 320, 320)}
+              alt={g.caption}
+              loading="lazy"
+              className="aspect-square w-full object-cover transition-transform duration-500 hover:scale-[1.05] motion-reduce:transition-none"
+            />
+          </StaggerItem>
         ))}
-      </Reveal>
+      </Stagger>
       <Reveal index={2} className="mt-5">
         <Link
           to="/gallery"

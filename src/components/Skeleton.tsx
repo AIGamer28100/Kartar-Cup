@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 import { Shell, Split } from '../guest/parts';
+import { StartLightsLoader } from './motion';
 
-/** Shimmer block: opacity pulse only, disabled under prefers-reduced-motion. */
-export default function Skeleton({ className = '' }: { className?: string }) {
+/** Placeholder block. Default `pulse` (opacity pulse; what the host console uses, unchanged);
+ * public pages may pass `shimmer` for a transform-only light sweep. Both are static under
+ * prefers-reduced-motion. */
+export default function Skeleton({ className = '', variant = 'pulse' }: { className?: string; variant?: 'pulse' | 'shimmer' }) {
   return (
-    <div aria-hidden="true" className={`rounded-lg bg-raised motion-safe:animate-pulse ${className}`} />
+    <div
+      aria-hidden="true"
+      className={`rounded-lg bg-raised ${variant === 'shimmer' ? 'shimmer' : 'motion-safe:animate-pulse'} ${className}`}
+    />
   );
 }
 
@@ -41,6 +47,27 @@ export function PageSkeleton() {
           }
         />
       </Busy>
+    </Shell>
+  );
+}
+
+/** Public-route loading state (Suspense fallback while a page's code downloads): the start-light
+ * loader plus a shimmering outline of a typical public page, so the layout does not jump. */
+export function RouteSkeleton() {
+  return (
+    <Shell bare>
+      <div className="flex flex-1 flex-col" aria-busy="true">
+        <StartLightsLoader label="Loading page" />
+        <div className="mt-8 flex flex-col gap-4" aria-hidden="true">
+          <Skeleton variant="shimmer" className="h-3 w-32" />
+          <Skeleton variant="shimmer" className="h-12 w-full max-w-md" />
+          <Skeleton variant="shimmer" className="h-5 w-full max-w-[38ch]" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <Skeleton variant="shimmer" className="h-40" />
+            <Skeleton variant="shimmer" className="h-40" />
+          </div>
+        </div>
+      </div>
     </Shell>
   );
 }

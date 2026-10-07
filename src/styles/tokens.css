@@ -55,6 +55,194 @@
   --gradient-brand: linear-gradient(135deg, hsl(356 72% 52%), hsl(24 90% 55%));
 }
 
+/*
+ * Motion tokens (CSS mirror of src/lib/motion.ts; motion.test.ts keeps them in sync). Names are
+ * prefixed --motion-* so they never collide with Tailwind's own --ease-* theme variables, which the
+ * host console still uses unchanged.
+ */
+:root {
+  --motion-instant: 80ms;
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-ease-launch: cubic-bezier(0.16, 1, 0.3, 1);
+  /* R44: the owner's TrackMap outline draw duration. Deliberate; do not shorten. */
+  --track-draw-duration: 5s;
+  /* Kerb stripe (red / white blocks) used by link underlines, nav indicators and route sweeps. */
+  --kerb-stripes: repeating-linear-gradient(
+    90deg,
+    var(--color-accent) 0 8px,
+    var(--color-ink) 8px 16px
+  );
+}
+
+/* Kerb underline for links (public pages): a red/white kerb strip that sweeps in from the left on
+   hover/focus, transform-only. Reduced motion: it simply appears. */
+.kerb-link {
+  position: relative;
+  text-decoration: none;
+}
+.kerb-link::after {
+  position: absolute;
+  right: 0;
+  bottom: 0.45rem;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  content: "";
+  background-image: var(--kerb-stripes);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--motion-base) var(--motion-ease-out);
+  pointer-events: none;
+}
+.kerb-link:hover::after,
+.kerb-link:focus-visible::after,
+.kerb-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+/* Underline-style links that keep a resting underline: the kerb strip replaces it on hover. */
+.kerb-link--rest {
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--motion-fast) linear;
+}
+.kerb-link--rest:hover,
+.kerb-link--rest:focus-visible {
+  text-decoration-color: transparent;
+}
+
+/* Small chequered-flag strip (podium edges and header). Static. */
+.podium-chequer {
+  background-color: var(--color-chequer-light);
+  background-image: repeating-conic-gradient(var(--color-chequer-dark) 0 25%, transparent 0 50%);
+  background-size: 8px 8px;
+}
+
+/* Press feedback for any tappable surface: quick compress on press, spring-ish release. */
+.press {
+  transition: transform var(--motion-fast) var(--motion-ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+  transition-duration: var(--motion-instant);
+}
+
+/* Skeleton shimmer (public pages): a light band sweeps across, transform-only. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgb(255 255 255 / 0.06) 45%,
+    rgb(255 255 255 / 0.1) 50%,
+    rgb(255 255 255 / 0.06) 55%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: kc-shimmer 1.4s var(--motion-ease-in-out) infinite;
+}
+@keyframes kc-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Start-light loader: five red lights fill in sequence, hold, then reset (a route chunk is loading).
+   Limited iterations (WCAG 2.2.2): after ~5s it holds all five lit, still. */
+.start-lights {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+.start-lights > span {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.start-lights > span::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  content: "";
+  background: var(--color-accent);
+  box-shadow: 0 0 12px 2px rgb(216 30 54 / 0.55);
+  opacity: 0;
+  animation: kc-light 1.6s linear 3 forwards;
+}
+.start-lights > span:nth-child(2)::after { animation-delay: 0.12s; }
+.start-lights > span:nth-child(3)::after { animation-delay: 0.24s; }
+.start-lights > span:nth-child(4)::after { animation-delay: 0.36s; }
+.start-lights > span:nth-child(5)::after { animation-delay: 0.48s; }
+@keyframes kc-light {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  12%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Speed streaks behind fast-moving graphics (route sweep, hero accent). */
+@keyframes kc-streak {
+  from {
+    transform: translateX(-30%) scaleX(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(130%) scaleX(1.2);
+    opacity: 0;
+  }
+}
+
+/* Gentle idle drift for decorative racing-line glows (opacity only). */
+@keyframes kc-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kerb-link::after,
+  .kerb-link--rest,
+  .press,
+  .press:active {
+    transition: none;
+  }
+  .press:active {
+    transform: none;
+  }
+  .shimmer::after {
+    animation: none;
+    opacity: 0;
+  }
+  .start-lights > span::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 .bg-gradient-brand {
   background-image: var(--gradient-brand);
 }
@@ -155,7 +343,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .track-draw {
     stroke-dasharray: 1 1;
-    animation: track-draw 5s linear forwards;
+    animation: track-draw var(--track-draw-duration) linear forwards;
   }
 }
 
@@ -327,3 +515,26 @@
     opacity: 0.18;
   }
 }
+
+/*
+ * TrackLayout (race detail page): dark glass card behind the 3D circuit. Backdrop = two soft
+ * token-tinted glows over raised navy plus a faint grid that fades out toward the edges.
+ */
+.tl-backdrop {
+  background:
+    radial-gradient(70% 55% at 88% -8%, color-mix(in srgb, var(--color-accent) 15%, transparent), transparent 70%),
+    radial-gradient(60% 55% at -5% 108%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--color-raised), var(--color-base) 75%);
+}
+.tl-backdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.55;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(75% 60% at 50% 35%, #000 20%, transparent 80%);
+}
+

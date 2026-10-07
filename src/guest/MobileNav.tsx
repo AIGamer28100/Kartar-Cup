@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { FlagCheckered, House, TicketIcon, User } from '@phosphor-icons/react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ActiveKerb } from '../components/motion';
+import { SPRING } from '../lib/motion';
 import { useAuth } from '../lib/auth';
 import { watchActiveEventId, watchEventConfig } from '../lib/db';
 import { useEventStatus } from '../lib/eventStatus';
@@ -30,7 +33,7 @@ function useActiveEvent(): EventConfig | null | undefined {
 }
 
 const tabCls =
-  'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.6875rem] leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-accent';
+  'group relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.6875rem] leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-accent';
 
 function Tab({
   id,
@@ -44,13 +47,18 @@ function Tab({
   icon: ReactNode;
 }) {
   const on = current === id;
+  const reduce = useReducedMotion();
   return (
     <>
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 mx-auto h-0.5 w-8 rounded-full bg-accent transition-opacity motion-reduce:transition-none ${on ? 'opacity-100' : 'opacity-0'}`}
-      />
-      {icon}
+      {/* Kerb indicator slides between tabs (shared layout, transform only). */}
+      {on && <ActiveKerb layoutId="mobile-tab-kerb" className="inset-x-0 top-0 mx-auto h-[3px] w-9" />}
+      <motion.span
+        className={`flex ${on ? 'text-ink' : 'text-muted'}`}
+        animate={reduce ? undefined : { y: on ? -1 : 0, scale: on ? 1.06 : 1 }}
+        transition={SPRING.snappy}
+      >
+        <span className="flex transition-transform duration-100 group-active:scale-90 motion-reduce:group-active:scale-100">{icon}</span>
+      </motion.span>
       <span className={on ? 'font-semibold text-ink' : 'font-medium text-muted'}>{label}</span>
     </>
   );

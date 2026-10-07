@@ -43,8 +43,8 @@ function Avatar({ photoUrl, name, email }: { photoUrl?: string | null; name: str
 function EntryRowSkeleton() {
   return (
     <div className="flex items-baseline justify-between gap-4 py-4">
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-4 w-28" />
+      <Skeleton variant="shimmer" className="h-4 w-40" />
+      <Skeleton variant="shimmer" className="h-4 w-28" />
     </div>
   );
 }
@@ -97,7 +97,7 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
       >
         <div>
           <p className="font-medium text-ink">
-            {ev === undefined ? <Skeleton className="h-5 w-40" /> : ev?.title ?? 'Watch party'}
+            {ev === undefined ? <Skeleton variant="shimmer" className="h-5 w-40" /> : ev?.title ?? 'Watch party'}
           </p>
           <p className="mt-1 text-sm text-muted">
             {tierLabel} · Qty {booking.qty} · {formatInr(booking.totalInr)}

@@ -95,8 +95,8 @@ export default function JoinPage() {
   if (load.kind === 'loading' || roles === null) {
     return (
       <Shell bare>
-        <Skeleton className="mt-8 h-10 w-64" />
-        <Skeleton className="mt-4 h-5 w-80 max-w-full" />
+        <Skeleton variant="shimmer" className="mt-8 h-10 w-64" />
+        <Skeleton variant="shimmer" className="mt-4 h-5 w-80 max-w-full" />
       </Shell>
     );
   }

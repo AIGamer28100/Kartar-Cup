@@ -39,7 +39,8 @@ function TrackLine() {
           animate={{ pathLength: 1, strokeDashoffset: [0, -438] }}
           transition={{
             pathLength: { duration: 2.4, ease: 'easeInOut', delay: 0.3 },
-            strokeDashoffset: { duration: 3.2, ease: 'linear', repeat: Infinity, delay: 2.7 },
+            // One out-lap after the draw, then it parks (no endless motion beside the quiz copy).
+            strokeDashoffset: { duration: 2.2, ease: 'linear', delay: 2.7 },
           }}
         />
       )}

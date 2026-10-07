@@ -35,6 +35,19 @@ import {
 } from './eventsModel';
 import { quizGateVariant } from './quizGate';
 import { Eyebrow, H2, PageTitle, Reveal, Shell } from './parts';
+import { ActivePill } from '../components/motion';
+import { DUR, EASE } from '../lib/motion';
+
+/** Kerb strip that sweeps along a card's bottom edge on hover/focus (transform only). */
+function CardKerb() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[3px] origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-within:scale-x-100 motion-reduce:transition-none"
+      style={{ backgroundImage: 'var(--kerb-stripes)' }}
+    />
+  );
+}
 
 /** Weekend date range ("02–04 Oct 2026") plus the watch-party's own local/IST start (13:00 UTC
  * default unless a host has overridden it for the live event — this calendar-only view always
@@ -99,11 +112,11 @@ function CardSkeleton({ featured = false }: { featured?: boolean }) {
       className={`grid grid-cols-[2fr_1fr] items-start gap-4 rounded-lg border border-line bg-raised p-5 ${featured ? 'sm:col-span-2 sm:grid-cols-[2fr_1fr] sm:gap-6 sm:p-6' : ''}`}
     >
       <div>
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="mt-3 h-6 w-full max-w-64" />
-        <Skeleton className="mt-2 h-4 w-48" />
+        <Skeleton variant="shimmer" className="h-3 w-32" />
+        <Skeleton variant="shimmer" className="mt-3 h-6 w-full max-w-64" />
+        <Skeleton variant="shimmer" className="mt-2 h-4 w-48" />
       </div>
-      <Skeleton className="aspect-square w-full rounded-md" />
+      <Skeleton variant="shimmer" className="aspect-square w-full rounded-md" />
     </div>
   );
 }
@@ -151,7 +164,7 @@ function TicketReadout({ ticket, kind = 'f1', stretch = true }: { ticket: Ticket
     return (
       <Link
         to={`/events/${ticket.bookingEventId}`}
-        className={`inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`kerb-link kerb-link--rest inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           stretch ? "after:absolute after:inset-0 after:content-['']" : ''
         }`}
       >
@@ -220,6 +233,7 @@ function EventCard({ event, index }: { event: BookingEvent; index: number }) {
       <div className="mt-4">
         <TicketReadout ticket={ticket} kind={category} />
       </div>
+      <CardKerb />
     </Reveal>
   );
 }
@@ -260,7 +274,7 @@ function SeasonTimeline({
                 )}
               </div>
             )}
-            <Reveal index={i} className="relative flex gap-4">
+            <Reveal index={i} kind="slide" className="relative flex gap-4">
               <span
                 aria-hidden="true"
                 className="mt-1.5 h-[15px] w-[15px] shrink-0 rounded-full border-2 border-accent bg-base"
@@ -317,7 +331,7 @@ function WeekendSchedule({ sessions }: { sessions: SessionTime[] }) {
               initial={reduce ? false : { opacity: 0, y: 16 }}
               whileInView={{ opacity: done ? 0.5 : 1, y: 0 }}
               viewport={{ once: true, margin: '-40px 0px' }}
-              transition={{ type: 'spring', stiffness: 220, damping: 24, delay: reduce ? 0 : i * 0.08 }}
+              transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 220, damping: 24, delay: i * 0.06 }}
               className={`relative rounded-lg border px-3 py-3 ${
                 isRace ? 'border-accent bg-base' : 'border-line bg-base/40'
               }`}
@@ -413,6 +427,7 @@ function RaceCard({
         <CircuitVisual race={race} featured={featured} />
       </div>
       {sessions && sessions.length > 0 && <WeekendSchedule sessions={sessions} />}
+      <CardKerb />
     </Reveal>
   );
 }
@@ -487,10 +502,11 @@ function TabBar({ tab, onChange }: { tab: EventsTab; onChange: (t: EventsTab) =>
           tabIndex={tab === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`min-h-11 min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 text-xs font-medium sm:text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex-none sm:px-4 ${
-            tab === t.id ? 'bg-raised text-ink' : 'text-muted hover:text-ink'
+          className={`relative isolate min-h-11 min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 text-xs font-medium sm:text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex-none sm:px-4 ${
+            tab === t.id ? 'text-ink' : 'text-muted hover:text-ink'
           }`}
         >
+          {tab === t.id && <ActivePill layoutId="events-tab" />}
           {t.label}
         </button>
       ))}
@@ -572,10 +588,11 @@ export default function EventsPage() {
               type="button"
               aria-pressed={activeSeason === s}
               onClick={() => setSeason(s)}
-              className={`min-h-11 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                activeSeason === s ? 'bg-raised text-ink' : 'text-muted hover:text-ink'
+              className={`relative isolate min-h-11 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                activeSeason === s ? 'text-ink' : 'text-muted hover:text-ink'
               }`}
             >
+              {activeSeason === s && <ActivePill layoutId="events-season" />}
               {s}
             </button>
           ))}
@@ -589,10 +606,10 @@ export default function EventsPage() {
           <Busy className="mt-8 flex flex-col gap-6">
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="flex gap-4">
-                <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+                <Skeleton variant="shimmer" className="h-4 w-4 shrink-0 rounded-full" />
                 <div className="min-w-0 flex-1">
-                  <Skeleton className="h-3 w-32" />
-                  <Skeleton className="mt-2 h-5 w-64" />
+                  <Skeleton variant="shimmer" className="h-3 w-32" />
+                  <Skeleton variant="shimmer" className="mt-2 h-5 w-64" />
                 </div>
               </div>
             ))}
@@ -729,9 +746,9 @@ export default function EventsPage() {
           id="events-panel"
           role="tabpanel"
           aria-labelledby={`events-tab-${tab}`}
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
+          initial={reduce ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={reduce ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
         >
           {panel}
         </motion.div>

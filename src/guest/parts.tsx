@@ -13,34 +13,35 @@ import { CONTACT } from '../config/contact';
 import { DEVELOPER, OPERATOR } from '../config/legal';
 import type { PickMap } from './draft';
 import { formatRemaining, optionLabel, safeWhatsappUrl } from './model';
+import { ActiveKerb, InView, KerbDraw } from '../components/motion';
+import { DUR, EASE, SPRING as MOTION_SPRING, staggerDelay, STAGGER } from '../lib/motion';
 
-export const SPRING = { type: 'spring', stiffness: 260, damping: 26 } as const;
+/** The site's default reveal spring (kept as a named export for existing callers). */
+export const SPRING = MOTION_SPRING.soft;
 
-/** Staggered spring reveal wrapper (transform + opacity only). */
+/** Staggered reveal wrapper (transform + opacity only). Plays once as the block scrolls into view
+ * (immediately for content already on screen); `index` staggers siblings. Static under reduced
+ * motion. See src/components/motion.tsx for the other entrances (drs, slide, scale). */
 export function Reveal({
   children,
   index = 0,
   className = '',
+  kind = 'rise',
 }: {
   children: ReactNode;
   index?: number;
   className?: string;
+  kind?: 'rise' | 'drs' | 'slide' | 'fade' | 'scale';
 }) {
-  const reduce = useReducedMotion();
   return (
-    <motion.div
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...SPRING, delay: reduce ? 0 : index * 0.07 }}
-    >
+    <InView index={index} kind={kind} className={className}>
       {children}
-    </motion.div>
+    </InView>
   );
 }
 
 const linkCls =
-  '-mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'relative -mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm text-muted transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 /** Small text wordmark used as the header's logo placeholder — R27: no real Karter Cup artwork
  * is in this repo, only a plain dot+text mark in the site's own established style. Links home. */
@@ -48,9 +49,11 @@ function LogoMark() {
   return (
     <Link
       to="/"
-      className="-mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm font-semibold tracking-tight text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="group -mx-2 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-2 text-sm font-semibold tracking-tight text-ink transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+      <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+        <span className="absolute inset-0 rounded-full bg-accent shadow-[0_0_10px_1px_rgb(216_30_54/0.6)] transition-transform duration-200 group-hover:scale-125" />
+      </span>
       Kartar CUP
     </Link>
   );
@@ -159,20 +162,35 @@ function MobileMenu({ user, isHost, ready }: { user: unknown; isHost: boolean | 
             <div aria-hidden="true" className="fixed inset-0 z-20" onPointerDown={() => setOpen(false)} />
             <motion.div
               id="site-menu"
-              initial={reduce ? false : { opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -8 }}
-              transition={reduce ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
-              className="absolute inset-x-0 top-full z-30 mt-1 rounded-lg border border-line bg-base p-2 shadow-[0_16px_40px_rgb(0_0_0/0.5)]"
+              initial={reduce ? false : { opacity: 0, y: -10, scaleY: 0.96 }}
+              animate={{ opacity: 1, y: 0, scaleY: 1 }}
+              exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -8, transition: { duration: DUR.fast, ease: EASE.in } }}
+              transition={reduce ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
+              style={{ transformOrigin: '50% 0%' }}
+              className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-line bg-base p-2 shadow-[0_16px_40px_rgb(0_0_0/0.5)]"
             >
+              <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundImage: 'var(--kerb-stripes)' }} />
               <nav aria-label="Site menu">
                 <ul className="m-0 list-none p-0">
-                  {NAV_LINKS.map((l) => (
-                    <li key={l.to}>
+                  {NAV_LINKS.map((l, i) => (
+                    <motion.li
+                      key={l.to}
+                      initial={reduce ? false : { opacity: 0, x: 14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={reduce ? { duration: 0 } : { ...MOTION_SPRING.snappy, delay: 0.03 + staggerDelay(i, STAGGER.tight) }}
+                    >
                       <NavLink to={l.to} end={l.end} className={menuItemCls}>
-                        {l.label}
+                        {({ isActive }) => (
+                          <>
+                            <span
+                              aria-hidden="true"
+                              className={`h-4 w-1 shrink-0 rounded-full transition-colors ${isActive ? 'bg-accent' : 'bg-line'}`}
+                            />
+                            {l.label}
+                          </>
+                        )}
                       </NavLink>
-                    </li>
+                    </motion.li>
                   ))}
                   {Boolean(user) && isHost === true && (
                     <li>
@@ -223,7 +241,12 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
             <nav aria-label="Primary" className="flex flex-wrap items-center justify-end gap-x-5">
               {NAV_LINKS.filter((l) => l.to !== '/').map((l) => (
                 <NavLink key={l.to} to={l.to} className={`${linkCls} aria-[current=page]:text-ink`}>
-                  {l.label}
+                  {({ isActive }) => (
+                    <>
+                      {l.label}
+                      {isActive && <ActiveKerb layoutId="site-nav-kerb" className="inset-x-2 bottom-1.5 h-[3px]" />}
+                    </>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -253,9 +276,30 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
 }
 
 const footLinkCls =
-  '-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-[current=page]:text-ink';
+  'kerb-link -mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-[current=page]:text-ink';
 
 const footHeadCls = 'font-mono text-xs uppercase tracking-widest text-muted';
+
+/** Footer top edge: the brand gradient hairline with a short kerb strip that sweeps across once
+ * as the footer scrolls into view (transform only; static under reduced motion). */
+function FooterKerb() {
+  const reduce = useReducedMotion();
+  return (
+    <div aria-hidden="true" className="relative h-px w-full overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-brand opacity-60" />
+      {!reduce && (
+        <motion.div
+          className="absolute inset-y-0 left-0 h-px w-24"
+          style={{ backgroundImage: 'var(--kerb-stripes)' }}
+          initial={{ x: '-100%' }}
+          whileInView={{ x: '120vw' }}
+          viewport={{ once: true }}
+          transition={{ duration: 1.1, ease: EASE.inOut }}
+        />
+      )}
+    </div>
+  );
+}
 
 /** Public-site footer (non-bare pages only). Sits outside <main> so it is the page's contentinfo
  * landmark. Own text wordmark only (R27). Brand + tagline, Explore links, Community/contact with
@@ -265,9 +309,9 @@ function SiteFooter() {
   const whatsapp = safeWhatsappUrl(CONTACT.whatsappUrl);
   return (
     <footer className="mt-auto pt-6">
-      <div aria-hidden="true" className="h-px w-full bg-gradient-brand opacity-60" />
+      <FooterKerb />
       <div className="grid grid-cols-2 gap-x-6 gap-y-10 py-10 md:grid-cols-[1.3fr_1.5fr_1fr] md:gap-x-12 md:py-14">
-        <div className="col-span-2 max-w-sm md:col-span-1">
+        <InView kind="fade" className="col-span-2 max-w-sm md:col-span-1">
           <p className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
             Kartar CUP
@@ -275,7 +319,7 @@ function SiteFooter() {
           <p className="mt-3 text-sm leading-relaxed text-muted">
             Karting events and sim racing. Watch parties with The Karter Club.
           </p>
-        </div>
+        </InView>
         <nav aria-labelledby="foot-explore" className="min-w-0">
           <h2 id="foot-explore" className={footHeadCls}>Explore</h2>
           <ul className="m-0 mt-2 list-none p-0 md:grid md:grid-cols-2 md:gap-x-8">
@@ -357,9 +401,13 @@ export function Split({ left, right }: { left: ReactNode; right?: ReactNode }) {
   );
 }
 
+/** Section/page eyebrow: mono caps with a short kerb tick that draws in as it appears. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-xs uppercase tracking-widest text-muted">{children}</p>
+    <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
+      <KerbDraw className="h-[3px] w-4 shrink-0" delay={0.1} />
+      <span className="min-w-0">{children}</span>
+    </p>
   );
 }
 
@@ -371,7 +419,7 @@ export function WhatsAppCta({ url }: { url: string | undefined }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
+      className="press inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition-colors duration-150 hover:border-muted"
     >
       <WhatsappLogo size={22} weight="regular" aria-hidden="true" />
       Join The Karter Cup WhatsApp community
@@ -419,7 +467,7 @@ export function TickStrip({ config, ticks }: { config: EventConfig; ticks: Recor
           key={q.id}
           initial={reduce ? false : { opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ ...SPRING, delay: reduce ? 0 : 0.4 + i * 0.08 }}
+          transition={{ ...MOTION_SPRING.pop, delay: reduce ? 0 : 0.4 + i * 0.08 }}
           className={`flex size-11 items-center justify-center rounded-lg border font-mono text-sm ${
             ticks[q.id] ? 'border-accent bg-accent text-accent-ink' : 'border-line text-muted'
           }`}

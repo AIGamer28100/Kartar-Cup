@@ -1,5 +1,8 @@
 import { Trophy } from '@phosphor-icons/react';
 import { useState, useEffect, useRef } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { DigitRoll } from './motion';
+import { SPRING as MOTION_SPRING } from '../lib/motion';
 
 export type RaceState =
   | 'scheduled'
@@ -38,6 +41,8 @@ export interface PodiumDriver {
   colour: string;
   headshotUrl: string | null;
   points: number;
+  /** Optional quiet secondary line: race time for P1, gap to the leader for P2/P3. */
+  detail?: string;
 }
 
 export function getRaceStateInfo(state: RaceState): RaceStateInfo {
@@ -255,80 +260,101 @@ function isCautionState(state: RaceState): boolean {
   return type === 'yellow-flag' || type === 'yellow-flag-sector' || type === 'safety-car' || type === 'safety-car-ending' || type === 'red-flag' || type === 'virtual-safety-car';
 }
 
-function PodiumCard({ driver }: { driver: PodiumDriver }) {
-  const positionColors = {
-    1: 'var(--color-gold)',
-    2: 'var(--color-muted)',
-    3: 'var(--color-accent-text)',
-  };
+/** Stage per place: P3 rises first, then P2, then P1 (the F1 podium order). */
+const PODIUM_STAGE: Record<number, number> = { 3: 0, 2: 1, 1: 2 };
+/** Riser heights (rem) per place, narrow / wide. */
+const RISER: Record<number, string> = { 1: 'h-20 sm:h-24', 2: 'h-14 sm:h-16', 3: 'h-10 sm:h-12' };
+const AVATAR: Record<number, string> = { 1: 'size-14 sm:size-16', 2: 'size-11 sm:size-12', 3: 'size-11 sm:size-12' };
 
-  const positionColor = positionColors[driver.position as 1 | 2 | 3] || 'var(--color-muted)';
-
+function DriverFace({ driver }: { driver: PodiumDriver }) {
+  const [broken, setBroken] = useState(false);
+  const ring = { borderColor: driver.colour, boxShadow: `0 0 0 3px color-mix(in srgb, ${driver.colour} 22%, transparent), 0 8px 24px color-mix(in srgb, ${driver.colour} 30%, transparent)` };
   return (
-    <div className="relative rounded-xl bg-base/50 border border-line/50 p-3 text-center">
-      <div
-        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
-        style={{ color: positionColor }}
+    <span className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-raised ${AVATAR[driver.position] ?? AVATAR[3]}`} style={ring}>
+      {driver.headshotUrl && !broken ? (
+        <img src={driver.headshotUrl} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover object-top" />
+      ) : (
+        <span className="font-mono text-xs font-semibold tracking-wider text-ink sm:text-sm">{driver.code}</span>
+      )}
+    </span>
+  );
+}
+
+function PodiumCard({ driver }: { driver: PodiumDriver }) {
+  const reduce = useReducedMotion();
+  const p = driver.position;
+  const stage = PODIUM_STAGE[p] ?? 0;
+  const delay = reduce ? 0 : 0.15 + stage * 0.45;
+  const surname = driver.name.split(' ').slice(-1)[0] || driver.name;
+  // DOM order stays P1, P2, P3 (read in rank order); CSS order lays them out P2 | P1 | P3.
+  const order = p === 1 ? 'order-2' : p === 2 ? 'order-1' : 'order-3';
+  return (
+    <li className={`flex min-w-0 flex-col items-center ${order}`}>
+      <motion.div
+        className="flex w-full min-w-0 flex-col items-center"
+        initial={reduce ? false : { opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={reduce ? { duration: 0 } : { ...MOTION_SPRING.soft, delay: delay + 0.18 }}
       >
-        <span className="font-mono text-xl font-bold">
-          {driver.position === 1 ? 'P1' : driver.position === 2 ? 'P2' : 'P3'}
-        </span>
-      </div>
-
-      <div className="flex justify-center mb-2">
-        <div
-          className="h-16 w-16 shrink-0 rounded-full border-2 bg-raised object-cover object-top flex items-center justify-center"
-          style={{ borderColor: driver.colour }}
-        >
-          {driver.headshotUrl ? (
-            <img
-              src={driver.headshotUrl}
-              alt=""
-              loading="lazy"
-              className="h-full w-full rounded-full object-cover object-top"
-            />
-          ) : (
-            <span className="font-mono text-lg font-semibold" style={{ color: driver.colour }}>
-              {driver.code}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <p className="font-medium text-sm text-ink truncate">{driver.name}</p>
-        <p className="flex items-center justify-center gap-1 text-xs text-muted">
-          <span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded" style={{ background: driver.colour }} />
+        {p === 1 && <Trophy aria-hidden="true" weight="fill" className="mb-1 size-4 text-gold" />}
+        <DriverFace driver={driver} />
+        <p className="mt-2 w-full truncate text-sm font-semibold text-ink" title={driver.name}>
+          <span aria-hidden="true">{surname}</span>
+          <span className="sr-only">
+            P{p}: {driver.name}, {driver.team}
+          </span>
+        </p>
+        <p className="flex w-full min-w-0 items-center justify-center gap-1.5 text-[0.6875rem] text-muted" aria-hidden="true">
+          <span className="inline-block h-2 w-1 shrink-0 rounded-full" style={{ background: driver.colour }} />
           <span className="truncate">{driver.team}</span>
         </p>
-      </div>
-
-      {driver.points > 0 && (
-        <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base border border-line/50">
-          <Trophy className="w-3 h-3 text-gold" />
-          <span className="font-mono text-xs font-semibold text-gold">
-            {driver.points} pts
-          </span>
-        </div>
-      )}
-    </div>
+        {driver.detail && <p className="mt-0.5 w-full truncate font-mono text-[0.6875rem] tabular-nums text-muted">{driver.detail}</p>}
+        {driver.points > 0 && (
+          <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-base/60 px-2 py-0.5 font-mono text-[0.6875rem] font-semibold text-gold">
+            +{driver.points}
+            <span className="sr-only"> race points</span>
+            <span aria-hidden="true" className="font-normal text-muted">pts</span>
+          </p>
+        )}
+      </motion.div>
+      {/* the riser block */}
+      <motion.div
+        aria-hidden="true"
+        className={`relative mt-2 w-full overflow-hidden rounded-t-md border border-b-0 border-line bg-raised ${RISER[p] ?? RISER[3]}`}
+        style={{ transformOrigin: '50% 100%' }}
+        initial={reduce ? false : { scaleY: 0, opacity: 0 }}
+        animate={{ scaleY: 1, opacity: 1 }}
+        transition={reduce ? { duration: 0 } : { ...MOTION_SPRING.soft, delay }}
+      >
+        <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: driver.colour }} />
+        <span className="podium-chequer absolute inset-x-0 top-[3px] h-2 opacity-25" />
+        <span
+          className={`absolute inset-x-0 bottom-0 text-center font-num text-[2.25rem] italic leading-none sm:text-[2.75rem] ${p === 1 ? 'text-gold' : 'text-muted/80'}`}
+          style={{ fontWeight: 800 }}
+        >
+          {p}
+        </span>
+      </motion.div>
+    </li>
   );
 }
 
 function PodiumDisplay({ drivers }: { drivers: PodiumDriver[] }) {
-  const sorted = [...drivers].sort((a, b) => a.position - b.position);
-
+  const sorted = [...drivers].filter((d) => d.position >= 1 && d.position <= 3).sort((a, b) => a.position - b.position);
+  if (sorted.length === 0) return null;
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold text-ink uppercase tracking-wider">
-        <Trophy className="w-4 h-4 text-gold" />FINAL CLASSIFICATION
+    <section aria-label="Race podium" className="w-full max-w-md">
+      <div className="flex items-center justify-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted">
+        <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
+        Podium
+        <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <ol className="m-0 mt-3 grid list-none grid-cols-3 items-end gap-2 border-b border-line p-0 sm:gap-3">
         {sorted.map((driver) => (
           <PodiumCard key={driver.position} driver={driver} />
         ))}
-      </div>
-    </div>
+      </ol>
+    </section>
   );
 }
 
@@ -437,11 +463,15 @@ function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: nu
 
 function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceState }) {
   const [now, setNow] = useState(Date.now());
+  // Centiseconds are only shown in the lights-out countdown; every other readout changes once a
+  // second, so a 250ms tick is plenty (it used to re-render every 10ms in every state).
+  const tickMs = state === 'lights-out-countdown' ? 10 : 250;
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 10);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, []);
+  }, [tickMs]);
 
   const delta = raceStartMs - now;
 
@@ -493,10 +523,12 @@ function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceSta
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
+    const text = `${days > 0 ? `${days}d ` : ''}${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
     return (
       <div className="font-mono text-4xl font-bold tabular-nums text-ink">
-        {days > 0 && `${days}d `}
-        {String(hours).padStart(2, '0')}h {String(minutes).padStart(2, '0')}m {String(seconds).padStart(2, '0')}s
+        {/* Timing-screen digit roll; the plain text stays available to assistive tech. */}
+        <DigitRoll text={text} />
+        <span className="sr-only">{text}</span>
       </div>
     );
   }
