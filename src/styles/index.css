@@ -71,3 +71,12 @@ h1[tabindex='-1']:focus {
     transform: scale(0.8);
   }
 }
+
+/* Owner request: no browser scrollbar on the page itself (scrolling still works with wheel, touch, keys).
+   The scroll progress bar at the top of the home page shows position instead. */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}

@@ -3,7 +3,6 @@ import {
   motion,
   useReducedMotion,
   useScroll,
-  useTransform,
 } from "framer-motion";
 
 /**
@@ -28,15 +27,14 @@ export function useDesktopMotion(breakpointPx = 768): boolean {
 
 /**
  * Page-wide "timing tower" scroll indicator: a thin sector-ticked line (echoing the hero
- * TrackMap's draw-in motif) that draws itself via stroke-dashoffset as the guest scrolls the
- * whole page. Pure decoration (aria-hidden), driven by useScroll/useTransform — never a window
+ * TrackMap's draw-in motif) whose red fill grows from the left edge as the guest scrolls the
+ * whole page. Pure decoration (aria-hidden), driven by useScroll — never a window
  * scroll listener. Fully skipped under prefers-reduced-motion rather than degraded, since a
  * self-drawing line is itself the kind of motion that preference opts out of.
  */
 export function ScrollProgressPath() {
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll();
-  const dashoffset = useTransform(scrollYProgress, [0, 1], [1, 0]);
 
   if (reduce) return null;
 
@@ -74,19 +72,14 @@ export function ScrollProgressPath() {
             vectorEffect="non-scaling-stroke"
           />
         ))}
-        <motion.line
-          x1="0"
-          y1="1.5"
-          x2="1000"
-          y2="1.5"
-          pathLength={1}
-          className="stroke-accent"
-          strokeWidth={2}
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-          style={{ strokeDasharray: 1, strokeDashoffset: dashoffset }}
-        />
       </svg>
+      {/* Progress: a bar scaled from the left edge by scroll position (0 at the top, full at the bottom).
+          A dash-offset line cannot be used here: with non-scaling strokes the dash is measured in screen px,
+          which made the line start mid-way and wrap around. */}
+      <motion.div
+        className="absolute inset-0 origin-left bg-accent"
+        style={{ scaleX: scrollYProgress }}
+      />
     </div>
   );
 }
