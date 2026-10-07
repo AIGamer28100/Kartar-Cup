@@ -14,36 +14,79 @@ import TicketActions, { PolicyNote } from './TicketActions';
 import { bookingStatusLabel, formatInr } from './profileModel';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
-/** The scannable ticket: encodes the booking id only (R23, no PII). Shared by the purchase
- * confirmation and the persistent ticket page so both always render the same code. */
-export function TicketQr({ bookingId, dim = false }: { bookingId: string; dim?: boolean }) {
+/** What the ticket QR encodes: the booking's secret qrToken (R23: random, no PII, separate from the
+ * booking id that appears on public counters). Old tickets made before qrToken existed fall back to
+ * the booking id so they still scan. */
+export function ticketQrPayload(b: { id: string; qrToken?: string | null }): string {
+  return b.qrToken && b.qrToken.trim() ? b.qrToken : b.id;
+}
+
+/** The scannable ticket, shared by the purchase confirmation and the persistent ticket page so both
+ * always render the same code. `void` (cancelled ticket) draws a crossed-out placeholder that
+ * encodes nothing of the ticket, so a screenshot of a refunded ticket is useless at the door. */
+export function TicketQr({
+  bookingId,
+  qrToken,
+  state = 'valid',
+}: {
+  bookingId: string;
+  qrToken?: string | null;
+  state?: 'valid' | 'used' | 'void';
+}) {
   const [qr, setQr] = useState<string | null>(null);
+  const payload = state === 'void' ? 'VOID' : ticketQrPayload({ id: bookingId, qrToken });
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(bookingId, { margin: 1, width: 480, color: { dark: '#111', light: '#fff' } })
+    QRCode.toDataURL(payload, { margin: 1, width: 480, color: { dark: '#111', light: '#fff' } })
       .then((url) => !cancelled && setQr(url))
       .catch(() => !cancelled && setQr(null));
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [payload]);
 
+  const isVoid = state === 'void';
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       {qr ? (
-        <img
-          src={qr}
-          alt="Ticket QR code"
-          className={`size-60 rounded-lg border border-line bg-white p-2 ${dim ? 'opacity-40' : ''}`}
-        />
+        <div className="relative size-60">
+          <img
+            src={qr}
+            alt={isVoid ? 'Void ticket: no code to scan' : 'Ticket QR code'}
+            className={`size-60 rounded-lg border border-line bg-white p-2 ${state === 'used' ? 'opacity-40' : ''} ${isVoid ? 'opacity-25 blur-[3px] grayscale' : ''}`}
+          />
+          {isVoid && (
+            <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-lg">
+              <span className="absolute h-1 w-[140%] rotate-45 bg-accent" />
+              <span className="absolute h-1 w-[140%] -rotate-45 bg-accent" />
+              <span className="relative rounded-md border-2 border-accent bg-base px-4 py-1.5 font-mono text-lg font-semibold uppercase tracking-[0.3em] text-accent-text">
+                Void
+              </span>
+            </div>
+          )}
+        </div>
       ) : (
         <Skeleton variant="shimmer" className="size-60 rounded-lg" />
       )}
       <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
         <QrCode size={16} weight="regular" aria-hidden="true" />
-        <span className="select-all">{bookingId}</span>
+        <span className={`select-all ${isVoid ? 'line-through' : ''}`}>{bookingId}</span>
       </p>
+    </div>
+  );
+}
+
+/** Banner for a ticket whose event the host cancelled: shown at the top of the ticket page. */
+export function EventCancelledBanner({ event, booking }: { event: BookingEvent; booking: Pick<Booking, 'status' | 'refund'> }) {
+  const refunded = booking.status === 'cancelled' && booking.refund === 'mock_refunded';
+  return (
+    <div role="alert" className="relative max-w-xl overflow-hidden rounded-lg border border-accent bg-accent/10 px-4 py-4 sm:px-5">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundImage: 'var(--kerb-stripes)' }} />
+      <p className="font-mono text-xs font-semibold uppercase tracking-widest text-accent-text">Event cancelled</p>
+      <p className="mt-1.5 text-lg font-semibold text-ink">This event was cancelled</p>
+      {event.cancelReason?.trim() && <p className="mt-1 text-muted">{event.cancelReason.trim()}</p>}
+      <p className="mt-3 text-sm font-medium text-ink">{refunded ? 'Your ticket has been refunded.' : 'Your refund is being processed.'}</p>
     </div>
   );
 }
@@ -119,6 +162,7 @@ export default function TicketPage() {
 
   const tierLabel = event?.tiers.find((t) => t.id === booking.tierId)?.label ?? booking.tierId;
   const cancelled = booking.status === 'cancelled';
+  const eventCancelled = event?.cancelled === true;
   const unpaid = booking.status === 'reserved';
   const used = booking.status === 'checked_in';
 
@@ -138,31 +182,41 @@ export default function TicketPage() {
           </p>
         )}
       </Reveal>
+      {event && eventCancelled && (
+        <Reveal index={1} className="mt-6">
+          <EventCancelledBanner event={event} booking={booking} />
+        </Reveal>
+      )}
       <Reveal index={1} className="mt-8">
-        {cancelled ? (
-          <div role="status" className="max-w-xl rounded-lg border-2 border-dashed border-accent px-4 py-5">
-            <p className="font-mono text-sm font-semibold uppercase tracking-widest text-accent-text">Cancelled</p>
-            <p className="mt-2 text-muted">
-              This booking was cancelled and its seats released. This ticket is no longer valid, so there is no code to scan.
-            </p>
-            {booking.refund === 'mock_refunded' && (
-              <p className="mt-2 text-sm text-muted">Your payment has been marked as refunded.</p>
+        {cancelled || eventCancelled ? (
+          <div className="flex flex-col gap-5">
+            <TicketQr bookingId={booking.id} state="void" />
+            {!eventCancelled && (
+              <div role="status" className="max-w-xl rounded-lg border-2 border-dashed border-accent px-4 py-5">
+                <p className="font-mono text-sm font-semibold uppercase tracking-widest text-accent-text">Cancelled</p>
+                <p className="mt-2 text-muted">
+                  This booking was cancelled and its seats released. This ticket is no longer valid, so there is no code to scan.
+                </p>
+                {booking.refund === 'mock_refunded' && (
+                  <p className="mt-2 text-sm text-muted">Your ticket has been refunded.</p>
+                )}
+              </div>
             )}
           </div>
         ) : (
           <>
-            <TicketQr bookingId={booking.id} dim={used} />
+            <TicketQr bookingId={booking.id} qrToken={booking.qrToken} state={used ? 'used' : 'valid'} />
             {used && <p className="mt-3 text-center text-sm text-muted">Already checked in at the door.</p>}
             {unpaid && <p className="mt-3 text-center text-sm text-muted">Payment is not complete yet.</p>}
           </>
         )}
       </Reveal>
-      {!cancelled && !unpaid && (
+      {!cancelled && !eventCancelled && !unpaid && (
         <Reveal index={2} className="mt-8">
           <MyCards booking={booking} />
         </Reveal>
       )}
-      {event && !cancelled && (
+      {event && !cancelled && !eventCancelled && (
         <Reveal index={2} className="mt-8">
           <TicketActions event={event} bookingId={booking.id} />
         </Reveal>

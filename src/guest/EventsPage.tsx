@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
-import { CalendarBlank, FlagCheckered, MapPin, TicketIcon, Trophy, UsersThree } from '@phosphor-icons/react';
+import { CalendarBlank, FlagCheckered, MapPin, Prohibit, TicketIcon, Trophy, UsersThree } from '@phosphor-icons/react';
 import Divider from '../components/Divider';
 import Skeleton, { Busy } from '../components/Skeleton';
 import TrackMap from '../components/TrackMap';
@@ -72,7 +72,7 @@ function raceDateReadout(race: RaceInfo, schedule: Schedule): { range: string; l
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   }).format(d);
   return { range, local, ist, exact };
 }
@@ -155,11 +155,22 @@ function CircuitVisual({ race, featured }: { race: RaceInfo; featured: boolean }
   );
 }
 
+/** A cancelled event, said plainly in text (not colour alone). */
+function CancelledBadge() {
+  return (
+    <span className="inline-flex min-h-7 items-center gap-2 rounded-md border border-accent bg-accent/10 px-2.5 font-mono text-xs font-semibold uppercase tracking-widest text-accent-text">
+      <Prohibit size={14} weight="bold" aria-hidden="true" />
+      Cancelled
+    </span>
+  );
+}
+
 /** R49: only HOSTED races/events get any watch-party wording. Not hosted -> nothing at all. */
 /** `stretch` makes the whole card click through to checkout (host-created events). Race cards pass
  * stretch={false}: the card itself opens the race page (R41) and this link stays its own target. */
 function TicketReadout({ ticket, kind = 'f1', stretch = true }: { ticket: TicketStatus; kind?: EventCategory; stretch?: boolean }) {
   if (ticket.state === 'none') return null;
+  if (ticket.state === 'cancelled') return <CancelledBadge />;
   if (ticket.state === 'open' && ticket.bookingEventId) {
     return (
       <Link
@@ -198,16 +209,18 @@ function CategoryChip({ category }: { category: EventCategory }) {
 }
 
 const whenFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-const whenIstFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false });
+const whenIstFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /** A host-created event (Kartar Cup / Kartar Club / an F1 event with no calendar race). Same card
  * shell as RaceCard so the page reads as one family. */
 function EventCard({ event, index }: { event: BookingEvent; index: number }) {
   const category = categoryOf(event);
   const ms = eventStartMs(event);
-  const ticket: TicketStatus = event.salesOpen
-    ? { available: true, bookingEventId: event.id, state: 'open' }
-    : { available: false, bookingEventId: event.id, state: 'soon' };
+  const ticket: TicketStatus = event.cancelled
+    ? { available: false, bookingEventId: event.id, state: 'cancelled' }
+    : event.salesOpen
+      ? { available: true, bookingEventId: event.id, state: 'open' }
+      : { available: false, bookingEventId: event.id, state: 'soon' };
   return (
     <Reveal
       index={index}
@@ -230,6 +243,9 @@ function EventCard({ event, index }: { event: BookingEvent; index: number }) {
         </span>
       </p>
       {event.description && <p className="mt-3 line-clamp-3 text-pretty text-sm text-muted">{event.description}</p>}
+      {event.cancelled && event.cancelReason?.trim() && (
+        <p className="mt-3 line-clamp-2 text-pretty text-sm text-muted">{event.cancelReason.trim()}</p>
+      )}
       <div className="mt-4">
         <TicketReadout ticket={ticket} kind={category} />
       </div>
@@ -310,7 +326,7 @@ function SeasonTimeline({
 }
 
 const dayFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
-const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Kolkata' });
 
 /** The real running order of the race weekend (official schedule, shown in IST). Rows rise in one
  * after another as the card scrolls into view; sessions already run are dimmed and the next one

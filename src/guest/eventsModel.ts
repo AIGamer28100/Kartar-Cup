@@ -96,14 +96,14 @@ export function groupByMonth(races: RaceInfo[]): MonthGroup[] {
 
 /* ---------- hosted detection + watch-party label (R47/R49) ---------- */
 
-export type TicketState = 'none' | 'soon' | 'open';
+export type TicketState = 'none' | 'soon' | 'open' | 'cancelled';
 
 export interface TicketStatus {
   /** Tickets can be bought right now. */
   available: boolean;
   bookingEventId: string | null;
   /** 'none' = not hosted: render nothing watch-party related. 'soon' = hosted, sales closed.
-   * 'open' = hosted and selling. */
+   * 'open' = hosted and selling. 'cancelled' = the host cancelled the watch party (shown to guests). */
   state: TicketState;
 }
 
@@ -123,9 +123,11 @@ export function isHostedEvent(e: BookingEvent): boolean {
  * raceId is the race's id. Sales-open decides 'open' vs 'soon'. Never invented: no doc, no label (R49). */
 export function ticketStatusFor(raceId: string, bookingEvents: BookingEvent[]): TicketStatus {
   const matches = bookingEvents.filter((e) => e.raceId === raceId && categoryOf(e) === 'f1' && isHostedEvent(e));
-  const open = matches.find((e) => e.salesOpen === true);
+  const live = matches.filter((e) => e.cancelled !== true);
+  const open = live.find((e) => e.salesOpen === true);
   if (open) return { available: true, bookingEventId: open.id, state: 'open' };
-  if (matches.length > 0) return { available: false, bookingEventId: matches[0].id, state: 'soon' };
+  if (live.length > 0) return { available: false, bookingEventId: live[0].id, state: 'soon' };
+  if (matches.length > 0) return { available: false, bookingEventId: matches[0].id, state: 'cancelled' };
   return { available: false, bookingEventId: null, state: 'none' };
 }
 
@@ -136,7 +138,10 @@ export function nextHostedRace(now: Date, races: RaceInfo[], bookingEvents: Book
     [...races]
       .filter((r) => r.status === 'scheduled' && r.raceDate >= today)
       .sort((a, b) => a.raceDate.localeCompare(b.raceDate))
-      .find((r) => ticketStatusFor(r.id, bookingEvents).state !== 'none') ?? null
+      .find((r) => {
+        const state = ticketStatusFor(r.id, bookingEvents).state;
+        return state === 'open' || state === 'soon';
+      }) ?? null
   );
 }
 

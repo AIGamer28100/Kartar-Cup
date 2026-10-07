@@ -282,6 +282,11 @@ export default function RaceDetailPage() {
           </Magnetic>
         )}
         {ticket.state === 'soon' && <p className="mt-4 text-sm text-muted">Watch party - booking opening soon</p>}
+        {ticket.state === 'cancelled' && (
+          <p className="mt-4 inline-flex min-h-7 items-center rounded-md border border-accent bg-accent/10 px-2.5 font-mono text-xs font-semibold uppercase tracking-widest text-accent-text">
+            Watch party cancelled
+          </p>
+        )}
       </Reveal>
 
       <Reveal index={1} className="mt-10">
