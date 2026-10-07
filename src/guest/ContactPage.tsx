@@ -4,7 +4,7 @@ import { usePageMeta } from '../lib/pageMeta';
 import { useCommunityLink } from '../lib/useCommunityLink';
 import { Eyebrow, PageTitle, Reveal, Shell, WhatsAppCta } from './parts';
 
-const linkCls = '-mx-2 inline-flex min-h-11 items-center px-2 text-ink underline underline-offset-4 hover:text-accent-text';
+const linkCls = 'kerb-link kerb-link--rest inline-flex min-h-11 items-center text-ink transition-colors hover:text-accent-text';
 
 function Pending({ children }: { children: string }) {
   return <span className="text-muted">{children}</span>;

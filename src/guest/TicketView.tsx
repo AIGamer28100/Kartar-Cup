@@ -92,7 +92,7 @@ export function EventCancelledBanner({ event, booking }: { event: BookingEvent; 
 }
 
 const backLink =
-  '-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent';
+  'kerb-link kerb-link--rest mt-6 inline-flex min-h-11 items-center text-sm font-medium text-accent-text';
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (

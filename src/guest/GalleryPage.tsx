@@ -4,6 +4,7 @@ import Divider from '../components/Divider';
 import { usePageMeta } from '../lib/pageMeta';
 import { GALLERY_PLACEHOLDERS, gallerySrc, type GalleryPlaceholder } from './galleryData';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
+import { Stagger, StaggerItem } from '../components/motion';
 
 /** Visible caption: the data's "Placeholder — " prefix is already stated once in the page intro. */
 const captionText = (g: GalleryPlaceholder): string => {
@@ -29,7 +30,7 @@ function Lightbox({ item, onClose }: { item: GalleryPlaceholder | null; onClose:
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto max-h-[92dvh] w-[min(92vw,64rem)] overflow-hidden rounded-lg border border-line bg-base p-0 text-ink backdrop:bg-black/80"
+      className="kc-dialog m-auto max-h-[92dvh] w-[min(92vw,64rem)] overflow-hidden rounded-lg border border-line bg-base p-0 text-ink backdrop:bg-black/80"
     >
       {item && (
         <figure className="relative m-0">
@@ -75,16 +76,16 @@ export default function GalleryPage() {
 
       <Divider className="mt-10" />
 
-      <Reveal index={1} className="mt-8">
-        <ul className="m-0 grid list-none grid-cols-1 gap-x-5 gap-y-8 p-0 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8">
+        <Stagger as="ul" className="m-0 grid list-none grid-cols-1 gap-x-5 gap-y-8 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {GALLERY_PLACEHOLDERS.map((g) => (
-            <li key={g.seed} className="min-w-0">
+            <StaggerItem as="li" kind="scale" key={g.seed} className="min-w-0">
               <figure className="m-0">
                 <button
                   type="button"
                   onClick={() => setOpen(g)}
                   aria-label={`Expand photo: ${captionText(g)}`}
-                  className="group block w-full overflow-hidden rounded-lg border border-line bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="press group relative block w-full overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <img
                     src={gallerySrc(g.seed, 720, 480)}
@@ -97,10 +98,10 @@ export default function GalleryPage() {
                 </button>
                 <figcaption className="mt-3 text-sm text-muted">{captionText(g)}</figcaption>
               </figure>
-            </li>
+            </StaggerItem>
           ))}
-        </ul>
-      </Reveal>
+        </Stagger>
+      </div>
       <Lightbox item={open} onClose={() => setOpen(null)} />
     </Shell>
   );

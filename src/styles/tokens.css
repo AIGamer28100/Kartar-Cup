@@ -116,6 +116,31 @@
   text-decoration-color: transparent;
 }
 
+/* Native <dialog> open: quick scale/fade in, backdrop fades (gallery lightbox). */
+.kc-dialog[open] {
+  animation: kc-dialog-in var(--motion-base) var(--motion-ease-out);
+}
+.kc-dialog[open]::backdrop {
+  animation: kc-fade-in var(--motion-base) linear;
+}
+@keyframes kc-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+}
+@keyframes kc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kc-dialog[open],
+  .kc-dialog[open]::backdrop {
+    animation: none;
+  }
+}
+
 /* Small chequered-flag strip (podium edges and header). Static. */
 .podium-chequer {
   background-color: var(--color-chequer-light);

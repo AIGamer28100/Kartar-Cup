@@ -15,6 +15,7 @@ import {
 } from '../lib/cup';
 import { usePageMeta } from '../lib/pageMeta';
 import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
+import { Stagger, StaggerItem, StartLightsLoader, Ticker } from '../components/motion';
 
 const num = 'font-mono tabular-nums';
 
@@ -51,7 +52,10 @@ export default function CupPage() {
           The standings could not be loaded right now. Check your connection and reload.
         </p>
       ) : !seasons ? (
-        <p role="status" className="mt-8 text-muted">Loading the season.</p>
+        <p role="status" className="mt-8 flex items-center gap-3 text-muted">
+          <StartLightsLoader label="Loading the season" />
+          Loading the season.
+        </p>
       ) : !season ? (
         <p className="mt-8 max-w-[60ch] text-muted md:text-lg">
           The Karter Cup season will appear here once the host publishes it. Standings, rounds and results
@@ -122,7 +126,9 @@ function SeasonView({ season }: { season: CupSeason }) {
                         <span className="block font-medium text-ink">{r.name}</span>
                         {r.team && <span className="block text-sm text-muted">{r.team}</span>}
                       </td>
-                      <td className={`py-3 pl-2 text-right text-[1.25rem] font-semibold text-gold ${num}`}>{r.points}</td>
+                      <td className={`py-3 pl-2 text-right text-[1.25rem] font-semibold text-gold ${num}`}>
+                        <Ticker value={r.points} />
+                      </td>
                       <td className={`py-3 pl-2 text-right text-muted ${num}`}>{r.wins}</td>
                       <td className={`py-3 pl-2 text-right text-muted ${num}`}>{r.podiums}</td>
                     </tr>
@@ -137,15 +143,17 @@ function SeasonView({ season }: { season: CupSeason }) {
             {standings.teams.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-lg font-semibold">Team standings</h3>
-                <ol className="mt-3 divide-y divide-line border-y border-line">
+                <Stagger as="ol" className="mt-3 divide-y divide-line border-y border-line">
                   {standings.teams.map((t, i) => (
-                    <li key={t.team} className="flex items-center gap-4 py-3">
+                    <StaggerItem as="li" kind="slide" key={t.team} className="flex items-center gap-4 py-3">
                       <span className={`w-8 text-muted ${num}`}>{i + 1}</span>
                       <span className="min-w-0 flex-1 truncate font-medium">{t.team}</span>
-                      <span className={`font-semibold ${num}`}>{t.points}</span>
-                    </li>
+                      <span className={`font-semibold ${num}`}>
+                        <Ticker value={t.points} />
+                      </span>
+                    </StaggerItem>
                   ))}
-                </ol>
+                </Stagger>
               </div>
             )}
           </>
@@ -159,11 +167,11 @@ function SeasonView({ season }: { season: CupSeason }) {
         ) : rounds.length === 0 ? (
           <p className="mt-3 max-w-[60ch] text-muted">No rounds have been published for this season yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-line border-y border-line">
+          <Stagger as="ul" className="mt-4 divide-y divide-line border-y border-line">
             {rounds.map((r) => (
               <RoundItem key={r.id} seasonId={season.id} round={r} drivers={drivers} />
             ))}
-          </ul>
+          </Stagger>
         )}
       </section>
     </div>
@@ -192,7 +200,7 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
   const panelId = `round-${round.id}`;
 
   return (
-    <li className="py-3">
+    <StaggerItem as="li" kind="slide" className="py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className={`w-8 text-muted ${num}`}>{round.order}</span>
         <span className="min-w-[12rem] flex-1">
@@ -211,7 +219,7 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((o) => !o)}
-            className="-mr-2 inline-flex min-h-11 items-center px-2 text-sm text-ink underline underline-offset-4 hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="kerb-link kerb-link--rest inline-flex min-h-11 items-center text-sm text-ink hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {open ? 'Hide results' : 'Show results'}
           </button>
@@ -245,6 +253,6 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
           )}
         </div>
       )}
-    </li>
+    </StaggerItem>
   );
 }
