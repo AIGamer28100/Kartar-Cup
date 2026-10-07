@@ -11,6 +11,7 @@ import { useCountdown } from '../lib/useCountdown';
 import Divider from '../components/Divider';
 import { CONTACT } from '../config/contact';
 import { DEVELOPER, OPERATOR } from '../config/legal';
+import { useCommunityLink } from '../lib/useCommunityLink';
 import type { PickMap } from './draft';
 import { formatRemaining, optionLabel, safeWhatsappUrl } from './model';
 import { ActiveKerb, InView, KerbDraw } from '../components/motion';
@@ -306,7 +307,7 @@ function FooterKerb() {
  * the real handles from src/config/contact.ts. On phones App pads the page bottom to clear the
  * fixed tab bar and race strip, so nothing here needs its own offset. */
 function SiteFooter() {
-  const whatsapp = safeWhatsappUrl(CONTACT.whatsappUrl);
+  const whatsapp = useCommunityLink();
   return (
     <footer className="mt-auto pt-6">
       <FooterKerb />

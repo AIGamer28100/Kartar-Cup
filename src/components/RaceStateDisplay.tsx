@@ -199,34 +199,34 @@ export function getRaceStateBackgroundStyle(state: RaceState): React.CSSProperti
 
   const configs: Record<string, React.CSSProperties> = {
     'lights-out-sequence': {
-      backgroundImage: 'linear-gradient(135deg, rgba(127, 29, 29, 0.24), rgba(69, 10, 10, 0.12))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 20%, transparent), color-mix(in srgb, var(--color-accent) 8%, transparent))',
     },
     'lights-out-countdown': {
-      backgroundImage: 'linear-gradient(135deg, rgba(185, 28, 28, 0.28), rgba(127, 29, 29, 0.14))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 26%, transparent), color-mix(in srgb, var(--color-accent) 12%, transparent))',
     },
     'yellow-flag': {
-      backgroundImage: 'linear-gradient(135deg, rgba(234, 179, 8, 0.23), rgba(161, 98, 7, 0.13))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-warn) 22%, transparent), color-mix(in srgb, var(--color-warn) 10%, transparent))',
     },
     'yellow-flag-sector': {
-      backgroundImage: 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(161, 98, 7, 0.15))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-warn) 24%, transparent), color-mix(in srgb, var(--color-warn) 12%, transparent))',
     },
     'safety-car-ending': {
-      backgroundImage: 'linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(61, 220, 151, 0.12))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-warn) 22%, transparent), color-mix(in srgb, var(--color-ok) 12%, transparent))',
     },
     'red-flag': {
-      backgroundImage: 'linear-gradient(135deg, rgba(220, 38, 38, 0.25), rgba(127, 29, 29, 0.15))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 26%, transparent), color-mix(in srgb, var(--color-accent) 12%, transparent))',
     },
     'safety-car': {
-      backgroundImage: 'repeating-linear-gradient(135deg, rgba(15, 23, 42, 0.06) 0 16px, transparent 16px 32px), linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(161, 98, 7, 0.12))',
+      backgroundImage: 'repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-base) 30%, transparent) 0 16px, transparent 16px 32px), linear-gradient(135deg, color-mix(in srgb, var(--color-warn) 22%, transparent), color-mix(in srgb, var(--color-warn) 10%, transparent))',
     },
     'virtual-safety-car': {
-      backgroundImage: 'repeating-linear-gradient(135deg, rgba(15, 23, 42, 0.08) 0 16px, transparent 16px 32px), linear-gradient(135deg, rgba(234, 179, 8, 0.20), rgba(161, 98, 7, 0.12))',
+      backgroundImage: 'repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-base) 36%, transparent) 0 16px, transparent 16px 32px), linear-gradient(135deg, color-mix(in srgb, var(--color-warn) 20%, transparent), color-mix(in srgb, var(--color-warn) 10%, transparent))',
     },
     'chequered-flag': {
-      backgroundImage: 'linear-gradient(135deg, rgba(39, 39, 42, 0.18), rgba(9, 9, 11, 0.10))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-surface) 40%, transparent), color-mix(in srgb, var(--color-base) 20%, transparent))',
     },
     'completed': {
-      backgroundImage: 'linear-gradient(135deg, rgba(39, 39, 42, 0.15), rgba(9, 9, 11, 0.08))',
+      backgroundImage: 'linear-gradient(135deg, color-mix(in srgb, var(--color-surface) 30%, transparent), color-mix(in srgb, var(--color-base) 16%, transparent))',
     },
   };
 
@@ -339,12 +339,12 @@ function PodiumCard({ driver }: { driver: PodiumDriver }) {
   );
 }
 
-function PodiumDisplay({ drivers }: { drivers: PodiumDriver[] }) {
+function PodiumDisplay({ drivers, align = 'center' }: { drivers: PodiumDriver[]; align?: 'start' | 'center' }) {
   const sorted = [...drivers].filter((d) => d.position >= 1 && d.position <= 3).sort((a, b) => a.position - b.position);
   if (sorted.length === 0) return null;
   return (
     <section aria-label="Race podium" className="w-full max-w-md">
-      <div className="flex items-center justify-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted">
+      <div className={`flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted ${align === 'start' ? 'justify-start' : 'justify-center'}`}>
         <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
         Podium
         <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
@@ -406,72 +406,65 @@ function StatusBadge({ text, variant }: { text: string; variant: string }) {
   );
 }
 
-function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: number }) {
-  const [now, setNow] = useState(Date.now());
-  // Centisecond readout only for the lights-out countdown; every other readout changes once a second.
-  const tickMs = state === 'lights-out-countdown' ? 10 : state === 'lights-out-sequence' ? 250 : 1000;
+/** Tick interval per state: centiseconds only matter in the lights-out countdown, the start
+ * sequence blinks on a 500 ms beat, and every other readout changes once a second. */
+export function tickMsFor(state: RaceState): number {
+  return state === 'lights-out-countdown' ? 10 : state === 'lights-out-sequence' ? 250 : 1000;
+}
+
+function useNow(tickMs: number, enabled = true): number {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!enabled) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, [tickMs]);
+  }, [tickMs, enabled]);
+  return now;
+}
 
-  const delta = raceStartMs - now;
-  const secondsLeft = delta / 1000;
+const LIGHT_BASE = 'size-7 rounded-full border border-line transition-colors duration-200 sm:size-8';
+const LIGHT_RED = 'bg-accent border-accent shadow-[0_0_15px_var(--color-accent)]';
+const LIGHT_OFF = 'bg-raised';
+
+/** F1 start gantry: only mounted (and only ticking) during the start sequence and countdown. */
+function StartLights({ state, raceStartMs }: { state: RaceState; raceStartMs: number }) {
+  if (state !== 'lights-out-sequence' && state !== 'lights-out-countdown') return null;
+  return <StartLightsGantry state={state} raceStartMs={raceStartMs} />;
+}
+
+function StartLightsGantry({ state, raceStartMs }: { state: 'lights-out-sequence' | 'lights-out-countdown'; raceStartMs: number }) {
+  const now = useNow(tickMsFor(state));
+  const secondsLeft = (raceStartMs - now) / 1000;
 
   if (state === 'lights-out-sequence') {
     const isFlash = Math.floor(now / 500) % 2 === 0;
     return (
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3" role="img" aria-label="Start sequence: drivers forming the grid">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className={`h-8 w-8 rounded-full transition-colors duration-200 ${(i % 2 !== 0 && isFlash) ? 'bg-accent shadow-[0_0_15px_var(--color-accent)]' : 'bg-raised'
-              }`}
-          />
+          <div key={i} className={`${LIGHT_BASE} ${i % 2 !== 0 && isFlash ? LIGHT_RED : LIGHT_OFF}`} />
         ))}
       </div>
     );
   }
 
-  if (state === 'lights-out-countdown') {
-    // The light sequence starts 5 seconds before raceStartMs.
-    // If secondsLeft is 5, 0 lights are on. If 0, 5 lights are on.
-    const lightsOn = Math.max(0, Math.min(5, Math.ceil(5 - secondsLeft)));
-    const greenLight = lightsOn === 5 && secondsLeft <= 0;
-    return (
-      <div className="flex gap-3 mb-6">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className={`
-              h-8 w-8 rounded-full transition-colors duration-300 
-              ${greenLight
-                ? 'bg-ok shadow-[0_0_15px_var(--color-ok)]'
-                : i <= lightsOn
-                  ? 'bg-accent shadow-[0_0_15px_var(--color-accent)]'
-                  : 'bg-raised'
-              }`}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  return null;
+  // The five lights build one per second over the final 5 s, then all go out together.
+  const lightsOn = Math.max(0, Math.min(5, Math.ceil(5 - secondsLeft)));
+  const out = secondsLeft <= 0;
+  return (
+    <div className="flex gap-3" role="img" aria-label={out ? 'Lights out' : `${lightsOn} of 5 start lights on`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className={`${LIGHT_BASE} ${!out && i <= lightsOn ? LIGHT_RED : LIGHT_OFF}`} />
+      ))}
+    </div>
+  );
 }
 
 function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceState }) {
-  const [now, setNow] = useState(Date.now());
-  // Centiseconds are only shown in the lights-out countdown; every other readout changes once a
-  // second, so a 250ms tick is plenty (it used to re-render every 10ms in every state).
-  const tickMs = state === 'lights-out-countdown' ? 10 : 250;
-
-  useEffect(() => {
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), tickMs);
-    return () => clearInterval(timer);
-  }, [tickMs]);
+  const type = typeof state === 'object' ? state.type : state;
+  // Only the countdown-style states show a readout; everything else renders nothing, so no tick.
+  const ticking = type === 'scheduled' || type === 'upcoming' || type === 'lights-out-countdown' || type === 'red-flag';
+  const now = useNow(tickMsFor(state), ticking);
 
   const delta = raceStartMs - now;
 
@@ -483,7 +476,7 @@ function RaceTimer({ raceStartMs, state }: { raceStartMs: number; state: RaceSta
     const minutes = Math.floor((remaining % 3600) / 60);
     const seconds = remaining % 60;
     return (
-      <div className="text-center">
+      <div>
         <span className="block font-mono text-xs uppercase tracking-widest text-muted">Resumes in</span>
         <span className="font-mono text-4xl font-bold tabular-nums text-ink">
           {hours > 0 ? `${String(hours).padStart(2, '0')}:` : ''}
@@ -600,10 +593,13 @@ export function RaceStateDisplay({
   showStateBackground = true,
   greenFlagFramePlacement = 'local',
   onDisplayStateChange,
+  align = 'center',
 }: {
   state: RaceState;
   raceStartMs: number;
   drivers?: PodiumDriver[];
+  /** 'start' left-aligns the block (home hero, R9: no centred hero); 'center' for stages. */
+  align?: 'start' | 'center';
   showStateBackground?: boolean;
   greenFlagFramePlacement?: 'local' | 'viewport';
   onDisplayStateChange?: (state: RaceState) => void;
@@ -738,18 +734,19 @@ export function RaceStateDisplay({
   }, [displayState]);
 
   useEffect(() => onDisplayStateChange?.(displayState), [displayState, onDisplayStateChange]);
+  const alignCls = align === 'start' ? 'items-start text-left' : 'items-center text-center';
 
   return (
-    <div className="relative isolate flex flex-col items-center text-center space-y-4 z-10 w-full h-full overflow-hidden">
+    <div className={`relative isolate z-10 flex h-full w-full flex-col overflow-hidden ${alignCls}`}>
       {showStateBackground && <RaceStateBackdrop state={displayState} className="absolute inset-0 z-0" />}
-      <div className="relative z-10 flex flex-col items-center text-center space-y-4 w-full">
+      <div className={`relative z-10 flex w-full flex-col gap-4 ${alignCls}`}>
         <StatusBadge text={getLabel(displayState)} variant={getTone(displayState)} />
         <StartLights state={displayState} raceStartMs={displayRaceStartMs} />
         {showRaceStartMessage
           ? <div className="font-mono text-2xl font-bold uppercase text-ink">And away we go</div>
           : <RaceTimer raceStartMs={displayRaceStartMs} state={displayState} />}
         {drivers && (displayState === 'completed' || displayState === 'chequered-flag') && (
-          <PodiumDisplay drivers={drivers} />
+          <PodiumDisplay drivers={drivers} align={align} />
         )}
       </div>
       {showLightsOutTransition && <div aria-hidden="true" className="lights-out-phase-transition" />}

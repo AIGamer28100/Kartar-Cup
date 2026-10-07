@@ -20,14 +20,14 @@ import TrackMap from "../components/TrackMap";
 import { ALL_RACES, nextRace } from "../config/calendar";
 import { trackForRace } from "../config/tracks";
 import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
-import { istReadout, safeWhatsappUrl } from "./model";
+import { istReadout } from "./model";
+import { useCommunityLink } from "../lib/useCommunityLink";
 import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
 import ChampionshipSection from "./Championship";
 import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
-import { DigitRoll, KerbDraw, Magnetic, Stagger, StaggerItem, SplitWords } from "../components/motion";
+import { KerbDraw, Magnetic, Stagger, StaggerItem, SplitWords } from "../components/motion";
 import { useGuestSession } from "./useGuestSession";
-import { useCountdown } from "../lib/useCountdown";
 import { nextSession } from "../lib/f1api";
 import { useSchedule } from "../lib/useSchedule";
 import { usePageMeta } from "../lib/pageMeta";
@@ -109,6 +109,9 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
     () => (next ? computeRaceState(targetMs, next.id, nowMs) : null),
     [next, targetMs, nowMs]
   );
+  // The next watch party's lights-out from the real schedule of its own season (cached fetch).
+  const { schedule: hostedSchedule } = useSchedule(hostedNext?.season);
+  const hostedStart = hostedNext ? istReadout(raceStartFor(hostedNext, hostedSchedule).ms) : null;
   const raceState = raceStateInfo?.state ?? null;
 
   // Real podium (OpenF1) once the race has ended; cached per race, silent on failure (no podium).
@@ -171,7 +174,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
         </Reveal>
       </div>
 
-      {next && (
+      {next && raceStateInfo && (
         <div
           ref={trackWrapRef}
           className="flex flex-col justify-center gap-6 rounded-none border-y border-line py-8 lg:flex-row lg:items-center lg:gap-10"
@@ -197,7 +200,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                   <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent">
                     {hostedNext.name}
                   </Link>{" "}
-                  · {istReadout(raceStartFor(hostedNext, null).ms).day} {istReadout(raceStartFor(hostedNext, null).ms).month}
+                  · {hostedStart?.day} {hostedStart?.month}
                 </p>
               )}
               {upNext && upNext.key !== "race" && (
@@ -212,25 +215,18 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
               )}
             </Reveal>
             <Reveal index={2} className="mt-5">
-              {raceStateInfo ? (
+              {settled ? (
                 <RaceStateDisplay
                   state={raceStateInfo.state}
                   raceStartMs={targetMs}
                   drivers={podium ?? undefined}
+                  align="start"
                   onDisplayStateChange={onRaceStateChange}
                 />
               ) : (
-                <div className="text-center py-4">
-                  <p className="font-mono text-xs uppercase tracking-widest text-muted">
-                    Lights out in
-                  </p>
-                  <div className="mt-2">
-                    {settled ? (
-                      <CountdownReadout targetMs={targetMs} />
-                    ) : (
-                      <Skeleton variant="shimmer" className="h-16 w-72 max-w-full" />
-                    )}
-                  </div>
+                <div className="flex flex-col items-start gap-3" aria-busy="true">
+                  <Skeleton variant="shimmer" className="h-6 w-28" />
+                  <Skeleton variant="shimmer" className="h-10 w-64 max-w-full" />
                 </div>
               )}
             </Reveal>
@@ -272,94 +268,6 @@ function AboutSection() {
           with watch parties at rented event spaces in between race weekends.
         </p>
       </Reveal>
-    </div>
-  );
-}
-
-/** Five dots that light up info one per hour through the final 5 hours before lights out —
- * echoes F1's real start-light sequence (5 lights build up, then go out together), repurposed
- * here as an hour-by-hour countdown rather than the pre-race few seconds. Only rendered inside
- * that final 5h window. CSS glow only, no new dependency. */
-function FiveLightsStrip({ hoursRemaining }: { hoursRemaining: number }) {
-  const lit = Math.min(5, Math.max(0, Math.ceil(5 - hoursRemaining)));
-  return (
-    <div className="mt-3 flex gap-2" role="img" aria-label={`${lit} of 5 hours down to lights out`}>
-      {Array.from({ length: 5 }, (_, i) => {
-        const on = i < lit;
-        return (
-          <span
-            key={i}
-            aria-hidden="true"
-            className={`h-3 w-3 rounded-full border transition-colors duration-500 ${on
-              ? "border-info bg-info shadow-[0_0_10px_2px_var(--color-info)]"
-              : "border-line bg-raised"
-              }`}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-/** One segment of the countdown: a large mono numeral over a small uppercase label, the same
- * "timing-tower" numeral language already used elsewhere on the site (leaderboard, host console)
- * — chosen deliberately over an analog dial (tried twice, never read as premium here) because a
- * multi-day countdown is fundamentally a digital-display problem, not a clock-face one. */
-function TimeSegment({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex flex-col items-center px-6 first:pl-0 last:pr-0 sm:px-8">
-      <p className="font-mono text-stat font-semibold tabular-nums text-ink">
-        <DigitRoll text={value} />
-      </p>
-      <p className="mt-2 font-mono text-label uppercase text-muted">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-/** Segmented digital countdown — DAYS/HRS/MIN/SEC cells divided by thin lines, no card box
- * (design skill: no box unless elevation earns it). One accent used sparingly: the seconds
- * cell's numeral breathes red on each tick, echoing a live telemetry readout rather than a
- * static number. */
-function CountdownReadout({ targetMs }: { targetMs: number }) {
-  const { days, hours, minutes, seconds, done } = useCountdown(targetMs);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const hoursRemaining = (targetMs - Date.now()) / 3_600_000;
-
-  if (done) {
-    return (
-      <p className="font-mono text-h3 font-semibold uppercase text-ink text-balance">
-        Lights out
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <div
-        className="inline-flex divide-x divide-line border-y border-line py-3"
-        role="img"
-        aria-label={`${days} days ${pad(hours)}:${pad(minutes)}:${pad(seconds)} to lights out`}
-      >
-        {days > 0 && <TimeSegment value={String(days)} label="Days" />}
-        <TimeSegment value={pad(hours)} label="Hrs" />
-        <TimeSegment value={pad(minutes)} label="Min" />
-        <div className="flex flex-col items-center px-6 last:pr-0 sm:px-8">
-          <p className="font-mono text-stat font-semibold tabular-nums text-ink">
-            <DigitRoll text={pad(seconds)} />
-          </p>
-          <p className="mt-2 font-mono text-label uppercase text-muted">
-            Sec
-          </p>
-        </div>
-      </div>
-      {hoursRemaining <= 5 && (
-        <div className="mt-4">
-          {/* Five lights countdown — uses --color-info (blue) instead of --color-accent (red) to avoid translucent red overlay */}
-          <FiveLightsStrip hoursRemaining={hoursRemaining} />
-        </div>
-      )}
     </div>
   );
 }
@@ -427,12 +335,8 @@ function PartnershipsSection() {
   );
 }
 
-function JoinCommunitySection({
-  whatsappUrl,
-}: {
-  whatsappUrl: string | undefined;
-}) {
-  const wa = safeWhatsappUrl(whatsappUrl);
+function JoinCommunitySection() {
+  const wa = useCommunityLink();
   return (
     <div>
       <SectionHeading eyebrow="Join in">Join the community</SectionHeading>
@@ -563,7 +467,7 @@ export default function HomePage() {
           <PlainDivider />
           <ChampionshipSection season={nextRace(new Date(), ALL_RACES)?.season ?? 2026} />
           <PlainDivider />
-          <JoinCommunitySection whatsappUrl={s.event?.whatsappUrl} />
+          <JoinCommunitySection />
           <CheckerDivider />
           <GallerySection />
           <PlainDivider />
