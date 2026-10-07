@@ -27,6 +27,12 @@ const mono = 'font-mono tabular-nums';
 const th = 'sticky top-0 z-10 bg-base px-2.5 py-3 text-left font-mono text-[0.6875rem] font-medium uppercase tracking-widest text-muted shadow-[inset_0_-1px_0_var(--color-line)] first:pl-3';
 const td = 'px-2.5 py-2 align-middle first:pl-3';
 
+// POS and DRIVER (or TEAM) stay pinned while the rest of a wide table scrolls sideways on phones.
+const stickPos = 'sticky left-0 w-12 min-w-12';
+const stickName = 'sticky left-12 shadow-[inset_-1px_0_0_var(--color-line)] sm:shadow-none';
+// Opaque podium tint (pinned cells must not show the scrolled cells through them).
+const rowPodium = 'bg-[color-mix(in_srgb,var(--color-raised)_70%,var(--color-base))]';
+
 type Load = { state: 'loading' } | { state: 'error' } | { state: 'ok'; rows: ResultRow[] };
 type View = 'drivers' | 'teams';
 
@@ -61,7 +67,7 @@ function Face({ row }: { row: Pick<ResultRow, 'headshotUrl' | 'code' | 'colour'>
   return (
     <span
       aria-hidden="true"
-      className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-raised"
+      className="relative hidden size-8 shrink-0 items-center sm:flex justify-center overflow-hidden rounded-full border bg-raised"
       style={{ borderColor: row.colour }}
     >
       {SHOW_HEADSHOTS && row.headshotUrl && !broken ? (
@@ -80,7 +86,8 @@ function TeamMarker({ colour, tall = false }: { colour: string; tall?: boolean }
 function FastestBadge() {
   return (
     <span className="inline-flex shrink-0 items-center rounded-sm border border-info/40 bg-info/10 px-1.5 py-px font-mono text-[0.625rem] uppercase tracking-wider text-info">
-      Fastest lap
+      <span aria-hidden="true" className="sm:hidden">FL</span>
+      <span className="sr-only sm:not-sr-only">Fastest lap</span>
     </span>
   );
 }
@@ -171,13 +178,13 @@ function DriversTable({
         <caption className="sr-only">{`${sessionName} classification`}</caption>
         <thead>
           <tr>
-            <th scope="col" className={`${th} w-12`}>
+            <th scope="col" className={`${th} ${stickPos} z-20`}>
               <abbr title="Position" className="no-underline">Pos</abbr>
             </th>
             <th scope="col" className={`${th} w-12`}>
               <abbr title="Car number" className="no-underline">No</abbr>
             </th>
-            <th scope="col" className={th}>Driver</th>
+            <th scope="col" className={`${th} sticky left-12 z-20`}>Driver</th>
             <th scope="col" className={th}>Team</th>
             <th scope="col" className={`${th} text-right`}>Laps</th>
             <th scope="col" className={`${th} text-right`}>{timeHead}</th>
@@ -200,31 +207,28 @@ function DriversTable({
                 as="tr"
                 kind="slide"
                 key={r.number}
-                className={`border-t border-line/70 ${podium ? 'bg-raised/60' : ''} transition-colors hover:bg-raised/80`}
+                className={`border-t border-line/70 ${podium ? rowPodium : 'bg-base'} transition-colors hover:bg-raised`}
               >
-                <th scope="row" className={`${td} text-left font-normal`}>
+                <th scope="row" className={`${td} ${stickPos} z-[1] bg-inherit text-left font-normal`}>
                   <span className={`${mono} ${podium ? 'font-semibold text-ink' : 'text-muted'}`}>{status ?? r.position}</span>
                   {status && <span className="sr-only">{`, ${status === 'NC' ? 'not classified' : status}`}</span>}
                 </th>
                 <td className={`${td} ${mono} text-muted`}>{r.number}</td>
-                <td className={td}>
+                <td className={`${td} ${stickName} z-[1] bg-inherit`}>
                   <span className="flex min-w-0 items-center gap-2.5">
                     <TeamMarker colour={r.colour} />
                     <Face row={r} />
                     <span className="min-w-0">
+                      {/* Phones: the 3-letter code only (keeps the pinned column narrow); sm+: name, surname emphasised, code. */}
                       <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-                        {first && <span className="hidden text-muted sm:inline">{first}</span>}
-                        <span className="font-semibold uppercase tracking-wide text-ink">{last}</span>
-                        <span className={`${mono} text-xs text-muted`} aria-label={`code ${r.code}`}>
-                          {r.code}
-                        </span>
+                        <span className="sr-only">{r.name}</span>
+                        <span aria-hidden="true" className={`${mono} font-semibold text-ink sm:hidden`}>{r.code}</span>
+                        {first && <span aria-hidden="true" className="hidden text-muted sm:inline">{first}</span>}
+                        <span aria-hidden="true" className="hidden font-semibold uppercase tracking-wide text-ink sm:inline">{last}</span>
+                        <span className={`${mono} hidden text-xs text-muted sm:inline`}>{r.code}</span>
                       </span>
-                      {fastest && (
-                        <span className="mt-0.5 block">
-                          <FastestBadge />
-                        </span>
-                      )}
                     </span>
+                    {fastest && <FastestBadge />}
                   </span>
                 </td>
                 <td className={`${td} whitespace-nowrap text-muted`}>{r.team}</td>
@@ -253,21 +257,21 @@ function TeamsTable({ rows, sessionName, motionKey }: { rows: ResultRow[]; sessi
         <caption className="sr-only">{`${sessionName} team standings`}</caption>
         <thead>
           <tr>
-            <th scope="col" className={`${th} w-12`}>
+            <th scope="col" className={`${th} ${stickPos} z-20`}>
               <abbr title="Position" className="no-underline">Pos</abbr>
             </th>
-            <th scope="col" className={th}>Team</th>
+            <th scope="col" className={`${th} sticky left-12 z-20`}>Team</th>
             <th scope="col" className={th}>Drivers</th>
             <th scope="col" className={`${th} pr-3 text-right`}>{points ? <abbr title="Points" className="no-underline">Pts</abbr> : 'Best'}</th>
           </tr>
         </thead>
         <Stagger key={motionKey} as="tbody" step={0.04} amount={0.05}>
           {teams.map((t, i) => (
-            <StaggerItem as="tr" kind="slide" key={t.team} className={`border-t border-line/70 ${i < 3 ? 'bg-raised/60' : ''} transition-colors hover:bg-raised/80`}>
-              <th scope="row" className={`${td} text-left font-normal`}>
+            <StaggerItem as="tr" kind="slide" key={t.team} className={`border-t border-line/70 ${i < 3 ? rowPodium : 'bg-base'} transition-colors hover:bg-raised`}>
+              <th scope="row" className={`${td} ${stickPos} z-[1] bg-inherit text-left font-normal`}>
                 <span className={`${mono} ${i < 3 ? 'font-semibold text-ink' : 'text-muted'}`}>{i + 1}</span>
               </th>
-              <td className={td}>
+              <td className={`${td} ${stickName} z-[1] bg-inherit`}>
                 <span className="flex items-center gap-2.5 whitespace-nowrap">
                   <TeamMarker colour={t.colour} tall />
                   <span className="font-semibold text-ink">{t.team}</span>
