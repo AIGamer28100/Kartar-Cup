@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, FloppyDisk, Plus, X } from '@phosphor-icons/react';
+import { ArrowLeft, FloppyDisk, Plus } from '@phosphor-icons/react';
 import { useMatch, useNavigate, useParams, Outlet } from 'react-router';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
