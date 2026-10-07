@@ -72,7 +72,7 @@ function ClosedNotice({ event }: { event: BookingEvent | null }) {
         </p>
         <Link
           to="/events"
-          className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent"
+          className="kerb-link kerb-link--rest mt-6 inline-flex min-h-11 items-center text-sm font-medium text-accent-text"
         >
           Back to events
         </Link>

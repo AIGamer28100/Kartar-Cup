@@ -16,6 +16,7 @@ import { accountName } from './SignIn';
 import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
 import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
+import { Stagger, StaggerItem } from '../components/motion';
 
 function Avatar({ photoUrl, name, email }: { photoUrl?: string | null; name: string; email?: string | null }) {
   const [broken, setBroken] = useState(false);
@@ -69,17 +70,17 @@ function QuizHistory({ rows, err }: { rows: OwnEntryRow[] | undefined; err: Erro
   }
   const sorted = sortOwnEntries(rows);
   return (
-    <ul className="m-0 list-none p-0">
+    <Stagger as="ul" className="m-0 list-none p-0">
       {sorted.map((row, i) => (
-        <li key={row.eventId}>
+        <StaggerItem as="li" kind="slide" key={row.eventId}>
           {i > 0 && <Divider />}
           <div className="flex flex-wrap items-baseline justify-between gap-2 py-4">
             <p className="font-medium text-ink">{row.eventName}</p>
             <p className="font-mono text-sm text-muted">{entryStatusLabel(row)}</p>
           </div>
-        </li>
+        </StaggerItem>
       ))}
-    </ul>
+    </Stagger>
   );
 }
 
@@ -88,12 +89,12 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
   useEffect(() => watchBookingEvent(booking.bookingEventId, setEv, () => setEv(null)), [booking.bookingEventId]);
   const tierLabel = ev?.tiers.find((t) => t.id === booking.tierId)?.label ?? booking.tierId;
   return (
-    <Reveal index={index}>
+    <Reveal index={index} kind="slide">
       {index > 0 && <Divider />}
       <Link
         to={`/tickets/${booking.id}`}
         aria-label={`Open ticket for ${ev?.title ?? 'watch party'}`}
-        className="group -mx-3 flex flex-wrap items-start justify-between gap-4 rounded-lg px-3 py-4 transition hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="press group relative -mx-3 flex flex-wrap items-start justify-between gap-4 overflow-hidden rounded-lg px-3 py-4 transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <div>
           <p className="font-medium text-ink">
@@ -113,7 +114,7 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
           </p>
           <p className="inline-flex items-center gap-1 text-sm font-medium text-accent-text">
             Show ticket
-            <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition group-hover:translate-x-0.5" />
+            <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none" />
           </p>
         </div>
       </Link>
@@ -211,7 +212,7 @@ function ProfileContent({ user }: { user: User }) {
         <h1 className={`mt-3 ${PageTitle}`}>Profile</h1>
       </Reveal>
 
-      <Reveal index={1} className="mt-8 flex flex-wrap items-center gap-5">
+      <Reveal index={1} kind="scale" className="mt-8 flex flex-wrap items-center gap-5">
         <Avatar photoUrl={user.photoURL} name={name} email={user.email} />
         <div className="min-w-0">
           <p className="truncate text-lg font-medium text-ink">{name}</p>
@@ -219,7 +220,7 @@ function ProfileContent({ user }: { user: User }) {
         </div>
         <Link
           to="/logout"
-          className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-accent bg-raised px-4 text-sm font-medium text-accent-text transition hover:bg-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="press ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-accent bg-raised px-4 text-sm font-medium text-accent-text transition-colors hover:bg-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <SignOut size={20} weight="regular" aria-hidden="true" />
           Sign out

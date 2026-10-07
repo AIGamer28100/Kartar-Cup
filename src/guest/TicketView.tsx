@@ -49,7 +49,7 @@ export function TicketQr({ bookingId, dim = false }: { bookingId: string; dim?: 
 }
 
 const backLink =
-  '-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent';
+  'kerb-link kerb-link--rest mt-6 inline-flex min-h-11 items-center text-sm font-medium text-accent-text';
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
@@ -138,7 +138,7 @@ export default function TicketPage() {
           </p>
         )}
       </Reveal>
-      <Reveal index={1} className="mt-8">
+      <Reveal index={1} kind="drs" className="mt-8">
         {cancelled ? (
           <div role="status" className="max-w-xl rounded-lg border-2 border-dashed border-accent px-4 py-5">
             <p className="font-mono text-sm font-semibold uppercase tracking-widest text-accent-text">Cancelled</p>
