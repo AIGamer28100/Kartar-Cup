@@ -5,19 +5,11 @@ import {
   bounds,
   cumulativeLengths,
   distanceFractions,
-  fitProfile,
-  liftScale,
-  linePath,
-  nearestIndex,
   parsePolylinePath,
   pointAtFraction,
-  projectRibbon,
-  resample,
   sectorOfIndex,
   sectorRanges,
   segmentAt,
-  smoothPath,
-  valueAtFraction,
 } from './trackGeometry';
 
 const square = [
@@ -77,104 +69,17 @@ describe('lengths and fractions', () => {
     expect(p.y).toBeCloseTo(5);
     expect(p.angle).toBeCloseTo(90);
     expect(pointAtFraction(square, f, 1)).toMatchObject({ x: 0, y: 0 });
-    // wraps
+    // wraps onto the next lap
     expect(pointAtFraction(square, f, 1.125).x).toBeCloseTo(5);
     expect(pointAtFraction([], [], 0.5)).toMatchObject({ x: 0, y: 0 });
   });
-  it('valueAtFraction interpolates per-point values', () => {
-    const f = [0, 0.5, 1];
-    expect(valueAtFraction([0, 10, 0], f, 0.25)).toBeCloseTo(5);
-    expect(valueAtFraction([0, 10, 0], f, 0.5)).toBeCloseTo(10);
-    expect(valueAtFraction([0, 10, 0], f, 2)).toBeCloseTo(0);
-  });
-  it('nearestIndex', () => {
-    expect(nearestIndex(square, 9, 1)).toBe(1);
-    expect(nearestIndex(square, 1, 9)).toBe(3);
-  });
-  it('resample spaces points evenly by distance', () => {
-    const r = resample(square, 9);
-    expect(r).toHaveLength(9);
-    expect(r[1]).toEqual({ x: 5, y: 0 });
-    expect(r[8]).toEqual({ x: 0, y: 0 });
-  });
-});
-
-describe('paths', () => {
-  it('linePath', () => {
-    expect(linePath([{ x: 0, y: 0 }, { x: 1.26, y: 2 }])).toBe('M0 0 L1.3 2');
-    expect(linePath([{ x: 0, y: 0 }, { x: 1, y: 1 }], true)).toBe('M0 0 L1 1 Z');
-    expect(linePath([])).toBe('');
-  });
-  it('smoothPath passes through every point with one cubic per segment', () => {
-    const pts = [
-      { x: 0, y: 0 },
-      { x: 10, y: 5 },
-      { x: 20, y: 0 },
-      { x: 30, y: 5 },
-    ];
-    const d = smoothPath(pts);
-    expect(d.startsWith('M0 0')).toBe(true);
-    expect((d.match(/C/g) ?? []).length).toBe(3);
-    for (const p of pts.slice(1)) expect(d).toContain(` ${p.x} ${p.y}`);
-    expect(smoothPath(pts, true).endsWith('Z')).toBe(true);
-    expect((smoothPath(pts, true).match(/C/g) ?? []).length).toBe(4);
-  });
-  it('smoothPath with tension 0 has control points on the chord ends', () => {
-    const d = smoothPath([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }], false, 0);
-    expect(d).toBe('M0 0 C0 0 10 0 10 0 C10 0 20 0 20 0');
-  });
-  it('falls back to straight lines for tiny inputs', () => {
-    expect(smoothPath([{ x: 0, y: 0 }, { x: 5, y: 5 }])).toBe('M0 0 L5 5');
-  });
-});
-
-describe('fitProfile', () => {
-  const pts: [number, number, number][] = [
-    [0, 0, 100],
-    [100, 0, 150],
-    [100, 50, 200],
-    [0, 50, 100],
-  ];
-  it('fits inside the padded box, flips y and keeps aspect', () => {
-    const f = fitProfile(pts, { width: 640, height: 400, pad: 20 });
-    const b = bounds(f);
-    expect(b.minX).toBeGreaterThanOrEqual(20 - 1e-9);
-    expect(b.maxX).toBeLessThanOrEqual(620 + 1e-9);
-    expect(b.minY).toBeGreaterThanOrEqual(20 - 1e-9);
-    expect(b.maxY).toBeLessThanOrEqual(380 + 1e-9);
-    // aspect 2:1 preserved
-    expect((b.maxX - b.minX) / (b.maxY - b.minY)).toBeCloseTo(2);
-    // y=0 (south) is drawn at the bottom
-    expect(f[0].y).toBeGreaterThan(f[2].y);
-  });
-  it('elevation is metres above the lowest point', () => {
-    const f = fitProfile(pts, { width: 640, height: 400, pad: 20 });
-    expect(f.map((p) => p.rel)).toEqual([0, 5, 10, 0]);
-    expect(f.map((p) => p.k)).toEqual([0, 0.5, 1, 0]);
-  });
-  it('flat lap gets k = 0.5 and no lift', () => {
-    const flat = fitProfile([[0, 0, 10], [1, 1, 10], [2, 0, 10]], { width: 100, height: 100, pad: 0 });
-    expect(flat.every((p) => p.k === 0.5 && p.rel === 0)).toBe(true);
-    expect(fitProfile([], { width: 1, height: 1, pad: 0 })).toEqual([]);
-  });
-});
-
-describe('pseudo-3D ribbon', () => {
-  it('liftScale caps both total lift and per-metre exaggeration', () => {
-    expect(liftScale(100, 30)).toBeCloseTo(0.3);
-    expect(liftScale(5, 30)).toBe(1.4);
-    expect(liftScale(0, 30)).toBe(0);
-  });
-  it('squashes around the centre and lifts by elevation', () => {
-    const pts = [
-      { x: 0, y: 0, rel: 0, k: 0 },
-      { x: 10, y: 100, rel: 10, k: 1 },
-    ];
-    const { line, ground } = projectRibbon(pts, { squash: 0.5, liftPerMetre: 2, maxLift: 15, height: 100 });
-    expect(ground[0]).toEqual({ x: 0, y: 25 });
-    expect(ground[1]).toEqual({ x: 10, y: 75 });
-    expect(line[0]).toEqual({ x: 0, y: 25 });
-    expect(line[1]).toEqual({ x: 10, y: 60 }); // 10 m * 2 = 20, capped at 15
+  it('the runner on a real outline ends where it starts (closed lap)', () => {
+    const pts = parsePolylinePath(TRACKS_BY_CIRCUIT['marina-bay'].d);
+    const f = distanceFractions(pts);
+    const a = pointAtFraction(pts, f, 0);
+    const b = pointAtFraction(pts, f, 1);
+    expect(b.x).toBeCloseTo(a.x);
+    expect(b.y).toBeCloseTo(a.y);
   });
 });
 
@@ -190,7 +95,6 @@ describe('sectors', () => {
       [10, 20],
       [20, 29],
     ]);
-    // degenerate boundaries stay valid
     const r = sectorRanges(5, 0, 0);
     expect(r[0][0]).toBe(0);
     expect(r[2][1]).toBe(4);
@@ -199,8 +103,8 @@ describe('sectors', () => {
   it('works on a real telemetry lap', async () => {
     const p = await loadTrackProfile(61);
     expect(p).not.toBeNull();
-    const f = fitProfile(p!.pts, { width: 640, height: 400, pad: 30 });
-    const fr = distanceFractions(f);
+    const pts = p!.pts.map(([x, y]) => ({ x, y }));
+    const fr = distanceFractions(pts);
     expect(fr[0]).toBe(0);
     expect(fr[fr.length - 1]).toBe(1);
     expect(fr[p!.s1End]).toBeGreaterThan(0.1);

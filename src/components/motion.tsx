@@ -39,7 +39,7 @@ const HIDDEN: Record<RevealKind, Record<string, number | string>> = {
 };
 const SHOWN = { opacity: 1, x: 0, y: 0, rotateX: 0, scale: 1 };
 
-type Tag = 'div' | 'li' | 'section' | 'article' | 'span' | 'p' | 'figure' | 'ol' | 'ul';
+type Tag = 'div' | 'li' | 'section' | 'article' | 'span' | 'p' | 'figure' | 'ol' | 'ul' | 'dl';
 
 const TAGS = {
   div: motion.div,
@@ -51,6 +51,7 @@ const TAGS = {
   figure: motion.figure,
   ol: motion.ol,
   ul: motion.ul,
+  dl: motion.dl,
 } as const;
 
 /**

@@ -508,3 +508,26 @@
     opacity: 0.18;
   }
 }
+
+/*
+ * TrackLayout (race detail page): dark glass card behind the 3D circuit. Backdrop = two soft
+ * token-tinted glows over raised navy plus a faint grid that fades out toward the edges.
+ */
+.tl-backdrop {
+  background:
+    radial-gradient(70% 55% at 88% -8%, color-mix(in srgb, var(--color-accent) 15%, transparent), transparent 70%),
+    radial-gradient(60% 55% at -5% 108%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--color-raised), var(--color-base) 75%);
+}
+.tl-backdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.55;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-line) 60%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(75% 60% at 50% 35%, #000 20%, transparent 80%);
+}
+
