@@ -158,4 +158,10 @@ describe('ticketStatusFor', () => {
   it('reports no tickets when there are no booking events at all', () => {
     expect(ticketStatusFor('2026-r15', [])).toEqual({ available: false, bookingEventId: null, state: 'none' });
   });
+
+  it('reports a cancelled watch party, and prefers a live event over a cancelled one', () => {
+    const cancelled = { ...mkEvent('2026-r15', 'evt-c'), salesOpen: false, hosted: true, cancelled: true } as BookingEvent;
+    expect(ticketStatusFor('2026-r15', [cancelled])).toEqual({ available: false, bookingEventId: 'evt-c', state: 'cancelled' });
+    expect(ticketStatusFor('2026-r15', [cancelled, mkEvent('2026-r15', 'evt-2')]).state).toBe('open');
+  });
 });

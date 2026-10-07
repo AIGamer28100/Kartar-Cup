@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { TicketIcon } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { PageSkeleton } from '../components/Skeleton';
+import Skeleton, { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
-import { applyDiscount, createReservation, markPaidMock, watchBookingEvent, watchTierCounts } from '../lib/bookings';
+import { applyDiscount, createReservation, markPaidMock, watchBooking, watchBookingEvent, watchTierCounts } from '../lib/bookings';
 import { venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
 import type { BookingEvent, PriceTier } from '../lib/types';
 import { TicketQr } from './TicketView';
@@ -24,7 +24,7 @@ function fmtLocal(ms: number): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   }).format(new Date(ms));
 }
 
@@ -61,15 +61,28 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
 const KIND_LABEL = { f1: 'Watch party', cup: 'Kartar Cup event', club: 'Kartar Club event' } as const;
 
 function ClosedNotice({ event }: { event: BookingEvent | null }) {
+  const cancelled = event?.cancelled === true;
   const soon = !!event && event.hosted === true;
   return (
     <Shell>
       <Reveal>
         <Eyebrow>{KIND_LABEL[event?.category ?? 'f1']}</Eyebrow>
         <h1 className={`mt-3 ${PageTitle}`}>{event ? event.title : 'Not taking bookings right now'}</h1>
-        <p className="mt-4 max-w-[34ch] text-muted">
-          {soon ? 'Booking is opening soon. Check back here or on the events page.' : 'This event isn\u2019t taking bookings right now.'}
-        </p>
+        {cancelled ? (
+          <div role="alert" className="relative mt-5 max-w-xl overflow-hidden rounded-lg border border-accent bg-accent/10 px-4 py-4 sm:px-5">
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundImage: 'var(--kerb-stripes)' }} />
+            <p className="font-mono text-xs font-semibold uppercase tracking-widest text-accent-text">Cancelled</p>
+            <p className="mt-1.5 text-lg font-semibold text-ink">This event was cancelled</p>
+            {event?.cancelReason?.trim() && <p className="mt-1 text-muted">{event.cancelReason.trim()}</p>}
+            <p className="mt-3 text-sm text-muted">
+              Bookings are closed. If you had a ticket, it is being refunded; you can follow it from your bookings.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-4 max-w-[34ch] text-muted">
+            {soon ? 'Booking is opening soon. Check back here or on the events page.' : 'This event isn\u2019t taking bookings right now.'}
+          </p>
+        )}
         <Link
           to="/events"
           className="-mx-2 mt-6 inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-text underline decoration-line underline-offset-4 transition hover:decoration-accent"
@@ -89,6 +102,18 @@ interface Reservation {
 }
 
 function SuccessView({ event, reservation }: { event: BookingEvent; reservation: Reservation }) {
+  // The QR encodes the booking's secret qrToken, which only the booking document knows: read it back
+  // (the buyer may read their own booking). Old bookings without a token fall back to the id.
+  const [qrToken, setQrToken] = useState<string | null | undefined>(undefined);
+  useEffect(
+    () =>
+      watchBooking(
+        reservation.bookingId,
+        (b) => setQrToken(b ? (b.qrToken ?? null) : null),
+        () => setQrToken(null),
+      ),
+    [reservation.bookingId],
+  );
   return (
     <Shell>
       <Reveal>
@@ -99,7 +124,13 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
         </p>
       </Reveal>
       <Reveal index={1} className="mt-8">
-        <TicketQr bookingId={reservation.bookingId} />
+        {qrToken === undefined ? (
+          <div className="flex justify-center">
+            <Skeleton variant="shimmer" className="size-60 rounded-lg" />
+          </div>
+        ) : (
+          <TicketQr bookingId={reservation.bookingId} qrToken={qrToken} />
+        )}
       </Reveal>
       <Reveal index={2} className="mt-8">
         <TicketActions event={event} bookingId={reservation.bookingId} />
@@ -301,7 +332,7 @@ function EventDetails({
   const seatsPerTicket = tier?.seatsPerTicket ?? 1;
 
   return (
-    <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+    <div className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-6">
       {/* Event header */}
       <div className="space-y-3">
         <Eyebrow>{KIND_LABEL[event.category ?? 'f1']}</Eyebrow>
@@ -351,10 +382,10 @@ function EventDetails({
                   <div className="min-w-0">
                     <span className="font-medium text-ink truncate block">{t.label}</span>
                     {tSeatsPerTicket > 1 && (
-                      <span className="text-xs text-muted">Ticket for {tSeatsPerTicket} entries</span>
+                      <span className="block text-xs text-muted">Ticket for {tSeatsPerTicket} entries</span>
                     )}
                     {!tSoldOut && tRemaining < 100 && (
-                      <span className="text-xs text-accent-text">{tRemaining} tickets left</span>
+                      <span className="block text-xs text-accent-text">{tRemaining} tickets left</span>
                     )}
                     {tSoldOut && <span className="text-xs text-accent-text">Sold out</span>}
                   </div>
@@ -480,6 +511,9 @@ export default function BookingCheckout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reservation, setReservation] = useState<Reservation | null>(null);
+  // A reservation that was created but whose (mock) payment failed: a retry pays this one instead of
+  // creating a second booking. Cleared if the buyer changes what they are buying.
+  const [pending, setPending] = useState<{ bookingId: string; uid: string; key: string } | null>(null);
 
   useEffect(() => {
     if (!bookingEventId) return;
@@ -532,17 +566,23 @@ export default function BookingCheckout() {
     if (!event || !bookingEventId || !buyer || !tier) return;
     setError('');
     setBusy(true);
+    const orderKey = `${tier.id}|${qty}|${discountCode.trim().toUpperCase()}`;
     try {
-      const bookingId = await createReservation({
-        bookingEventId,
-        buyerUid: buyer.uid,
-        buyerName: buyer.displayName ?? buyer.email ?? 'Guest',
-        buyerEmail: buyer.email ?? '',
-        tierId: tier.id,
-        qty,
-        discountCode: discountCode.trim() || undefined,
-      });
+      let bookingId = pending && pending.uid === buyer.uid && pending.key === orderKey ? pending.bookingId : null;
+      if (!bookingId) {
+        bookingId = await createReservation({
+          bookingEventId,
+          buyerUid: buyer.uid,
+          buyerName: buyer.displayName ?? buyer.email ?? 'Guest',
+          buyerEmail: buyer.email ?? '',
+          tierId: tier.id,
+          qty,
+          discountCode: discountCode.trim() || undefined,
+        });
+        setPending({ bookingId, uid: buyer.uid, key: orderKey });
+      }
       await markPaidMock(bookingId);
+      setPending(null);
       setReservation({ bookingId, tierLabel: tier.label, qty, totalInr: preview.totalInr });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not complete your booking. Try again.');
@@ -563,7 +603,7 @@ export default function BookingCheckout() {
   };
 
   if (!bookingEventId || !ready || event === undefined) return <PageSkeleton />;
-  if (event === null || !event.salesOpen) return <ClosedNotice event={event} />;
+  if (event === null || !event.salesOpen || event.cancelled) return <ClosedNotice event={event} />;
   if (reservation) return <SuccessView event={event} reservation={reservation} />;
 
   return (
