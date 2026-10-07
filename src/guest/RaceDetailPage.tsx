@@ -68,7 +68,7 @@ function SessionRow({
   const phase = sessionPhase(session);
   const daysAway = (Date.parse(session.startUtc) - Date.now()) / 86_400_000;
 
-  let weatherLine = '';
+  let weatherLine: string;
   if (session.cancelled) weatherLine = 'Cancelled';
   else if (phase === 'done') {
     weatherLine =
