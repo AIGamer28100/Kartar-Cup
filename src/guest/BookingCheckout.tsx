@@ -382,10 +382,10 @@ function EventDetails({
                   <div className="min-w-0">
                     <span className="font-medium text-ink truncate block">{t.label}</span>
                     {tSeatsPerTicket > 1 && (
-                      <span className="text-xs text-muted">Ticket for {tSeatsPerTicket} entries</span>
+                      <span className="block text-xs text-muted">Ticket for {tSeatsPerTicket} entries</span>
                     )}
                     {!tSoldOut && tRemaining < 100 && (
-                      <span className="text-xs text-accent-text">{tRemaining} tickets left</span>
+                      <span className="block text-xs text-accent-text">{tRemaining} tickets left</span>
                     )}
                     {tSoldOut && <span className="text-xs text-accent-text">Sold out</span>}
                   </div>
