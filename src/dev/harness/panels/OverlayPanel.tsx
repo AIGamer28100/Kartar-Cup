@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import LiveOverlay, { type OverlayData } from '../../../host/overlay/LiveOverlay';
 import { OverlayControlsView } from '../../../host/overlay/OverlayControls';
 import type { OverlayContextValue } from '../../../host/overlay/OverlayProvider';
-import { SIZE_PRESETS, readLaps, type OverlaySize } from '../../../host/overlay/overlayModel';
+import { SIZE_PRESETS, type OverlaySize } from '../../../host/overlay/overlayModel';
 import { usePictureInPicture } from '../../../host/overlay/usePictureInPicture';
 import { mockEventConfig, mockRanked, ts } from '../../fixtures';
 import type { PanelProps } from '../MockLab';
@@ -14,11 +14,9 @@ import { Case, Grid, LabButton, Pick } from '../parts';
 const MIN = 60_000;
 const JOIN = 'https://kartar-cup.web.app/play/Ab3dE5fG7hJ9kL2mN4pQ6rS8';
 
-type StateId = 'open' | 'laps' | 'delayed' | 'scheduled' | 'results' | 'results-empty' | 'no-link' | 'long' | 'no-quiz' | 'loading' | 'error';
+type StateId = 'open' | 'scheduled' | 'results' | 'results-empty' | 'no-link' | 'long' | 'no-quiz' | 'loading' | 'error';
 const STATES: { id: StateId; label: string; note: string }[] = [
   { id: 'open', label: 'Open', note: 'Quiz open, closes in under 15 minutes, 12 players in.' },
-  { id: 'laps', label: 'Laps', note: 'Lap 12 / 56 with the close lap (16) beside the countdown; host +1 / -1 top right.' },
-  { id: 'delayed', label: 'Delayed', note: 'Race delayed before lights out: no countdown, the quiz stays open.' },
   { id: 'scheduled', label: 'Scheduled', note: 'Before opening: counts down to the open time.' },
   { id: 'results', label: 'Results in', note: 'Compact shows the leader; wide adds the top 5 (gold scores).' },
   { id: 'results-empty', label: 'Results, 0 entries', note: 'Results key saved but nobody played.' },
@@ -31,7 +29,6 @@ const STATES: { id: StateId; label: string; note: string }[] = [
 
 function data(id: StateId, now: number): OverlayData {
   const base: OverlayData = {
-    eventId: 'mock-malaysia-2026',
     loading: false,
     error: null,
     quiz: mockEventConfig({ opensAt: ts(now - 60 * MIN), closesAt: ts(now + 14 * MIN + 32_000) }),
@@ -39,17 +36,12 @@ function data(id: StateId, now: number): OverlayData {
     quizTabHref: '/host/bookings/mock-event/quiz/details',
     entryCount: 12,
     standings: null,
-    laps: null,
   };
   switch (id) {
-    case 'laps':
-      return { ...base, laps: readLaps({ liveLap: 12, totalLaps: 56 }, 16) };
-    case 'delayed':
-      return { ...base, laps: readLaps({ delayed: true, totalLaps: 56 }, 16) };
     case 'scheduled':
       return { ...base, entryCount: 0, quiz: mockEventConfig({ opensAt: ts(now + 42 * MIN), closesAt: ts(now + 3 * 60 * MIN) }) };
     case 'results':
-      return { ...base, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }), standings: mockRanked().slice(0, 5), laps: readLaps({ liveLap: 56, totalLaps: 56 }, 16) };
+      return { ...base, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }), standings: mockRanked().slice(0, 5) };
     case 'results-empty':
       return { ...base, entryCount: 0, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }), standings: [] };
     case 'no-link':
@@ -61,7 +53,7 @@ function data(id: StateId, now: number): OverlayData {
         quiz: mockEventConfig({ name: 'Formula 1 Qatar Airways Grand Prix de Sao Paulo Watch Party Special', opensAt: ts(now - MIN), closesAt: ts(now + 2 * 24 * 60 * MIN + 4 * 60 * MIN) }),
       };
     case 'no-quiz':
-      return { ...base, eventId: null, quiz: null, joinUrl: null, entryCount: 0 };
+      return { ...base, quiz: null, joinUrl: null, entryCount: 0 };
     case 'loading':
       return { ...base, loading: true };
     case 'error':
@@ -113,12 +105,9 @@ const CONTROL_CASES: { id: string; label: string; value: OverlayContextValue }[]
 export default function OverlayPanel({ nowMs }: PanelProps) {
   const [state, setState] = useState<StateId>('open');
   const [ctl, setCtl] = useState(CONTROL_CASES[0].id);
-  const [lap, setLap] = useState(12);
   const pip = usePictureInPicture();
   const d = data(state, nowMs);
   const note = STATES.find((s) => s.id === state)?.note;
-  const withLap = state === 'laps' ? { ...d, laps: readLaps({ liveLap: lap, totalLaps: 56 }, 16) } : d;
-  const onLap = (delta: 1 | -1) => setLap((l) => Math.max(0, Math.min(56, l + delta)));
 
   return (
     <Grid>
@@ -126,10 +115,10 @@ export default function OverlayPanel({ nowMs }: PanelProps) {
         <Pick label="Overlay state" value={state} options={STATES} onChange={setState} />
         <div className="mt-4 flex flex-wrap items-start gap-6">
           <Sized size="compact">
-            <LiveOverlay {...withLap} nowMs={nowMs} onLap={onLap} lapEnabled lapNote="Lab: local lap" />
+            <LiveOverlay {...d} nowMs={nowMs} />
           </Sized>
           <Sized size="wide">
-            <LiveOverlay {...withLap} nowMs={nowMs} onLap={onLap} lapEnabled lapNote="Lab: local lap" />
+            <LiveOverlay {...d} nowMs={nowMs} />
           </Sized>
         </div>
       </Case>
@@ -158,7 +147,7 @@ export default function OverlayPanel({ nowMs }: PanelProps) {
           <span className="font-mono text-[0.65rem] text-muted">{pip.win ? 'open' : pip.opening ? 'opening' : 'closed'}</span>
         </div>
         {pip.error && <p className="mt-2 text-xs text-accent-text">{pip.error}</p>}
-        {pip.container && createPortal(<LiveOverlay {...withLap} onLap={onLap} lapEnabled />, pip.container)}
+        {pip.container && createPortal(<LiveOverlay {...d} />, pip.container)}
       </Case>
     </Grid>
   );

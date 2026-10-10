@@ -77,9 +77,11 @@ const bySession = (q: URLSearchParams, map: Record<number, unknown>, name: strin
 function openf1(path: string, q: URLSearchParams): Hit | null {
   if (path === '/sessions') {
     const mk = Number(q.get('meeting_key'));
-    if (mk === DONE_MEETING) return { body: sessionsDone, served: 'sessions.done' };
-    if (mk === NEXT_MEETING) return { body: sessionsNext, served: 'sessions.next' };
-    if (q.get('session_type') === 'Race') return { body: sessionsRaceYear, served: 'sessions.raceYear' };
+    const type = q.get('session_type');
+    const only = (rows: { session_type: string }[]) => (type ? rows.filter((r) => r.session_type === type) : rows);
+    if (mk === DONE_MEETING) return { body: only(sessionsDone), served: 'sessions.done' };
+    if (mk === NEXT_MEETING) return { body: only(sessionsNext), served: 'sessions.next' };
+    if (type === 'Race') return { body: sessionsRaceYear, served: 'sessions.raceYear' };
     return null;
   }
   if (path === '/meetings') {
@@ -148,3 +150,81 @@ async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   if (scenario === 'offline') {
     record(raw, 'reject', 'offline');
     throw new TypeError('Failed to fetch');
+  }
+
+  const q = u.searchParams;
+  const path = u.pathname.replace(/\/+$/, '');
+
+  if (IMAGE_HOSTS.has(host)) {
+    record(raw, 200, 'svg-placeholder');
+    return new Response(PLACEHOLDER_SVG, { status: 200, headers: { 'content-type': 'image/svg+xml' } });
+  }
+
+  let hit: Hit | null = null;
+  if (host === 'api.openf1.org') {
+    const p = path.replace(/^\/v1/, '');
+    if (scenario === 'rate-limited') {
+      record(raw, 429, 'rate-limited');
+      return json({ detail: 'Rate limit exceeded' }, 429);
+    }
+    if (scenario === 'no-data') {
+      record(raw, 200, 'no-data');
+      return json([]);
+    }
+    hit = openf1(p, q);
+  } else if (host === 'api.jolpi.ca') {
+    hit = jolpica(path);
+  } else if (host === 'api.open-meteo.com') {
+    if (path === '/v1/forecast') hit = { body: meteoForecast, served: 'meteo.forecast' };
+  } else if (isPlaces) {
+    if (path.endsWith('/autocomplete')) hit = { body: placesAutocomplete, served: 'places.autocomplete' };
+    else if (path.endsWith('/details')) hit = { body: placesDetails, served: 'places.details' };
+  }
+
+  if (!hit) {
+    record(raw, 200, 'empty-fallback');
+    return json([]);
+  }
+  record(raw, 200, hit.served);
+  return json(hit.body);
+}
+
+export function uninstallMockNet(): void {
+  // Restore unconditionally: a panel's own fetch shim may sit on top, and leaving fixtures wired in would strand the page.
+  if (original) globalThis.fetch = original;
+  original = null;
+  installed = false;
+}
+
+/** Patches globalThis.fetch. Idempotent. Returns the uninstall function. */
+export function installMockNet(s: Scenario): () => void {
+  scenario = s;
+  if (!installed) {
+    original = globalThis.fetch;
+    globalThis.fetch = mockFetch as typeof fetch;
+    installed = true;
+  }
+  return uninstallMockNet;
+}
+
+export function setScenario(s: Scenario): void {
+  scenario = s;
+}
+
+export function getMockNetState(): MockNetState {
+  return { installed, scenario, calls: [...calls] };
+}
+
+/** Clears raceData's sessionStorage cache ("rd:" and "jolpica:" keys) so a scenario change takes effect. */
+export function clearNetCaches(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && (k.startsWith('rd:') || k.startsWith('jolpica:'))) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    /* storage unavailable */
+  }
+}

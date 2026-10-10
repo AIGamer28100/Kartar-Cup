@@ -1,0 +1,5 @@
+# Local-only secrets for `npx wrangler dev --env dev`. The real counterpart (.dev.vars) is
+# git-ignored and must never be committed. In production the same values live ONLY as Worker
+# secrets: `npx wrangler secret put OPENF1_USERNAME` and `... OPENF1_PASSWORD`.
+OPENF1_USERNAME=
+OPENF1_PASSWORD=

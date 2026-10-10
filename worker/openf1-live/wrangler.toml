@@ -1,0 +1,18 @@
+name = "kartar-openf1-live"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "kartar-cup"
+# Comma-separated list of exact origins allowed to call the Worker from a browser.
+ALLOWED_ORIGINS = "https://kartar-cup.web.app,https://kartar-cup.firebaseapp.com"
+
+# Secrets (never committed):
+#   npx wrangler secret put OPENF1_USERNAME
+#   npx wrangler secret put OPENF1_PASSWORD
+# Until both are set the Worker answers 503 {configured:false} and the app stays on manual lap entry.
+
+# Local development only: `npx wrangler dev --env dev` also allows the Vite dev server.
+[env.dev.vars]
+FIREBASE_PROJECT_ID = "kartar-cup"
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173"
