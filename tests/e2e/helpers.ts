@@ -23,6 +23,12 @@ async function adminPatch(path: string, fields: Record<string, unknown>, mask: s
 }
 
 export const EVENT_ID = 'test-event';
+/** The booking (watch party) event that owns the seeded quiz: its quiz editor lives at /host/bookings/BOOKING_ID/quiz/*. */
+export const BOOKING_ID = 'be-quiz';
+/** The seeded `playLinks` token that opens EVENT_ID (24 base62 chars). Guests play at /play/PLAY_TOKEN. */
+export const PLAY_TOKEN = 'e2eQuizToken01234567890A';
+export const PLAY_URL = `/play/${PLAY_TOKEN}`;
+export const BAD_PLAY_URL = '/play/AAAAAAAAAAAAAAAAAAAAAAAA'; // well formed, but no such playLinks doc
 
 /** 'locked' = manual override closed, 'open' = back to the auto window, 'scored' = winner revealed. */
 export const setStatus = (status: 'open' | 'locked' | 'scored') =>
@@ -72,6 +78,40 @@ async function adminSet(path: string, data: Record<string, unknown>): Promise<vo
   await adminPatch(path, fsFields(data), Object.keys(data));
 }
 
+/** A booking (watch party) event. `quizEventId` links it to a quiz so the per-event quiz routes use that quiz. */
+export async function seedBookingEvent(id: string, title: string, opts: { tiers?: number; quizEventId?: string } = {}): Promise<void> {
+  await adminSet(`bookingEvents/${id}`, {
+    title,
+    dateUtc: '2026-10-11T12:30:00.000Z',
+    dateMs: Date.UTC(2026, 9, 11, 12, 30),
+    capacity: 120,
+    bookedCount: 55,
+    salesOpen: true,
+    hosted: true,
+    category: 'f1',
+    raceId: '2026-r17-singapore',
+    createdAt: new Date('2026-10-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-10-01T00:00:00.000Z'),
+    venue: { id: 'v1', name: 'Phoenix MarketCity, Velachery', city: 'Chennai' },
+    discounts: [],
+    tiers: Array.from({ length: opts.tiers ?? 2 }, (_, n) => ({ id: `t${n}`, label: `Tier ${n + 1} entry pass`, priceInr: 599 + n * 100 })),
+    ...(opts.quizEventId ? { quizEventId: opts.quizEventId } : {}),
+  });
+}
+
+/** Move the quiz window inside the allowed bounds: lights out in `startInMin`, opens 10 min before it (the
+ * earliest allowed), closes at the 30% cap unless `closeEarlyMin` pulls it earlier. */
+export async function setRaceTiming(startInMin: number, opts: { closeEarlyMin?: number } = {}): Promise<void> {
+  const start = Date.now() + startInMin * 60_000;
+  const cap = start + Math.floor(RACE_MIN * 18) * 1000;
+  await adminSet(`events/${EVENT_ID}`, {
+    raceStartUtc: new Date(start),
+    opensAt: new Date(start - 10 * 60_000),
+    closesAt: new Date(cap - (opts.closeEarlyMin ?? 0) * 60_000),
+  });
+}
+const RACE_MIN = 90;
+
 /** Wipe both emulators, then seed the live event the specs run against (`events/test-event`, open
  * window, the default questions/teams/drivers), make it the active event and add the host account
  * `host@example.com` (the console super admin: hosts/{lowercase-email}). */
@@ -86,10 +126,13 @@ export async function resetAndSeed(): Promise<void> {
     subtitle: 'End-to-end test event',
     circuit: null,
     themeId: 'default',
-    raceStartUtc: at(60),
-    raceDurationMin: 90,
-    opensAt: at(-60),
-    closesAt: at(120),
+    // Lap-based window: opens 10 min before lights out (earliest allowed), closes at the 30% cap
+    // (18 s per race minute after lights out). Lights out is in 5 min, so the quiz is open right now.
+    raceStartUtc: at(5),
+    raceDurationMin: RACE_MIN,
+    totalLaps: 50,
+    opensAt: at(-5),
+    closesAt: new Date(now + 5 * 60_000 + Math.floor(RACE_MIN * 18) * 1000),
     override: 'none',
     whatsappUrl: '',
     teams: TEAMS.map((t) => ({ id: t.id, label: t.label })),
@@ -104,7 +147,9 @@ export async function resetAndSeed(): Promise<void> {
     createdAt: at(0),
     updatedAt: at(0),
   });
-  await adminSet('settings/active', { eventId: EVENT_ID });
+  await adminSet('settings/active', { eventId: EVENT_ID, mode: 'manual' });
+  await adminSet(`playLinks/${PLAY_TOKEN}`, { eventId: EVENT_ID, revoked: false, createdAt: at(-60), createdBy: 'host@example.com' });
+  await seedBookingEvent(BOOKING_ID, 'Test Grand Prix watch party', { quizEventId: EVENT_ID });
   // Three guests: Priya picks the winning answers used by host.spec (Williams, Norris, Stroll,
   // Red Bull, Russell), the others get fewer right so the leaderboard has an order.
   const id = (list: { id: string; label: string }[], label: string) => list.find((o) => o.label === label)?.id ?? label;
@@ -119,7 +164,7 @@ export async function resetAndSeed(): Promise<void> {
   for (const [i, [name, email, labels]] of guests.entries()) {
     const uid = `guest-${i + 1}`;
     await adminSet(`events/${EVENT_ID}/entries/${uid}`, {
-      uid, name, email, provider: 'google', answers: picks(labels), submittedAt: at(-30 + i), createdAt: at(-30 + i),
+      uid, name, email, provider: 'google', answers: picks(labels), accessToken: PLAY_TOKEN, submittedAt: at(-30 + i), createdAt: at(-30 + i),
     });
   }
   await adminSet('hosts/host@example.com', { role: 'host' });

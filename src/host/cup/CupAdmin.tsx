@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Plus, Trash } from '@phosphor-icons/react';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
@@ -62,7 +63,8 @@ function useAction() {
 export default function CupAdmin() {
   const [seasons, setSeasons] = useState<CupSeason[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const { seasonId: openId } = useParams();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const act = useAction();
@@ -79,24 +81,27 @@ export default function CupAdmin() {
   if (failed) {
     return (
       <p className="py-8 text-accent-text" role="alert">
-        Could not load Cup seasons. Check your connection and permissions, then reload.
+        Could not load league seasons. Check your connection and permissions, then reload.
       </p>
     );
   }
   if (!seasons) return <RowsSkeleton />;
 
-  const open = seasons.find((s) => s.id === openId);
-  if (open) return <SeasonEditor key={open.id} season={open} onBack={() => setOpenId(null)} />;
+  if (openId) {
+    const open = seasons.find((s) => s.id === openId);
+    if (!open) return <Navigate to="/host/league" replace />;
+    return <SeasonEditor key={open.id} season={open} />;
+  }
 
   const y = Number(year);
   const canCreate = name.trim().length > 0 && Number.isInteger(y) && y >= 2000 && y <= 2100;
 
   return (
     <div className="pb-24">
-      <h2 className="mt-6 text-2xl font-semibold md:text-3xl">Karter Cup</h2>
+      <h2 className="mt-6 text-2xl font-semibold md:text-3xl">Karting league</h2>
       <p className="mt-1 max-w-2xl text-muted">
-        Seasons, drivers, rounds and results for the public /cup page. Nothing is public until you publish a
-        season and its rounds.
+        Manage the Karter Cup go-karting league: seasons, drivers, rounds, results and standings, shown on the public
+        /cup page. Nothing is public until you publish a season and its rounds.
       </p>
 
       <Section title="Seasons">
@@ -108,7 +113,7 @@ export default function CupAdmin() {
               <li key={s.id}>
                 <button
                   type="button"
-                  onClick={() => setOpenId(s.id)}
+                  onClick={() => navigate(`/host/league/${s.id}`)}
                   className="flex min-h-14 w-full items-center justify-between gap-3 py-2 text-left hover:text-accent-text"
                 >
                   <span className="min-w-0 truncate font-medium">{s.name}</span>
@@ -157,7 +162,7 @@ export default function CupAdmin() {
   );
 }
 
-function SeasonEditor({ season, onBack }: { season: CupSeason; onBack: () => void }) {
+function SeasonEditor({ season }: { season: CupSeason }) {
   const [name, setName] = useState(season.name);
   const [year, setYear] = useState(String(season.year));
   const [status, setStatus] = useState<SeasonStatus>(season.status);
@@ -187,9 +192,9 @@ function SeasonEditor({ season, onBack }: { season: CupSeason; onBack: () => voi
 
   return (
     <div className="pb-24">
-      <button type="button" onClick={onBack} className="mt-4 inline-flex min-h-11 items-center gap-2 text-muted hover:text-ink">
+      <Link to="/host/league" className="mt-4 inline-flex min-h-11 items-center gap-2 text-muted hover:text-ink">
         <ArrowLeft size={20} aria-hidden="true" /> Seasons
-      </button>
+      </Link>
       <h2 className="mt-2 text-2xl font-semibold md:text-3xl">{season.name}</h2>
 
       <Section title="Season settings" intro="The points table is per season: position 1 first. Editing it recomputes standings.">

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { TabList, TabPanel } from './settings/Tabs';
+import { Navigate, Outlet } from 'react-router';
+import { LinkTabs } from './settings/Tabs';
+import { CONTENT_TABS } from './nav';
 import { ArrowSquareOut, Trash } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { RowsSkeleton } from '../components/Skeleton';
@@ -453,35 +455,31 @@ function LegalTab() {
 
 /* ---------------- page ---------------- */
 
-type Tab = 'partners' | 'stories' | 'legal';
+export function ContentPartnersTab() {
+  return <PartnersTab />;
+}
+export function ContentStoriesTab() {
+  return <StoriesTab />;
+}
+export function ContentLegalTab() {
+  const { access } = useAuth();
+  return access?.isAdmin ? <LegalTab /> : <Navigate to="/host/content/partners" replace />;
+}
 
-
+/** Layout route: /host/content/{partners,stories,legal}. Each tab is its own URL. */
 export default function ContentAdmin() {
   const { access } = useAuth();
-  const [tab, setTab] = useState<Tab>('partners');
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'partners', label: 'Partners' },
-    { id: 'stories', label: 'Stories' },
-    ...(access?.isAdmin ? [{ id: 'legal' as Tab, label: 'Legal documents' }] : []),
-  ];
+  const tabs = CONTENT_TABS.filter((t) => t.id !== 'legal' || access?.isAdmin).map((t) => ({ ...t, to: t.id }));
 
   return (
     <section aria-label="Content" className="py-6">
       <h2 className="text-2xl font-semibold md:text-3xl">Content</h2>
       <div className="mt-4">
-        <TabList tabs={tabs} active={tab} onChange={(id) => setTab(id as Tab)} label="Content sections" />
+        <LinkTabs tabs={tabs} label="Content sections" />
       </div>
-      <TabPanel id="partners" active={tab === 'partners'}>
-        <PartnersTab />
-      </TabPanel>
-      <TabPanel id="stories" active={tab === 'stories'}>
-        <StoriesTab />
-      </TabPanel>
-      {access?.isAdmin && (
-        <TabPanel id="legal" active={tab === 'legal'}>
-          <LegalTab />
-        </TabPanel>
-      )}
+      <div className="pt-6">
+        <Outlet />
+      </div>
     </section>
   );
 }

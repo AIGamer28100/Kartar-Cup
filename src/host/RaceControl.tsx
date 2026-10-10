@@ -1,26 +1,32 @@
-import { useState } from 'react';
-import { LockSimple, LockSimpleOpen } from '@phosphor-icons/react';
-import Button from '../components/Button';
+import { useEffect, useState } from 'react';
 import StatusDot from '../components/StatusDot';
-import { setOverride } from '../lib/db';
-import { useEventStatus } from '../lib/eventStatus';
+import { useNowMs } from '../lib/eventStatus';
+import { watchLiveQuizSetting } from '../lib/db';
+import type { LiveQuizMode } from '../lib/liveQuiz';
+import QuizPrimaryButton, { runPrimary } from './settings/QuizPrimaryButton';
+import { quizControlState } from './settings/quizControls';
 import type { EventConfig } from '../lib/types';
 
 const LABEL = { scheduled: 'Scheduled', open: 'Open', closed: 'Closed', scored: 'Scored' } as const;
 
 /** Top of the host console: live entry count plus a quick open/close for the live event.
- * (Times, extensions and the full set of controls live under Settings, Live controls.) */
+ * (Times, extensions and the full set of controls are in Live controls, further down the console.) */
 export default function RaceControl({ config, count }: { config: EventConfig | null; count: number }) {
-  const status = useEventStatus(config);
+  const now = useNowMs();
+  // Same Manual/Auto setting LiveControls reads, so both surfaces offer the same action.
+  const [mode, setMode] = useState<LiveQuizMode>('manual');
+  useEffect(() => watchLiveQuizSetting((st) => setMode(st.mode), () => {}), []);
+  const ctl = config ? quizControlState(config, now, mode) : null;
+  const status = ctl?.status ?? null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function run(override: 'open' | 'closed') {
-    if (!config) return;
+  async function run() {
+    if (!config || !ctl) return;
     setBusy(true);
     setErr(null);
     try {
-      await setOverride(config.id, override);
+      await runPrimary(config.id, ctl.primary);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'The pit wall did not answer. Try again.');
     } finally {
@@ -43,15 +49,7 @@ export default function RaceControl({ config, count }: { config: EventConfig | n
               <StatusDot status={status === 'open' ? 'open' : status === 'scored' ? 'scored' : 'locked'} />
               <span className="uppercase tracking-widest">{LABEL[status]}</span>
             </p>
-            {status === 'open' ? (
-              <Button disabled={busy} onClick={() => void run('closed')}>
-                <LockSimple size={20} weight="regular" aria-hidden="true" /> Lock the pit lane
-              </Button>
-            ) : status !== 'scored' ? (
-              <Button variant="secondary" disabled={busy} onClick={() => void run('open')}>
-                <LockSimpleOpen size={20} weight="regular" aria-hidden="true" /> Reopen entries
-              </Button>
-            ) : null}
+            {ctl && <QuizPrimaryButton primary={ctl.primary} busy={busy} onPress={() => void run()} testId="race-primary" />}
           </div>
         ) : (
           <p className="text-muted">No live event yet. Set one live under Settings.</p>

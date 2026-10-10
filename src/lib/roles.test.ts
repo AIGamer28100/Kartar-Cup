@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessFor, grantableRoles, inviteRolesFor, newInviteToken, toggleRole } from './roles';
+import { ROLE_IDS, accessFor, grantableRoles, inviteRolesFor, newInviteToken, toggleRole } from './roles';
 
 describe('accessFor', () => {
   it('a super admin has everything, with or without any roles', () => {
@@ -23,6 +23,38 @@ describe('accessFor', () => {
   });
   it('ignores unknown role strings rather than trusting them', () => {
     expect(accessFor(false, ['superuser', 'root']).isStaff).toBe(false);
+  });
+});
+
+describe('refund capabilities (R54, R55, R56)', () => {
+  const caps = (sa: boolean, roles: string[]) => {
+    const a = accessFor(sa, roles);
+    return { canRefund: a.canRefund, canPartialRelease: a.canPartialRelease, canEditRefundPolicy: a.canEditRefundPolicy };
+  };
+  it('super admin and admin: refund, partial release and cutoff edit', () => {
+    const all = { canRefund: true, canPartialRelease: true, canEditRefundPolicy: true };
+    expect(caps(true, [])).toEqual(all);
+    expect(caps(false, ['admin'])).toEqual(all);
+  });
+  it('host refunds but may not partially release or edit the cutoff', () => {
+    expect(caps(false, ['host'])).toEqual({ canRefund: true, canPartialRelease: false, canEditRefundPolicy: false });
+  });
+  it('venue host gets none of the three, though it still runs bookings', () => {
+    expect(caps(false, ['venue_host'])).toEqual({ canRefund: false, canPartialRelease: false, canEditRefundPolicy: false });
+    expect(accessFor(false, ['venue_host']).canRunBookings).toBe(true);
+  });
+  it('every other role, no roles and unknown roles get false for all three', () => {
+    const none = { canRefund: false, canPartialRelease: false, canEditRefundPolicy: false };
+    for (const r of ['marketing', 'social_admin', 'contributor', 'community_member', 'superuser']) {
+      expect(caps(false, [r])).toEqual(none);
+    }
+    expect(caps(false, [])).toEqual(none);
+  });
+  it('a venue host who is also a host is a host (roles add up)', () => {
+    expect(caps(false, ['venue_host', 'host']).canRefund).toBe(true);
+  });
+  it('covers every defined role', () => {
+    for (const r of ROLE_IDS) expect(typeof caps(false, [r]).canRefund).toBe('boolean');
   });
 });
 

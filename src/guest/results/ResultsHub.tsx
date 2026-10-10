@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { ActiveKerb, ActivePill, Stagger, StaggerItem, Ticker } from '../../components/motion';
+import { ActiveKerb, ActivePill, Stagger, StaggerItem } from '../../components/motion';
 import Skeleton from '../../components/Skeleton';
-import { fetchLaps, fetchResults, teamStandings, type RaceSession, type ResultRow } from '../../lib/raceData';
+import { PodiumDisplay } from '../../components/RaceStateDisplay';
+import { portraitUrl } from '../../lib/portrait';
+import { fetchLaps, fetchResults, formatLapTime, teamStandings, type RaceSession, type ResultRow } from '../../lib/raceData';
+import SessionInfo, { FASTEST_ICON, WINNER_ICON, type Stat, type WeatherInput } from './SessionInfo';
 import {
-  defaultSessionKey,
+  openingSessionKey,
   fastestLapOf,
+  isPodiumRow,
   isPointsSession,
+  podiumFromRows,
   sessionKind,
   sessionTabs,
   shortSessionLabel,
@@ -17,7 +22,7 @@ import {
 
 /* Results hub for the race detail page, laid out the way formula1.com presents a weekend's results:
  * session tabs, a classification table (POS, NO, DRIVER, TEAM, LAPS, TIME/GAP, PTS) and a
- * Drivers / Teams switch in the same table style. The latest completed session opens straight away. */
+ * Drivers / Constructors switch (beside the session tabs) in the same table style. The latest completed session opens straight away. */
 
 // Official F1 headshots are hot-linked from OpenF1's URLs (never downloaded or re-hosted). Flip to false
 // to fall back to monograms everywhere if F1 ever restricts the images (see decisions.md).
@@ -71,7 +76,7 @@ function Face({ row }: { row: Pick<ResultRow, 'headshotUrl' | 'code' | 'colour'>
       style={{ borderColor: row.colour }}
     >
       {SHOW_HEADSHOTS && row.headshotUrl && !broken ? (
-        <img src={row.headshotUrl} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover object-top" />
+        <img src={portraitUrl(row.headshotUrl, 2) ?? row.headshotUrl} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover object-top" />
       ) : (
         <span className={`${mono} text-[0.625rem] font-semibold tracking-wider text-ink`}>{row.code.slice(0, 3)}</span>
       )}
@@ -162,18 +167,21 @@ function DriversTable({
   sessionName,
   fastestNumber,
   motionKey,
+  skipPodium = false,
 }: {
   rows: ResultRow[];
   kind: SessionKind;
   sessionName: string;
   fastestNumber: number | null;
   motionKey: string;
+  /** The podium is shown above, so the table starts at P4. */
+  skipPodium?: boolean;
 }) {
   const points = isPointsSession(sessionName);
   const leader = rows.find((r) => r.position === 1) ?? rows[0];
   const timeHead = kind === 'race' || kind === 'sprint' ? 'Time / Retired' : kind === 'qualifying' ? 'Best lap' : 'Time / Gap';
   return (
-    <Scroller label={`${sessionName} classification`}>
+    <Scroller label={skipPodium ? `${sessionName} classification from fourth place` : `${sessionName} classification`}>
       <table className="w-full min-w-[42rem] border-collapse text-sm">
         <caption className="sr-only">{`${sessionName} classification`}</caption>
         <thead>
@@ -196,7 +204,7 @@ function DriversTable({
           </tr>
         </thead>
         <Stagger key={motionKey} as="tbody" step={0.03} amount={0.05}>
-          {rows.map((r) => {
+          {rows.filter((r) => !(skipPodium && isPodiumRow(r))).map((r) => {
             const status = statusText(r);
             const podium = r.position != null && r.position <= 3 && !status;
             const { first, last } = splitName(r.name);
@@ -322,9 +330,11 @@ function Notice({ children, action }: { children: ReactNode; action?: ReactNode 
 
 /* ---------- the hub ---------- */
 
-export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
+const NO_WEATHER: WeatherInput = { weather: {}, forecast: null, fallbackOffset: 0 };
+
+export default function ResultsHub({ sessions, weather = NO_WEATHER }: { sessions: RaceSession[]; weather?: WeatherInput }) {
   const tabs = useMemo(() => sessionTabs(sessions), [sessions]);
-  const initial = useMemo(() => defaultSessionKey(sessions), [sessions]);
+  const initial = useMemo(() => openingSessionKey(sessions), [sessions]);
   const [selected, setSelected] = useState<number | null>(initial);
   const [view, setView] = useState<View>('drivers');
   const [loads, setLoads] = useState<Record<number, Load>>({});
@@ -367,21 +377,31 @@ export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
 
   const roving = useRovingTabs(
     tabs.map((t) => t.session.key),
-    (k) => tabs.find((t) => t.session.key === k)?.available ?? false,
+    () => true,
     setSelected,
   );
 
   const panelId = 'results-panel';
   const fl = current ? fastest[current.session.key] : null;
-  const rows = load?.state === 'ok' ? load.rows : [];
+  const rows = useMemo(() => (load?.state === 'ok' ? load.rows : []), [load]);
   const flRow = fl ? rows.find((r) => r.number === fl.driverNumber) : undefined;
   const winner = rows.find((r) => r.position === 1);
   const motionKey = `${current?.session.key ?? 'none'}-${view}`;
+  const podium = useMemo(() => (hasRows ? podiumFromRows(rows, kind) : null), [hasRows, rows, kind]);
+  const showPodium = view === 'drivers';
+  // Winner and fastest lap sit with the session's weather rather than in a strip of their own.
+  const resultFacts: Stat[] = [];
+  if (hasRows && (kind === 'race' || kind === 'sprint')) {
+    if (winner) resultFacts.push({ Icon: WINNER_ICON, label: 'Winner', value: winner.name });
+    if (fl && flRow) resultFacts.push({ Icon: FASTEST_ICON, label: 'Fastest lap', value: `${flRow.code} ${formatLapTime(fl.seconds)}${fl.lapNumber != null ? `, lap ${fl.lapNumber}` : ''}` });
+  }
 
   return (
     <div>
-      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
-        <div role="tablist" aria-label="Session" className="flex min-w-max gap-1 border-b border-line">
+      {/* Sessions on the left, the Drivers / Constructors switch on the right (wraps under the tabs when narrow). */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-line">
+      <div className="-mx-1 min-w-0 max-w-full overflow-x-auto px-1 [scrollbar-width:none]">
+        <div role="tablist" aria-label="Session" className="flex min-w-max gap-1">
           {tabs.map((t) => {
             const on = t.session.key === selected;
             return (
@@ -393,13 +413,11 @@ export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
                 role="tab"
                 aria-selected={on}
                 aria-controls={panelId}
-                aria-disabled={!t.available || undefined}
-                disabled={!t.available}
-                tabIndex={on || (selected == null && t === tabs.find((x) => x.available)) ? 0 : -1}
-                onClick={() => t.available && setSelected(t.session.key)}
+                tabIndex={on || (selected == null && t === tabs[0]) ? 0 : -1}
+                onClick={() => setSelected(t.session.key)}
                 onKeyDown={(e) => roving.onKeyDown(e, t.session.key)}
                 className={`relative flex min-h-12 flex-col items-start justify-center px-3 pb-2 pt-1.5 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
-                  on ? 'font-semibold text-ink' : t.available ? 'text-muted hover:text-ink' : 'cursor-not-allowed text-muted/60'
+                  on ? 'font-semibold text-ink' : t.available ? 'text-muted hover:text-ink' : 'text-muted/70 hover:text-ink'
                 }`}
               >
                 <span className="whitespace-nowrap">
@@ -413,6 +431,22 @@ export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
           })}
         </div>
       </div>
+      {current?.available && (
+        <div className="ml-auto pb-1">
+          <Segmented
+            label="Standings view"
+            idPrefix="results-view"
+            layoutId="results-view-pill"
+            options={[
+              { key: 'drivers', text: 'Drivers' },
+              { key: 'teams', text: 'Constructors' },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+        </div>
+      )}
+      </div>
 
       <div
         id={panelId}
@@ -425,41 +459,15 @@ export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
 
         {current && (
           <>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <Segmented
-                label="Standings view"
-                idPrefix="results-view"
-                layoutId="results-view-pill"
-                options={[
-                  { key: 'drivers', text: 'Drivers' },
-                  { key: 'teams', text: 'Teams' },
-                ]}
-                value={view}
-                onChange={setView}
-              />
-              {hasRows && (kind === 'race' || kind === 'sprint') && (
-                <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                  {winner && (
-                    <div className="flex items-baseline gap-2">
-                      <dt className="font-mono text-[0.6875rem] uppercase tracking-widest text-muted">Winner</dt>
-                      <dd className="font-semibold">{winner.code}</dd>
-                    </div>
-                  )}
-                  {fl && flRow && (
-                    <div className="flex items-baseline gap-2">
-                      <dt className="font-mono text-[0.6875rem] uppercase tracking-widest text-muted">Fastest lap</dt>
-                      <dd className={`${mono} text-info`}>
-                        <span className="mr-1.5 font-sans font-semibold text-ink">{flRow.code}</span>
-                        <Ticker value={fl.seconds} from={fl.seconds + 3} format="lap" duration={0.9} />
-                        {fl.lapNumber != null && <span className="ml-1.5 text-muted">lap {fl.lapNumber}</span>}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-            </div>
+            <SessionInfo session={current.session} weather={weather} extra={resultFacts} />
 
-            {(!load || load.state === 'loading') && <TableSkeleton />}
+            {!current.available && !current.session.cancelled && <Notice>Results appear shortly after the session ends.</Notice>}
+            {current.available && showPodium && podium && (
+              <div className="mt-6">
+                <PodiumDisplay drivers={podium} align="center" large showLabel={false} />
+              </div>
+            )}
+            {current.available && (!load || load.state === 'loading') && <TableSkeleton />}
             {load?.state === 'error' && (
               <Notice
                 action={
@@ -478,7 +486,7 @@ export default function ResultsHub({ sessions }: { sessions: RaceSession[] }) {
             {load?.state === 'ok' && load.rows.length === 0 && <Notice>Results appear shortly after the session ends.</Notice>}
             {hasRows &&
               (view === 'drivers' ? (
-                <DriversTable rows={rows} kind={kind} sessionName={current.session.name} fastestNumber={flRow ? flRow.number : null} motionKey={motionKey} />
+                <DriversTable rows={rows} kind={kind} sessionName={current.session.name} fastestNumber={flRow ? flRow.number : null} motionKey={motionKey} skipPodium={showPodium && !!podium} />
               ) : (
                 <TeamsTable rows={rows} sessionName={current.session.name} motionKey={motionKey} />
               ))}

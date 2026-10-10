@@ -42,6 +42,40 @@ export function parsePolylinePath(d: string): Pt[] {
   return out;
 }
 
+/** Shoelace sum of the closed polygon through the points (the closing edge back to the first point is
+ * implied, and a duplicated closing point adds nothing). In SVG space (y grows downward) a POSITIVE
+ * value renders CLOCKWISE on screen. Fewer than 3 points enclose no area, so the result is 0. */
+export function shoelaceSum(points: Pt[]): number {
+  const n = points.length;
+  if (n < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return sum / 2;
+}
+
+/** On-screen winding of a stored outline, or null when it is degenerate (no enclosed area). */
+export function windingOf(points: Pt[]): 'cw' | 'ccw' | null {
+  const a = shoelaceSum(points);
+  return a > 0 ? 'cw' : a < 0 ? 'ccw' : null;
+}
+
+/** The points in the circuit's REAL racing direction: reversed when the stored winding disagrees with
+ * `direction`, otherwise returned as is. A degenerate outline (unknown winding) is left alone. The
+ * array stays closed (first point == last point) either way, so index 0 is still the start/finish. */
+export function inRacingDirection(points: Pt[], direction: 'cw' | 'ccw'): Pt[] {
+  const w = windingOf(points);
+  return w && w !== direction ? [...points].reverse() : points;
+}
+
+/** Absolute M/L path through the points (no Z: a closed lap already repeats its first point). */
+export function pointsToPath(points: Pt[]): string {
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
+}
+
 /** Cumulative arc length at each point (cum[0] = 0, cum[n-1] = total). */
 export function cumulativeLengths(points: Pt[]): number[] {
   const cum = new Array<number>(points.length).fill(0);

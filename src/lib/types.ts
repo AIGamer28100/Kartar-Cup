@@ -19,6 +19,8 @@ export interface Entry {
   photoURL?: string;
   provider: Provider;
   answers: Answers;
+  /** The /play link token the entry was made with (checked by firestore.rules). */
+  accessToken?: string;
   submittedAt: Timestamp;
   createdAt: Timestamp;
 }
@@ -88,6 +90,14 @@ export interface EventConfig {
   opensAt: Timestamp;
   closesAt: Timestamp;
   override: Override;
+  /** Race laps (1..100). The quiz closes once the leader has completed floor(30%) of them. Absent = clock only. */
+  totalLaps?: number;
+  /** Actual lights out, set once by the host (server time). The 30% deadline is re-anchored on it. */
+  raceStartedAt?: Timestamp;
+  /** Host: the start is delayed, hold the quiz open past closesAt. Only meaningful while raceStartedAt is absent. */
+  delayed?: boolean;
+  /** Host-entered leader lap from the broadcast, 0..totalLaps. */
+  liveLap?: number;
   whatsappUrl: string;
   teams: TeamCfg[];
   drivers: DriverCfg[];
@@ -151,9 +161,18 @@ export type EventCategory = 'f1' | 'cup' | 'club';
 export interface BookingEvent {
   id: string;
   raceId?: string;
+  /** R57: id of this watch party's own quiz doc (`events/{id}`). Not the race id: two watch parties on the
+   * same race each get their own quiz. Absent until a host first opens the event's Quiz tab. */
+  quizEventId?: string;
   title: string;
   venue: Venue;
   dateUtc: string;
+  /** `dateUtc` as epoch milliseconds. firestore.rules cannot parse the ISO string, so the refund cutoff
+   * (R56) is enforced against this number. Written by the host form; absent on legacy events, where a paid
+   * refund is refused by the rules until the event is saved again. */
+  dateMs?: number;
+  /** R56: minutes before the event start within which no refund may be issued. Absent = DEFAULT_REFUND_CUTOFF_MIN. */
+  refundCutoffMin?: number;
   tiers: PriceTier[];
   discounts: Discount[];
   capacity: number;
@@ -214,12 +233,16 @@ export interface Booking {
   paidAt?: Timestamp;
   checkedInAt?: Timestamp;
   checkedInBy?: string;
+  /** A3: 'manual' = a typed id/token at the door, 'scan' = the QR token read by the camera. */
+  checkInMethod?: 'scan' | 'manual';
   cancelledAt?: Timestamp;
   /** Email of the host-control member who cancelled. */
   cancelledBy?: string;
   cancelReason?: string;
   /** Mock payments only (R23): 'mock_refunded' = a paid_mock booking was cancelled; no real money moved. */
   refund?: 'mock_refunded' | 'none';
+  /** R55: running total (INR) given back by partial releases of a booking that stays active. */
+  refundedInr?: number;
   /** R45: the VIP pass number, assigned by the host at check-in (per event, counting up from 1). */
   passNumber?: number;
   /** R45: a snapshot copy of the Play card this guest drew, written by the host (R15: only the owner reads it). */

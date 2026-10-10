@@ -3,6 +3,17 @@ import { buildDefaultEvent, type GridStatus } from '../../config/event';
 import { ALL_RACES, type RaceInfo } from '../../config/calendar';
 import { MAX_QUESTION_POINTS } from '../../lib/types';
 import type { DriverCfg, EventConfig, Override, QuestionCfg, TeamCfg } from '../../lib/types';
+import {
+  QUIZ_CLOSE_FRACTION,
+  QUIZ_MAX_LAPS,
+  QUIZ_MAX_RACE_MIN,
+  QUIZ_MIN_RACE_MIN,
+  QUIZ_OPENS_BEFORE_MIN,
+  clampQuizWindow,
+  closeLap,
+  quizEarliestOpenMs,
+  quizLatestCloseMs,
+} from '../../lib/quizWindow';
 import { fromLocalInput, toLocalInput } from './time';
 
 export const MAX_QUESTIONS = 8;
@@ -23,6 +34,9 @@ export interface FormState {
   circuit: string;
   start: string; // datetime-local
   duration: string;
+  totalLaps: string; // '' = unknown, the clock backstop alone closes the quiz
+  /** Actual lights out recorded by the live controls (read-only here; after it the live controls own the window). */
+  raceStartedAtMs: number | null;
   opensOverride: string;
   closesOverride: string;
   whatsapp: string;
@@ -37,7 +51,8 @@ const qNum = (id: string) => Number(/^q(\d+)$/.exec(id)?.[1] ?? 0);
 
 export function configToForm(c: EventConfig, gridStatus: GridStatus = { kind: 'saved' }): FormState {
   const startMs = c.raceStartUtc.toMillis();
-  const defClose = startMs + Math.round(0.9 * c.raceDurationMin * 60_000);
+  const defOpen = quizEarliestOpenMs(startMs);
+  const defClose = quizLatestCloseMs(startMs, c.raceDurationMin);
   return {
     id: c.id,
     raceId: c.raceId,
@@ -51,7 +66,9 @@ export function configToForm(c: EventConfig, gridStatus: GridStatus = { kind: 's
     circuit: c.circuit ?? '',
     start: toLocalInput(startMs),
     duration: String(c.raceDurationMin),
-    opensOverride: c.opensAt.toMillis() === startMs ? '' : toLocalInput(c.opensAt.toMillis()),
+    totalLaps: c.totalLaps ? String(c.totalLaps) : '',
+    raceStartedAtMs: c.raceStartedAt ? c.raceStartedAt.toMillis() : null,
+    opensOverride: c.opensAt.toMillis() === defOpen ? '' : toLocalInput(c.opensAt.toMillis()),
     closesOverride: c.closesAt.toMillis() === defClose ? '' : toLocalInput(c.closesAt.toMillis()),
     whatsapp: c.whatsappUrl,
     teams: c.teams.map((t) => ({ ...t })),
@@ -76,6 +93,7 @@ export async function customForm(): Promise<FormState> {
     themeId: ALL_RACES[0].themeId,
     name: '',
     circuit: '',
+    totalLaps: '',
     gridStatus: { kind: 'no-data' },
   };
 }
@@ -85,29 +103,62 @@ export interface Computed {
   durationMin: number;
   autoOpensMs: number;
   autoClosesMs: number;
+  /** Effective window: the host's later-open / earlier-close, clamped to the 10 min / 30% bounds. */
   opensMs: number;
   closesMs: number;
+  /** Why the clamp moved a host value (empty when nothing moved). */
+  notes: string[];
+  totalLaps: number | null;
+  closeLap: number | null;
 }
 
 export function compute(f: FormState): Computed {
   const startMs = fromLocalInput(f.start);
   const durationMin = Number(f.duration);
-  const autoOpensMs = startMs;
-  const autoClosesMs = startMs + Math.round(0.9 * durationMin * 60_000);
+  const autoOpensMs = quizEarliestOpenMs(startMs);
+  const autoClosesMs = quizLatestCloseMs(startMs, durationMin);
   const o = fromLocalInput(f.opensOverride);
   const c = fromLocalInput(f.closesOverride);
+  const w = Number.isFinite(autoClosesMs)
+    ? clampQuizWindow(startMs, durationMin, Number.isNaN(o) ? autoOpensMs : o, Number.isNaN(c) ? autoClosesMs : c)
+    : { opensMs: NaN, closesMs: NaN, notes: [] };
+  const laps = Number(f.totalLaps);
+  const totalLaps = f.totalLaps.trim() !== '' && Number.isInteger(laps) && laps >= 1 && laps <= QUIZ_MAX_LAPS ? laps : null;
   return {
     startMs,
     durationMin,
     autoOpensMs,
     autoClosesMs,
-    opensMs: Number.isNaN(o) ? autoOpensMs : o,
-    closesMs: Number.isNaN(c) ? autoClosesMs : c,
+    opensMs: w.opensMs,
+    closesMs: w.closesMs,
+    notes: w.notes,
+    totalLaps,
+    closeLap: totalLaps === null ? null : closeLap(totalLaps),
   };
 }
 
+const istTime = (ms: number) =>
+  Number.isFinite(ms)
+    ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms)
+    : '--';
+
+/** One-line plain summary of when the quiz opens and closes, for the Details tab. */
+export function quizWindowSummary(c: Computed): string {
+  const opens =
+    c.opensMs === c.autoOpensMs
+      ? `Opens ${QUIZ_OPENS_BEFORE_MIN} min before lights out, ${istTime(c.opensMs)} IST`
+      : `Opens ${istTime(c.opensMs)} IST`;
+  const pct = `${Math.round(QUIZ_CLOSE_FRACTION * 100)}% of the race`;
+  const clock = c.closesMs === c.autoClosesMs ? pct : `${istTime(c.closesMs)} IST`;
+  const closes =
+    c.totalLaps !== null && c.closeLap !== null
+      ? `closes at lap ${c.closeLap} of ${c.totalLaps} or ${clock}, whichever comes first`
+      : `closes at ${clock}${clock === pct ? ` (${istTime(c.closesMs)} IST)` : ''}`;
+  return `${opens}; ${closes}`;
+}
+
 export type Errors = Partial<
-  Record<'name' | 'subtitle' | 'circuit' | 'start' | 'duration' | 'window' | 'whatsapp' | 'drivers' | 'teams' | 'questions', string>
+  Record<'name' | 'subtitle' | 'circuit' | 'start' | 'duration' | 'totalLaps' | 'window' | 'whatsapp' | 'drivers' | 'teams' | 'questions', string>
 >;
 
 export function validate(f: FormState): Errors {
@@ -118,8 +169,10 @@ export function validate(f: FormState): Errors {
   if (f.subtitle.length > 120) e.subtitle = 'Keep the subtitle to 120 characters.';
   if (f.circuit.length > 80) e.circuit = 'Keep the circuit to 80 characters.';
   if (Number.isNaN(c.startMs)) e.start = 'Pick a race start date and time.';
-  if (!Number.isInteger(c.durationMin) || c.durationMin < 10 || c.durationMin > 600)
-    e.duration = 'Enter whole minutes between 10 and 600.';
+  if (!Number.isInteger(c.durationMin) || c.durationMin < QUIZ_MIN_RACE_MIN || c.durationMin > QUIZ_MAX_RACE_MIN)
+    e.duration = `Enter whole minutes between ${QUIZ_MIN_RACE_MIN} and ${QUIZ_MAX_RACE_MIN}.`;
+  if (f.totalLaps.trim() !== '' && c.totalLaps === null)
+    e.totalLaps = `Enter whole laps between 1 and ${QUIZ_MAX_LAPS}, or leave empty.`;
   if (!e.start && !e.duration && !(c.closesMs > c.opensMs)) e.window = 'Quiz must close after it opens.';
   if (f.whatsapp !== '' && !WHATSAPP_RE.test(f.whatsapp))
     e.whatsapp = 'Use https://chat.whatsapp.com/... or https://whatsapp.com/channel/... , or leave empty.';
@@ -150,6 +203,7 @@ export function formToConfig(f: FormState): EventConfig {
     opensAt: Timestamp.fromMillis(c.opensMs),
     closesAt: Timestamp.fromMillis(c.closesMs),
     override: f.override,
+    ...(c.totalLaps !== null ? { totalLaps: c.totalLaps } : {}),
     whatsappUrl: f.whatsapp,
     teams: f.teams,
     drivers: f.drivers.map((d, i) => ({ ...d, grid: i + 1 })),

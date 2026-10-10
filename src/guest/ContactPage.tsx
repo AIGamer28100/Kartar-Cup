@@ -1,10 +1,16 @@
+import { ArrowRight } from '@phosphor-icons/react';
 import Divider from '../components/Divider';
 import { CONTACT } from '../config/contact';
 import { usePageMeta } from '../lib/pageMeta';
 import { useCommunityLink } from '../lib/useCommunityLink';
-import { Eyebrow, PageTitle, Reveal, Shell, WhatsAppCta } from './parts';
+import { CardKerb, Eyebrow, PageTitle, Reveal, Shell, WhatsAppCta } from './parts';
 
-const linkCls = 'kerb-link kerb-link--rest inline-flex min-h-11 items-center text-ink transition-colors hover:text-accent-text';
+const linkCls =
+  'group press relative flex min-h-12 w-full items-center justify-between gap-3 overflow-hidden rounded-lg border border-line bg-raised px-4 py-3 text-ink transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
+function Arrow() {
+  return <ArrowRight size={16} weight="regular" aria-hidden="true" className="shrink-0 transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />;
+}
 
 function Pending({ children }: { children: string }) {
   return <span className="text-muted">{children}</span>;
@@ -38,11 +44,13 @@ export default function ContactPage() {
         {CONTACT.instagram.map((a, i) => (
           <Reveal key={a.handle} index={i + 1}>
             <dt className="font-mono text-xs uppercase tracking-widest text-muted">Instagram</dt>
-            <dd className="mt-1">
+            <dd className="mt-2">
               <a href={a.url} target="_blank" rel="noopener noreferrer" className={linkCls}>
-                {a.handle}
+                <span className="break-all">{a.handle}</span>
+                <Arrow />
+                <CardKerb />
               </a>
-              <p className="mt-1 text-sm text-muted">{a.role}</p>
+              <p className="mt-2 text-sm text-muted">{a.role}</p>
             </dd>
           </Reveal>
         ))}
@@ -58,10 +66,12 @@ export default function ContactPage() {
         </Reveal>
         <Reveal index={4}>
           <dt className="font-mono text-xs uppercase tracking-widest text-muted">Email</dt>
-          <dd className="mt-1">
+          <dd className="mt-2">
             {CONTACT.email ? (
               <a href={`mailto:${CONTACT.email}`} className={linkCls}>
-                {CONTACT.email}
+                <span className="break-all">{CONTACT.email}</span>
+                <Arrow />
+                <CardKerb />
               </a>
             ) : (
               <Pending>Email coming soon.</Pending>
@@ -70,10 +80,12 @@ export default function ContactPage() {
         </Reveal>
         <Reveal index={5}>
           <dt className="font-mono text-xs uppercase tracking-widest text-muted">Phone</dt>
-          <dd className="mt-1">
+          <dd className="mt-2">
             {CONTACT.phone ? (
               <a href={`tel:${CONTACT.phone}`} className={linkCls}>
-                {CONTACT.phone}
+                <span>{CONTACT.phone}</span>
+                <Arrow />
+                <CardKerb />
               </a>
             ) : (
               <Pending>Phone number coming soon.</Pending>

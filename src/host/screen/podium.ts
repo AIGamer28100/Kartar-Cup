@@ -28,6 +28,10 @@ export function prevStage(current: Stage): Stage {
 }
 
 export function clampStage(n: number): Stage {
+  // ScreenApp passes a raw Firestore field: a missing or non-numeric stage must still clamp to a real
+  // Stage. Without this guard NaN survives the clamp and every isRevealed comparison turns false, so
+  // the big screen blanks mid-reveal instead of falling back to the sealed grid.
+  if (typeof n !== 'number' || Number.isNaN(n)) return 0;
   return (Math.max(0, Math.min(3, Math.round(n))) as Stage);
 }
 

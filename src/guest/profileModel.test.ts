@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
+import { bookingStatusLabel, entryStatusLabel, formatInr, initials, parsePhone, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
 
 describe('sortOwnEntries', () => {
@@ -62,5 +62,15 @@ describe('initials', () => {
   });
   it('falls back to ?? when nothing is available', () => {
     expect(initials(undefined, undefined)).toBe('??');
+  });
+});
+
+describe('parsePhone', () => {
+  it('accepts blank, trims, and validates', () => {
+    expect(parsePhone('  ')).toBe('');
+    expect(parsePhone(' +91 98765 43210 ')).toBe('+91 98765 43210');
+    expect(parsePhone('abc123')).toBeNull();
+    expect(parsePhone('12345')).toBeNull();
+    expect(parsePhone('1'.repeat(17))).toBeNull();
   });
 });

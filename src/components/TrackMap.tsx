@@ -2,7 +2,8 @@ import { useEffect, useId, useMemo, useRef } from 'react';
 import { animate, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion';
 import { trackForRace } from '../config/tracks';
 import { TRACK_DRAW_MS } from '../lib/motion';
-import { distanceFractions, parsePolylinePath, pointAtFraction } from '../lib/trackGeometry';
+import { distanceFractions, inRacingDirection, parsePolylinePath, pointAtFraction, pointsToPath } from '../lib/trackGeometry';
+import type { Pt } from '../lib/trackGeometry';
 import type { TrackData } from '../config/tracks/types';
 import type { RaceState } from './RaceStateDisplay';
 
@@ -22,7 +23,10 @@ interface TrackMapProps {
 export default function TrackMap({ raceId, track, animate = false, className = '', title, state }: TrackMapProps) {
   const maskId = `track-reveal-${useId().replace(/:/g, '')}`;
   const t = track ?? (raceId ? trackForRace(raceId) : null);
-  if (!t) return null;
+  // Racing-direction geometry, derived once per outline: the animated parts (draw-on, chequered march,
+  // lap runner) all follow `racing`, so they agree with each other and with every other TrackMap.
+  const racing = useMemo(() => (t ? racingGeometry(t) : null), [t]);
+  if (!t || !racing) return null;
 
   const stateKey = typeof state === 'object' ? state.type : state;
 
@@ -55,10 +59,10 @@ export default function TrackMap({ raceId, track, animate = false, className = '
         strokeLinejoin="round"
       />
       {isChequered ? (
-        <ChequeredLine d={t.d} maskId={maskId} reveal={animate} />
+        <ChequeredLine d={racing.d} maskId={maskId} reveal={animate} />
       ) : (
         <path
-          d={t.d}
+          d={racing.d}
           pathLength={1}
           className={`stroke-accent ${draw}`}
           strokeWidth={11}
@@ -68,9 +72,19 @@ export default function TrackMap({ raceId, track, animate = false, className = '
         />
       )}
       {t.start && <circle cx={t.start.x} cy={t.start.y} r={9} className="fill-ink stroke-accent" strokeWidth={3} />}
-      {animate && !isChequered && <LapRunner d={t.d} />}
+      {animate && !isChequered && <LapRunner pts={racing.pts} d={racing.d} />}
     </svg>
   );
+}
+
+/** The outline's points and path in the circuit's REAL racing direction. The source GeoJSON point order
+ * is arbitrary, so we compare its actual winding with `track.direction` and reverse when they disagree
+ * (derived, not asserted: stays right if the geometry is regenerated). When no reversal is needed the
+ * original `d` string is kept verbatim. */
+function racingGeometry(t: TrackData): { pts: Pt[]; d: string } {
+  const stored = parsePolylinePath(t.d);
+  const pts = inRacingDirection(stored, t.direction);
+  return { pts, d: pts === stored ? t.d : pointsToPath(pts) };
 }
 
 /** Chequered-flag racing line: three rows of alternating black/white squares (the centre row is
@@ -121,12 +135,10 @@ const LAP_MS = TRACK_DRAW_MS + 3000;
  * then keeps lapping. Position is written straight to the DOM from a motion value (no React state per
  * frame); rAF pauses on its own in a hidden tab. Not rendered under reduced motion (the line is simply
  * drawn, nothing loops). */
-function LapRunner({ d }: { d: string }) {
+function LapRunner({ pts, d }: { pts: Pt[]; d: string }) {
   const reduce = useReducedMotion();
-  const geo = useMemo(() => {
-    const pts = parsePolylinePath(d);
-    return { pts, fracs: distanceFractions(pts) };
-  }, [d]);
+  // `pts` / `d` are already in racing direction (racingGeometry); the trails below use the same `d`.
+  const geo = useMemo(() => ({ pts, fracs: distanceFractions(pts) }), [pts]);
   const progress = useMotionValue(0);
   const headRef = useRef<SVGGElement>(null);
   const trailRefs = useRef<(SVGPathElement | null)[]>([]);

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { CaretDown } from '@phosphor-icons/react';
 import {
   fmtRoundDate,
   getResult,
@@ -200,7 +202,7 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
   const panelId = `round-${round.id}`;
 
   return (
-    <StaggerItem as="li" kind="slide" className="py-3">
+    <StaggerItem as="li" kind="slide" className={`group relative my-1 rounded-lg px-3 py-3 transition-colors ${done ? "hover:bg-raised" : ""}`}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className={`w-8 text-muted ${num}`}>{round.order}</span>
         <span className="min-w-[12rem] flex-1">
@@ -219,14 +221,15 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((o) => !o)}
-            className="kerb-link kerb-link--rest inline-flex min-h-11 items-center text-sm text-ink hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-text after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {open ? 'Hide results' : 'Show results'}
+            <CaretDown size={16} weight="bold" aria-hidden="true" className={`transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
           </button>
         )}
       </div>
       {open && (
-        <div id={panelId} className="mt-3 pl-0 sm:pl-12">
+        <motion.div id={panelId} className="relative mt-3 pl-0 sm:pl-12" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
           {failed ? (
             <p role="alert" className="text-sm text-muted">Results could not be loaded.</p>
           ) : result === undefined ? (
@@ -251,7 +254,7 @@ function RoundItem({ seasonId, round, drivers }: { seasonId: string; round: CupR
               )}
             </>
           )}
-        </div>
+        </motion.div>
       )}
     </StaggerItem>
   );

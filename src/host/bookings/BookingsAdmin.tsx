@@ -4,7 +4,7 @@ import { useMatch, useNavigate, useParams, Outlet } from 'react-router';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
 import { deleteField } from 'firebase/firestore';
-import { createBookingEvent, updateBookingEvent, watchAllBookingEvents, watchBookingEvent, cancelBookingEvent, settleCancelledEvent, pendingEventRefunds } from '../../lib/bookings';
+import { PartialTierSaveError, createBookingEvent, updateBookingEvent, watchAllBookingEvents, watchBookingEvent, cancelBookingEvent, settleCancelledEvent, pendingEventRefunds } from '../../lib/bookings';
 import { useAuth } from '../../lib/auth';
 import { permissionHint } from '../../lib/permissionHint';
 import type { BookingEvent, EventCategory } from '../../lib/types';
@@ -17,7 +17,9 @@ import AttendeeRoster from './AttendeeRoster';
 import CardsAdmin from './CardsAdmin';
 import {
   blankForm,
+  dateMsToSave,
   eventToForm,
+  refundsOffNoDate,
   formToEvent,
   raceDefaultDateUtc,
   upcomingRaceOptions,
@@ -98,7 +100,13 @@ export function BookingEventForm() {
       setBanner({ ok: true, msg: 'Booking event saved.' });
       navigate('..', { replace: true });
     } catch (e) {
-      setBanner({ ok: false, msg: permissionHint(e, 'bookings', access, 'save this booking event') });
+      if (e instanceof PartialTierSaveError) {
+        // The event now exists (sales stay closed on a create); the next save updates it, never duplicates it.
+        setForm((f) => (f && !f.id ? { ...f, id: e.eventId } : f));
+        setBanner({ ok: false, msg: `${e.message}.` });
+      } else {
+        setBanner({ ok: false, msg: permissionHint(e, 'bookings', access, 'save this booking event') });
+      }
     } finally {
       setBusy(false);
     }
@@ -333,7 +341,7 @@ export function BookingEventForm() {
 }
 
 /** Live read of one booking event: undefined while loading, null when missing or unreadable. */
-function useBookingEventById(eventId: string | undefined): BookingEvent | null | undefined {
+export function useBookingEventById(eventId: string | undefined): BookingEvent | null | undefined {
   const [event, setEvent] = useState<BookingEvent | null | undefined>(undefined);
   useEffect(() => {
     setEvent(undefined);
@@ -346,7 +354,7 @@ function useBookingEventById(eventId: string | undefined): BookingEvent | null |
   return event;
 }
 
-function EventMissing({ onBack }: { onBack: () => void }) {
+export function EventMissing({ onBack }: { onBack: () => void }) {
   return (
     <div className="py-6">
       <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-muted transition hover:text-ink">
@@ -392,6 +400,7 @@ export function BookingEventCards() {
 }
 
 function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType<typeof useNavigate> }) {
+  const { access } = useAuth();
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [settlingRefunds, setSettlingRefunds] = useState(false);
@@ -449,9 +458,9 @@ function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType
   return (
     <>
       <li key={ev.id} className="py-4">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_10rem_8rem_8rem_6rem_auto] md:items-center md:gap-4">
-          <div>
-            <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_10rem_8rem_8rem_6rem] xl:items-center xl:gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium">{ev.title}</p>
               {isCancelled && (
                 <span className="inline-flex min-h-6 items-center rounded-full border border-accent-text px-2.5 text-xs font-medium text-accent-text">
@@ -463,6 +472,7 @@ function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType
               {{ f1: 'F1', cup: 'Kartar Cup', club: 'Kartar Club' }[ev.category ?? 'f1']} · {ev.venue.name}
               {ev.hosted === false && !ev.salesOpen ? ' · hidden' : ''}
             </p>
+            {refundsOffNoDate(ev) && <DateMsNotice ev={ev} />}
             {hasPendingRefunds && (
               <p className="mt-1 text-sm text-accent-text">{pendingRefunds} tickets still to refund</p>
             )}
@@ -477,24 +487,33 @@ function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType
           >
             {ev.salesOpen ? 'Open' : 'Closed'}
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-1 flex flex-wrap gap-2 xl:col-span-full">
             <Button variant="secondary" onClick={() => navigate(`${ev.id}/attendees`, { relative: 'path' })}>
               Attendees
             </Button>
             <Button variant="secondary" onClick={() => navigate(`${ev.id}/cards`, { relative: 'path' })}>
               Cards
             </Button>
+            {/* The quiz lives on events/ which only a host may write, so venue_host never sees this. */}
+            {access?.isHost && (
+              <Button variant="secondary" onClick={() => navigate(`${ev.id}/quiz`, { relative: 'path' })}>
+                Quiz
+              </Button>
+            )}
             {!isCancelled && (
               <>
                 <Button variant="secondary" onClick={() => navigate(`${ev.id}/edit`, { relative: 'path' })}>
                   Edit
                 </Button>
-                <Button variant="secondary" onClick={() => setCancelingId(ev.id)}>
-                  Cancel event
-                </Button>
+                {/* A1: cancelling an event opens refunds inside the cutoff, so only a refunder (rules: canRefund). */}
+                {access?.canRefund && (
+                  <Button variant="secondary" onClick={() => setCancelingId(ev.id)}>
+                    Cancel event
+                  </Button>
+                )}
               </>
             )}
-            {isCancelled && hasPendingRefunds && (
+            {isCancelled && hasPendingRefunds && access?.canRefund && (
               <Button variant="secondary" disabled={settlingRefunds} onClick={() => void handleSettleRefunds()}>
                 {settlingRefunds ? 'Settling...' : 'Finish refunds'}
               </Button>
@@ -539,6 +558,39 @@ function EventListRow({ ev, navigate }: { ev: BookingEvent; navigate: ReturnType
   );
 }
 
+/** A5: refunds fail closed for an event saved before dateMs existed; one click writes it, derived
+ * from the event's stored date exactly as the event form would. */
+function DateMsNotice({ ev }: { ev: BookingEvent }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ms = dateMsToSave(ev);
+  async function fix() {
+    if (ms === null) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await updateBookingEvent(ev.id, { dateMs: ms });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the date.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div role="status" className="mt-2 flex flex-wrap items-center gap-2 text-sm text-accent-text">
+      <span>Refunds are off for this event until its date is saved.</span>
+      {ms === null ? (
+        <span>Open Edit and set the date.</span>
+      ) : (
+        <Button variant="secondary" disabled={busy} onClick={() => void fix()}>
+          {busy ? 'Saving...' : 'Save date'}
+        </Button>
+      )}
+      {err && <span role="alert">{err}</span>}
+    </div>
+  );
+}
+
 /** Main BookingsAdmin component with nested routes. */
 export default function BookingsAdmin() {
   const navigate = useNavigate();
@@ -553,7 +605,7 @@ export default function BookingsAdmin() {
     return unsub;
   }, []);
 
-  // Nested views (form, attendees, cards) replace the list instead of rendering under it.
+  // Nested views (form, attendees, cards, quiz) replace the list instead of rendering under it.
   if (!atIndex) return <Outlet />;
 
   return (

@@ -1,3 +1,4 @@
+import { randomToken } from './token';
 /** Roles and what they unlock. This file is the single place that says what a role can do in the
  * UI; firestore.rules enforces the same thing server-side (the UI only hides what the rules would
  * refuse anyway). To give a role more power, change it here AND in the matching rules function. */
@@ -21,9 +22,9 @@ export interface RoleInfo {
 }
 
 export const ROLES: RoleInfo[] = [
-  { id: 'admin', label: 'Admin', blurb: 'Everything a host can do, plus managing people and roles (only a super admin can grant this).', link: false },
-  { id: 'host', label: 'Host', blurb: 'Runs the site: quiz settings, results, big screen, bookings, check-in, activity.', link: false },
-  { id: 'venue_host', label: 'Venue host', blurb: 'Runs tickets and door check-in only, not the quiz.', link: true },
+  { id: 'admin', label: 'Admin', blurb: 'Everything a host can do, plus managing people and roles, releasing part of a booking and setting the refund cutoff (only a super admin can grant this).', link: false },
+  { id: 'host', label: 'Host', blurb: 'Runs the site: quiz settings, results, big screen, bookings, check-in, activity. Can cancel a booking and refund it, but not release part of one.', link: false },
+  { id: 'venue_host', label: 'Venue host', blurb: 'Runs tickets and door check-in only, not the quiz. Cannot cancel a booking or give any refund.', link: true },
   { id: 'marketing', label: 'Marketing', blurb: 'Label for now: no extra access yet.', link: true },
   { id: 'social_admin', label: 'Social admin', blurb: 'Label for now: no extra access yet.', link: true },
   { id: 'contributor', label: 'Contributor', blurb: 'Label for now: no extra access yet.', link: true },
@@ -42,6 +43,12 @@ export interface Access {
   isHost: boolean;
   /** Bookings admin and door check-in. */
   canRunBookings: boolean;
+  /** R54: may cancel a booking and issue a refund. Host and above; never venue_host. */
+  canRefund: boolean;
+  /** R55: may release PART of a booking's seats. Admin and super admin only. */
+  canPartialRelease: boolean;
+  /** R56: may change the refund cutoff. Admin and super admin only. */
+  canEditRefundPolicy: boolean;
   /** May enter the host area at all. */
   isStaff: boolean;
   roles: Role[];
@@ -53,7 +60,15 @@ export function accessFor(isSuperAdmin: boolean, rawRoles: readonly string[]): A
   const isAdmin = isSuperAdmin || has('admin');
   const isHost = isAdmin || has('host');
   const canRunBookings = isHost || has('venue_host');
-  return { isSuperAdmin, isAdmin, isHost, canRunBookings, isStaff: canRunBookings, roles };
+  // Deliberately separate fields even where they equal an existing flag: the capability is the
+  // contract, so a future change to isHost/isAdmin cannot silently widen who may refund (R54-R56).
+  const canRefund = isHost;
+  const canPartialRelease = isAdmin;
+  const canEditRefundPolicy = isAdmin;
+  return {
+    isSuperAdmin, isAdmin, isHost, canRunBookings, canRefund, canPartialRelease, canEditRefundPolicy,
+    isStaff: canRunBookings, roles,
+  };
 }
 
 /** Roles this person may put on someone else. Only a super admin may touch 'admin'. */
@@ -77,25 +92,10 @@ export function toggleRole(current: readonly string[], role: Role, on: boolean):
   return ROLE_IDS.filter((r) => set.has(r));
 }
 
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-
 /** An unguessable invite token: 32 chars of base62 from the browser's secure RNG (~190 bits). The
  * link is the secret, so this must never be Math.random. */
 export function newInviteToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  // 256 is not a multiple of 62; reject the biased tail so every character is equally likely.
-  let out = '';
-  let i = 0;
-  while (out.length < 32) {
-    if (i >= bytes.length) {
-      crypto.getRandomValues(bytes);
-      i = 0;
-    }
-    const b = bytes[i++];
-    if (b < 248) out += ALPHABET[b % 62];
-  }
-  return out;
+  return randomToken(32);
 }
 
 export const INVITE_DAY_OPTIONS = [1, 7, 30, 90] as const;

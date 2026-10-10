@@ -65,6 +65,15 @@ describe('stage helpers', () => {
     expect(clampStage(9)).toBe(3);
     expect(clampStage(1.6)).toBe(2);
   });
+  // ScreenApp feeds this straight from a Firestore field, so a missing or junk `stage` must still
+  // land on a real Stage, never NaN (which would make every isRevealed comparison false and blank
+  // the big screen mid-reveal).
+  it('clampStage returns 0 for a non-finite stage from Firestore', () => {
+    expect(clampStage(Number.NaN)).toBe(0);
+    expect(clampStage(Number.POSITIVE_INFINITY)).toBe(3);
+    expect(clampStage(Number.NEGATIVE_INFINITY)).toBe(0);
+    expect(clampStage(undefined as unknown as number)).toBe(0);
+  });
 });
 
 describe('isRevealed', () => {

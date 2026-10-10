@@ -23,15 +23,20 @@ describe('event config', () => {
 });
 
 describe('buildDefaultEvent', () => {
-  it('opens at race start and closes 81 minutes later for 90 min default', async () => {
+  it('opens 10 minutes before lights out and closes at 30% of a 90 min race (27 minutes in)', async () => {
     const { config: ev } = await buildDefaultEvent(ALL_RACES[0]);
     expect(ev.raceDurationMin).toBe(90);
-    expect(ev.opensAt.toMillis()).toBe(ev.raceStartUtc.toMillis());
-    expect(ev.closesAt.toMillis() - ev.opensAt.toMillis()).toBe(81 * 60_000);
+    expect(ev.raceStartUtc.toMillis() - ev.opensAt.toMillis()).toBe(10 * 60_000);
+    expect(ev.closesAt.toMillis() - ev.raceStartUtc.toMillis()).toBe(27 * 60_000);
   });
   it('scales close with duration', async () => {
     const { config: e } = await buildDefaultEvent(ALL_RACES[0], 100);
-    expect(e.closesAt.toMillis() - e.opensAt.toMillis()).toBe(90 * 60_000);
+    expect(e.closesAt.toMillis() - e.raceStartUtc.toMillis()).toBe(30 * 60_000);
+  });
+  it('takes the total laps from the race facts', async () => {
+    const { factsFor } = await import('./tracks/raceFacts');
+    const { config: e } = await buildDefaultEvent(ALL_RACES[0]);
+    expect(e.totalLaps).toBe(factsFor(ALL_RACES[0].id)?.laps);
   });
   it('has 22 drivers, 11 teams, 5 questions with mirrored ids, falling back to the static grid without network', async () => {
     const { config: ev, gridStatus } = await buildDefaultEvent(ALL_RACES[0]);

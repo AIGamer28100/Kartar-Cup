@@ -3,6 +3,8 @@ import type { RaceInfo } from './calendar/types';
 import type { DriverCfg, EventConfig, Option, Question, TeamCfg } from '../lib/types';
 import { fetchSchedule, raceStartFor } from '../lib/f1api';
 import { fetchLineupForRace } from '../lib/openf1';
+import { defaultQuizWindow } from '../lib/quizWindow';
+import { factsFor } from './tracks/raceFacts';
 
 export const WHATSAPP_COMMUNITY_URL = '';
 export const SITE_TITLE = 'Kartar CUP';
@@ -110,7 +112,9 @@ export async function buildDefaultEvent(
   // the flat default only when the API has nothing for this round.
   const schedule = await fetchSchedule(race.season);
   const startMs = raceStartFor(race, schedule).ms;
-  const closesMs = startMs + Math.round(0.9 * durationMin * 60_000);
+  // Opens 10 minutes before the scheduled lights out, closes at 30% of the race (lap count first, see quizWindow).
+  const win = defaultQuizWindow(startMs, durationMin);
+  const laps = factsFor(race.id)?.laps;
   const now = Timestamp.now();
   const { teams, drivers, gridStatus } = await fetchLiveGrid(race);
   return {
@@ -123,9 +127,10 @@ export async function buildDefaultEvent(
       themeId: race.themeId,
       raceStartUtc: Timestamp.fromMillis(startMs),
       raceDurationMin: durationMin,
-      opensAt: Timestamp.fromMillis(startMs),
-      closesAt: Timestamp.fromMillis(closesMs),
+      opensAt: Timestamp.fromMillis(win.opensMs),
+      closesAt: Timestamp.fromMillis(win.closesMs),
       override: 'none',
+      ...(laps ? { totalLaps: laps } : {}),
       whatsappUrl: WHATSAPP_COMMUNITY_URL,
       teams,
       drivers,

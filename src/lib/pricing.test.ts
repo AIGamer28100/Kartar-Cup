@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Timestamp } from 'firebase/firestore';
-import { applyDiscount } from './pricing';
+import { applyDiscount, partialReleaseTotals } from './pricing';
 import type { Discount, PriceTier } from './types';
 
 const T = 1_000_000_000_000; // fixed "now" for validFrom/To window tests
@@ -119,5 +119,22 @@ describe('applyDiscount', () => {
     const r = applyDiscount(tier({ capacity: 5 }), null, 10);
     expect(r.totalSeats).toBe(10);
     expect(r.totalInr).toBe(5000);
+  });
+});
+
+describe('partialReleaseTotals (R55)', () => {
+  it('no discount: refunds the released tickets at full price', () => {
+    expect(partialReleaseTotals({ qty: 4, unitPriceInr: 500, totalInr: 2000 }, 3)).toEqual({ totalInr: 1500, discountAmountInr: 0, refundInr: 500 });
+  });
+  it('discounted: pro-rata, rounded so the refund never exceeds its share', () => {
+    // 3 x 500 with 10% off = 1350; keeping 2 -> ceil(900) = 900, refund 450
+    expect(partialReleaseTotals({ qty: 3, unitPriceInr: 500, totalInr: 1350 }, 2)).toEqual({ totalInr: 900, discountAmountInr: 100, refundInr: 450 });
+    // 3 x 100 for 100 total (odd split): keeping 1 -> ceil(33.33) = 34, refund 66 (not 67)
+    expect(partialReleaseTotals({ qty: 3, unitPriceInr: 100, totalInr: 100 }, 1)).toEqual({ totalInr: 34, discountAmountInr: 66, refundInr: 66 });
+  });
+  it('unit price x kept - discount always equals the new total', () => {
+    const t = partialReleaseTotals({ qty: 7, unitPriceInr: 333, totalInr: 1999 }, 4);
+    expect(333 * 4 - t.discountAmountInr).toBe(t.totalInr);
+    expect(t.refundInr).toBe(1999 - t.totalInr);
   });
 });

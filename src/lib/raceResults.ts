@@ -175,7 +175,7 @@ export function mapFactsToQuestions(
   return { answers, filled, skipped };
 }
 
-export type FactsResult = { ok: true; facts: RaceFacts; sessionKey: number } | { ok: false; reason: string };
+export type FactsResult = { ok: true; facts: RaceFacts; sessionKey: number; outcome: PullOutcome } | { ok: false; reason: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -224,14 +224,67 @@ export async function fetchRaceFacts(sessionKey: number): Promise<FactsResult> {
   if (sessionResult.length === 0 && laps.length === 0 && failed.length === 0) {
     return { ok: false, reason: 'OpenF1 has no results for this race yet - try again after the race.' };
   }
-  return { ok: true, facts: deriveRaceFacts({ drivers, sessionResult, pits, overtakes, laps, failed }), sessionKey };
+  const raw: RawRaceData = { drivers, sessionResult, pits, overtakes, laps, failed };
+  return { ok: true, facts: deriveRaceFacts(raw), sessionKey, outcome: pullOutcome(raw) };
 }
 
 export async function fetchRaceFactsForRace(
   year: number,
-  race: { country: string; locality: string; raceDate: string },
+  race: { id?: string; country: string; locality: string; raceDate: string },
 ): Promise<FactsResult> {
   const session = await findSessionKey(year, race);
   if (!session.ok) return { ok: false, reason: session.reason };
   return fetchRaceFacts(session.sessionKey);
+}
+
+/* ---------- automatic pull scheduling ---------- */
+
+/** OpenF1's free API serves no data from 30 min before a session until 30 min after it ends. */
+export const BLACKOUT_MS = 30 * 60 * 1000;
+export const RETRY_MS = 2 * 60 * 1000;
+export const MAX_PULL_ATTEMPTS = 10;
+
+/** 'complete' = every dataset came back with rows; 'partial' = some empty or failed; 'none' = no usable result. */
+export type PullOutcome = 'complete' | 'partial' | 'none';
+
+export interface PullPlanInput {
+  /** When the race ended (actual OpenF1 end if known, else start + duration). */
+  raceEndMs: number;
+  now: number;
+  /** When the last pull finished; null/undefined = never pulled. */
+  lastPullMs?: number | null;
+  lastOutcome?: PullOutcome | null;
+  /** Pulls already made this session. Defaults to 1 when lastPullMs is set, else 0. */
+  attempts?: number;
+}
+
+export type PullPlan =
+  | { state: 'waiting'; raceEndMs: number; dataFromMs: number }
+  | { state: 'blackout'; dataFromMs: number; msLeft: number }
+  | { state: 'pull'; dataFromMs: number }
+  | { state: 'retrying'; dataFromMs: number; nextPullMs: number; msLeft: number }
+  | { state: 'ready'; dataFromMs: number }
+  | { state: 'stopped'; dataFromMs: number };
+
+/** Pure scheduler: what the results screen should show, and whether to pull right now. */
+export function nextResultsPull(i: PullPlanInput): PullPlan {
+  const dataFromMs = i.raceEndMs + BLACKOUT_MS;
+  if (i.now < i.raceEndMs) return { state: 'waiting', raceEndMs: i.raceEndMs, dataFromMs };
+  if (i.now < dataFromMs) return { state: 'blackout', dataFromMs, msLeft: dataFromMs - i.now };
+  const never = i.lastPullMs == null;
+  if (never) return { state: 'pull', dataFromMs };
+  if (i.lastOutcome === 'complete') return { state: 'ready', dataFromMs };
+  const attempts = i.attempts ?? 1;
+  if (attempts >= MAX_PULL_ATTEMPTS) return { state: 'stopped', dataFromMs };
+  const nextPullMs = (i.lastPullMs as number) + RETRY_MS;
+  if (i.now >= nextPullMs) return { state: 'pull', dataFromMs };
+  return { state: 'retrying', dataFromMs, nextPullMs, msLeft: nextPullMs - i.now };
+}
+
+/** Did the pull find everything? Any failed or empty dataset (other than "nobody retired") means retry. */
+export function pullOutcome(raw: Pick<RawRaceData, 'failed' | 'pits' | 'overtakes' | 'laps' | 'sessionResult'>): PullOutcome {
+  if ((raw.failed?.length ?? 0) > 0) return 'partial';
+  if (raw.sessionResult.length === 0 && raw.laps.length === 0) return 'none';
+  if (raw.sessionResult.length === 0 || raw.pits.length === 0 || raw.overtakes.length === 0 || raw.laps.length === 0) return 'partial';
+  return 'complete';
 }

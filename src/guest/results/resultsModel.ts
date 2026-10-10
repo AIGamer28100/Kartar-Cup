@@ -1,4 +1,5 @@
 /* Pure helpers for the race detail results hub (formula1.com-style classification). No React, no DOM. */
+import type { PodiumDriver } from '../../components/RaceStateDisplay';
 import { formatLapTime, sessionPhase, type RaceSession, type ResultRow, type SessionPhase } from '../../lib/raceData';
 
 export type SessionKind = 'practice' | 'qualifying' | 'sprint' | 'race';
@@ -123,6 +124,23 @@ export function defaultSessionKey(sessions: RaceSession[], now = Date.now()): nu
   return done.reduce((a, b) => (Date.parse(b.session.startUtc) >= Date.parse(a.session.startUtc) ? b : a)).session.key;
 }
 
+/**
+ * Which session the hub opens on. Once the race itself is done: the latest finished session (the race).
+ * Before that: the one running now, else the next one to run, so a weekend opens on what is coming up;
+ * if nothing is left to run, the latest finished one, else the last session of the weekend.
+ */
+export function openingSessionKey(sessions: RaceSession[], now = Date.now()): number | null {
+  if (!sessions.length) return null;
+  const tabs = sessionTabs(sessions, now);
+  const startOf = (t: SessionTabState) => Date.parse(t.session.startUtc);
+  if (tabs.some((t) => t.available && sessionKind(t.session.name) === 'race')) return defaultSessionKey(sessions, now);
+  const live = tabs.find((t) => t.phase === 'inprogress' && !t.session.cancelled);
+  if (live) return live.session.key;
+  const next = tabs.filter((t) => t.phase === 'upcoming' && !t.session.cancelled).sort((a, b) => startOf(a) - startOf(b))[0];
+  if (next) return next.session.key;
+  return defaultSessionKey(sessions, now) ?? [...tabs].sort((a, b) => startOf(b) - startOf(a))[0].session.key;
+}
+
 export interface LapLike {
   driver_number: number;
   lap_number?: number;
@@ -140,4 +158,32 @@ export function fastestLapOf(laps: LapLike[]): { driverNumber: number; lapNumber
     }
   }
   return best;
+}
+
+/** A classified finisher on the podium (P1-P3, no DSQ / DNS / DNF / NC status). */
+export const isPodiumRow = (r: ResultRow): boolean => r.position != null && r.position <= 3 && statusText(r) == null;
+
+/**
+ * The podium for a race or sprint, from its classification: exactly P1, P2 and P3, each classified.
+ * Anything less (a session still scoring, missing rows) returns null and the page shows no podium.
+ */
+export function podiumFromRows(rows: ResultRow[], kind: SessionKind): PodiumDriver[] | null {
+  if (kind !== 'race' && kind !== 'sprint') return null;
+  const leader = rows.find((r) => r.position === 1);
+  const out: PodiumDriver[] = [];
+  for (const pos of [1, 2, 3]) {
+    const r = rows.find((x) => x.position === pos);
+    if (!r || !isPodiumRow(r)) return null;
+    out.push({
+      position: pos,
+      name: r.name,
+      code: r.code,
+      team: r.team,
+      colour: r.colour,
+      headshotUrl: r.headshotUrl,
+      points: r.points,
+      detail: timeOrGap(r, leader, kind) || undefined,
+    });
+  }
+  return out;
 }

@@ -3,7 +3,7 @@ import {
   watchActiveEventId,
   watchEntries,
   watchEventConfig,
-  watchResults,
+  watchActiveResults,
   watchScreenState,
 } from '../../lib/db';
 import { pointsMap, rankEntries } from '../../lib/scoring';
@@ -62,7 +62,7 @@ export function useScreenData(): ScreenData {
       setEntries(e);
       setReady((r) => ({ ...r, entries: true }));
     }, fail);
-    const u3 = watchResults((r) => setResults(r?.answers ?? {}), fail);
+    const u3 = watchActiveResults((r) => setResults(r?.answers ?? {}), fail);
     const u4 = watchScreenState(eventId, setScreenStateLocal, fail);
     return () => {
       u1();

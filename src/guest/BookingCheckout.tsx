@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { TicketIcon } from '@phosphor-icons/react';
-import Button from '../components/Button';
+import BackLink from '../components/BackLink';
+import Button, { buttonCls } from '../components/Button';
 import Skeleton, { PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { applyDiscount, createReservation, markPaidMock, watchBooking, watchBookingEvent, watchTierCounts } from '../lib/bookings';
 import { venueEmbedUrl, venueMapLink } from '../lib/mapEmbed';
 import type { BookingEvent, PriceTier } from '../lib/types';
-import { TicketQr } from './TicketView';
+import { TicketQr, useQrTokenIssue } from './TicketView';
 import TicketActions, { PolicyNote } from './TicketActions';
-import { maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
+import { discountNotice, findDiscountByCode, maxQtyFor, seatsLabel, seatsLeft } from './bookingModel';
 import { formatInr } from './profileModel';
 import { usePageMeta } from '../lib/pageMeta';
 import { Eyebrow, PageTitle, Reveal, Shell } from './parts';
 
 /** Guest-side date formatter, kept local rather than importing from src/host/** (host code is
  * lazy-loaded separately precisely so guests never download it, per HostApp.tsx). */
-function fmtLocal(ms: number): string {
+export function fmtLocal(ms: number): string {
   return new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     day: '2-digit',
@@ -33,7 +34,7 @@ const inputCls =
 
 /** Google Maps for the venue: an embedded map plus open/directions links. Uses the host's pasted
  * link when it embeds, else a search for the venue's name and city, so every venue gets a map. */
-function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
+export function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
   const embed = venueEmbedUrl(venue);
   return (
     <div className="flex flex-col items-center">
@@ -42,7 +43,8 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
           href={venueMapLink(venue)}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full max-w-[280px] aspect-square rounded-lg border border-line m-4 overflow-hidden hover:opacity-90 transition"
+          aria-label={`Open map: ${venue.name}`}
+          className="group relative block w-full max-w-[280px] aspect-square rounded-lg border border-line m-4 overflow-hidden transition hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <iframe
             src={embed}
@@ -51,6 +53,9 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
             referrerPolicy="no-referrer-when-downgrade"
             title={`Map of ${venue.name}`}
           />
+          <span className="absolute inset-x-2 bottom-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-raised/90 px-3 text-sm font-medium text-ink">
+            Open in Maps
+          </span>
         </a>
       )}
     </div>
@@ -60,7 +65,7 @@ function VenueMap({ venue }: { venue: BookingEvent['venue'] }) {
 /** Eyebrow wording per category (R50); legacy docs without a category are F1 watch parties. */
 const KIND_LABEL = { f1: 'Watch party', cup: 'Kartar Cup event', club: 'Kartar Club event' } as const;
 
-function ClosedNotice({ event }: { event: BookingEvent | null }) {
+export function ClosedNotice({ event }: { event: BookingEvent | null }) {
   const cancelled = event?.cancelled === true;
   const soon = !!event && event.hosted === true;
   return (
@@ -83,37 +88,38 @@ function ClosedNotice({ event }: { event: BookingEvent | null }) {
             {soon ? 'Booking is opening soon. Check back here or on the events page.' : 'This event isn\u2019t taking bookings right now.'}
           </p>
         )}
-        <Link
-          to="/events"
-          className="kerb-link kerb-link--rest mt-6 inline-flex min-h-11 items-center text-sm font-medium text-accent-text"
-        >
-          Back to events
-        </Link>
+        <BackLink to="/events" className="mt-6">Back to events</BackLink>
       </Reveal>
     </Shell>
   );
 }
 
-interface Reservation {
+export interface Reservation {
   bookingId: string;
   tierLabel: string;
   qty: number;
   totalInr: number;
 }
 
-function SuccessView({ event, reservation }: { event: BookingEvent; reservation: Reservation }) {
+export function SuccessView({ event, reservation }: { event: BookingEvent; reservation: Reservation }) {
   // The QR encodes the booking's secret qrToken, which only the booking document knows: read it back
-  // (the buyer may read their own booking). Old bookings without a token fall back to the id.
+  // (the buyer may read their own booking). No token means no QR: the owner issues one (never the id).
+  const { user } = useAuth();
   const [qrToken, setQrToken] = useState<string | null | undefined>(undefined);
+  const [issuable, setIssuable] = useState(false);
   useEffect(
     () =>
       watchBooking(
         reservation.bookingId,
-        (b) => setQrToken(b ? (b.qrToken ?? null) : null),
+        (b) => {
+          setQrToken(b ? (b.qrToken ?? null) : null);
+          setIssuable(!!b && !!user && b.buyerUid === user.uid && b.status !== 'cancelled');
+        },
         () => setQrToken(null),
       ),
-    [reservation.bookingId],
+    [reservation.bookingId, user],
   );
+  const issue = useQrTokenIssue(reservation.bookingId, qrToken, issuable && qrToken !== undefined);
   return (
     <Shell>
       <Reveal>
@@ -129,7 +135,7 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
             <Skeleton variant="shimmer" className="size-60 rounded-lg" />
           </div>
         ) : (
-          <TicketQr bookingId={reservation.bookingId} qrToken={qrToken} />
+          <TicketQr bookingId={reservation.bookingId} qrToken={qrToken} issue={issue} />
         )}
       </Reveal>
       <Reveal index={2} className="mt-8">
@@ -143,13 +149,13 @@ function SuccessView({ event, reservation }: { event: BookingEvent; reservation:
       <Reveal index={4} className="mt-6 flex flex-wrap gap-3">
         <Link
           to={`/tickets/${reservation.bookingId}`}
-          className="inline-flex min-h-12 items-center rounded-lg border border-line bg-raised px-5 text-[1rem] font-medium text-ink transition duration-150 hover:border-muted active:translate-y-px active:scale-[0.98]"
+          className={buttonCls('secondary')}
         >
           Open ticket page
         </Link>
         <Link
           to="/profile"
-          className="inline-flex min-h-12 items-center rounded-lg px-4 text-[1rem] font-medium text-muted transition hover:text-ink"
+          className={buttonCls('ghost')}
         >
           Your bookings
         </Link>
@@ -162,7 +168,7 @@ type TierCounts = Record<string, number>;
 
 /** Remaining TICKETS for a tier: its own capacity (0 = unlimited) minus tickets already sold, also
  * limited by the event's remaining seats. Both limits are enforced by firestore.rules. */
-function getTierRemainingTickets(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
+export function getTierRemainingTickets(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
   const seatsPerTicket = tier.seatsPerTicket ?? 1;
   const byEvent = Math.floor(seatsLeft(event) / seatsPerTicket);
   if (!tier.capacity || tier.capacity <= 0) return byEvent;
@@ -170,17 +176,17 @@ function getTierRemainingTickets(event: BookingEvent, tier: PriceTier, counts: T
 }
 
 /** Max quantity (number of tickets) for a tier. */
-function getTierMaxQty(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
+export function getTierMaxQty(event: BookingEvent, tier: PriceTier, counts: TierCounts): number {
   return maxQtyFor(getTierRemainingTickets(event, tier, counts));
 }
 
-/** Check if a tier is sold out. */
-function isTierSoldOut(event: BookingEvent, tier: PriceTier, counts: TierCounts): boolean {
-  return getTierMaxQty(event, tier, counts) <= 0;
+/** Check if a tier is sold out. Uses remaining tickets, not getTierMaxQty: that floors at 1 for the quantity stepper, so it can never signal sold out. */
+export function isTierSoldOut(event: BookingEvent, tier: PriceTier, counts: TierCounts): boolean {
+  return getTierRemainingTickets(event, tier, counts) <= 0;
 }
 
 /** Sticky order summary panel for desktop (sidebar). */
-function OrderSummary({
+export function OrderSummary({
   event,
   tier,
   qty,
@@ -191,6 +197,7 @@ function OrderSummary({
   user,
   error,
   tierSoldOut,
+  eventSoldOut,
 }: {
   event: BookingEvent;
   tier: PriceTier | undefined;
@@ -202,8 +209,11 @@ function OrderSummary({
   user: { uid: string; displayName?: string | null; email?: string | null } | null;
   error: string;
   tierSoldOut: boolean;
+  /** Event full, or every tier sold out. */
+  eventSoldOut: boolean;
 }) {
   const seatsPerTicket = tier?.seatsPerTicket ?? 1;
+  const reserveBlocked = tierSoldOut || eventSoldOut;
 
   return (
     <aside className="hidden lg:block lg:col-span-4 xl:col-span-3">
@@ -275,11 +285,11 @@ function OrderSummary({
 
           <Button
             onClick={onBuy}
-            disabled={busy || !tier || tierSoldOut}
+            disabled={busy || !tier || reserveBlocked}
             className="w-full mt-4"
           >
             <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : reserveBlocked ? 'Sold out' : `Reserve & pay ${formatInr(preview.totalInr)}`}
           </Button>
           <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
         </div>
@@ -294,7 +304,7 @@ function OrderSummary({
 }
 
 /** Main content area with event details and map. */
-function EventDetails({
+export function EventDetails({
   event,
   tier,
   qty,
@@ -330,6 +340,7 @@ function EventDetails({
   eventSoldOut: boolean;
 }) {
   const seatsPerTicket = tier?.seatsPerTicket ?? 1;
+  const reserveBlocked = tierSoldOut || eventSoldOut || (event.tiers.length > 0 && event.tiers.every((t) => isTierSoldOut(event, t, tierCounts)));
 
   return (
     <div className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-6">
@@ -354,19 +365,20 @@ function EventDetails({
       <div className="rounded-lg border border-line bg-raised p-5">
         <h3 className="font-medium text-ink">Select tier</h3>
         <div role="radiogroup" aria-label="Price tier" className="mt-3 space-y-2">
-          {event.tiers.filter((t) => !isTierSoldOut(event, t, tierCounts)).length === 0 && (
+          {/* length check: an event with no tiers configured at all is not "sold out". */}
+          {event.tiers.length > 0 && event.tiers.every((t) => isTierSoldOut(event, t, tierCounts)) && (
             <p className="text-sm text-accent-text">All tiers are sold out.</p>
           )}
-          {event.tiers.filter((t) => !isTierSoldOut(event, t, tierCounts)).map((t) => {
+          {event.tiers.map((t) => {
             const tSoldOut = isTierSoldOut(event, t, tierCounts);
             const tRemaining = getTierRemainingTickets(event, t, tierCounts);
             const tSeatsPerTicket = t.seatsPerTicket ?? 1;
             return (
               <label
                 key={t.id}
-                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg border p-3 transition ${tSoldOut
+                className={`flex items-center justify-between gap-4 rounded-lg border p-3 transition ${tSoldOut
                   ? 'border-line bg-base/50 opacity-50 cursor-not-allowed'
-                  : 'border-line bg-base hover:border-muted has-checked:border-accent has-checked:bg-accent/5'
+                  : 'cursor-pointer border-line bg-base hover:border-muted has-checked:border-accent has-checked:bg-accent/5'
                   }`}
               >
                 <span className="flex items-center gap-3 flex-1 min-w-0">
@@ -387,7 +399,7 @@ function EventDetails({
                     {!tSoldOut && tRemaining < 100 && (
                       <span className="block text-xs text-accent-text">{tRemaining} tickets left</span>
                     )}
-                    {tSoldOut && <span className="text-xs text-accent-text">Sold out</span>}
+                    {tSoldOut && <span className="block text-xs text-accent-text">Sold out</span>}
                   </div>
                 </span>
                 <span className="font-mono text-sm text-muted whitespace-nowrap">{formatInr(t.priceInr)}</span>
@@ -482,11 +494,11 @@ function EventDetails({
           {!user && <p className="mt-3 text-center text-sm text-muted">Sign in to complete your booking</p>}
           <Button
             onClick={onBuy}
-            disabled={busy || !tier || tierSoldOut}
+            disabled={busy || !tier || reserveBlocked}
             className="w-full mt-4"
           >
             <TicketIcon size={20} weight="regular" aria-hidden="true" />
-            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : `Reserve & pay ${formatInr(preview.totalInr)}`}
+            {busy ? 'Reserving...' : !user ? 'Sign in to reserve' : reserveBlocked ? 'Sold out' : `Reserve & pay ${formatInr(preview.totalInr)}`}
           </Button>
           <p className="mt-3 text-xs text-muted text-center">Payment is a sample for now: nothing is charged.</p>
         </div>
@@ -530,13 +542,15 @@ export default function BookingCheckout() {
   useEffect(() => {
     const first = event?.tiers.find((t) => !isTierSoldOut(event, t, tierCounts));
     if (event && !tierId && first) setTierId(first.id);
-  }, [event, tierId]);
+  }, [event, tierId, tierCounts]);
 
   // Calculate per-tier maxQty and soldOut
   const tier = event?.tiers.find((t) => t.id === tierId);
   const tierMaxQty = tier && event ? getTierMaxQty(event, tier, tierCounts) : 0;
   const tierSoldOut = tier && event ? isTierSoldOut(event, tier, tierCounts) : false;
   const eventSoldOut = event ? seatsLeft(event) <= 0 : false;
+  // The auto-reset below clears a sold-out selection, so with every tier gone `tier` is undefined: the button still has to say Sold out.
+  const allTiersSoldOut = event ? event.tiers.length > 0 && event.tiers.every((t) => isTierSoldOut(event, t, tierCounts)) : false;
 
   useEffect(() => {
     if (tier) {
@@ -544,14 +558,13 @@ export default function BookingCheckout() {
     }
   }, [tierMaxQty, tier]);
 
-  const discount = useMemo(
-    () =>
-      event && discountCode.trim()
-        ? (event.discounts.find((d) => d.code?.toLowerCase() === discountCode.trim().toLowerCase()) ?? null)
-        : null,
-    [event, discountCode],
-  );
-  const preview = useMemo(() => applyDiscount(tier, discount, qty), [tier, discount, qty]);
+  const discount = useMemo(() => (event ? findDiscountByCode(event.discounts, discountCode) : null), [event, discountCode]);
+  const preview = useMemo(() => {
+    const p = applyDiscount(tier, discount, qty);
+    // A code that matched nothing arrives here as null, which applyDiscount has no reason to reject:
+    // fill the message in so a wrong code is not silently ignored.
+    return { ...p, rejectedReason: discountNotice(discountCode, discount, p.rejectedReason) };
+  }, [tier, discount, qty, discountCode]);
 
   // Auto-reset tier selection if current tier becomes sold out
   useEffect(() => {
@@ -621,6 +634,7 @@ export default function BookingCheckout() {
           user={user}
           error={error}
           tierSoldOut={tierSoldOut}
+          eventSoldOut={eventSoldOut || allTiersSoldOut}
         />
 
         {/* Main content */}

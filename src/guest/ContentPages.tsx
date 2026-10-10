@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import BackLink from '../components/BackLink';
+import { buttonCls } from '../components/Button';
 import {
   PARTNER_KINDS,
   partnerKindLabel,
@@ -50,7 +52,7 @@ function PartnerCard({ p }: { p: Partner }) {
       <span className="w-fit rounded-full border border-line px-2.5 font-mono text-xs uppercase tracking-widest text-muted">{partnerKindLabel(p.kind)}</span>
       {p.blurb && <p className="text-pretty text-sm text-muted">{p.blurb}</p>}
       {p.website && (
-        <a href={p.website} target="_blank" rel="noopener noreferrer" className="kerb-link kerb-link--rest mt-auto inline-flex min-h-11 w-fit items-center text-sm text-accent-text">
+        <a href={p.website} target="_blank" rel="noopener noreferrer" className={buttonCls('secondary', 'press mt-auto w-fit min-h-11 text-sm')}>
           Visit website<span className="sr-only"> for {p.name} (opens in a new tab)</span>
         </a>
       )}
@@ -136,7 +138,7 @@ export function StoriesPage() {
     return (
       <Shell>
         <Reveal>
-          <Link to="/stories" className="kerb-link kerb-link--rest inline-flex min-h-11 items-center text-sm text-accent-text">All stories</Link>
+          <BackLink to="/stories">All stories</BackLink>
           {failed && <p role="alert" className="mt-4 text-accent-text">We could not load this story right now.</p>}
           {!failed && items === null && <p role="status" className="mt-4 text-muted">Loading...</p>}
           {items && !story && <p className="mt-4 text-muted">We could not find that story. It may have been removed.</p>}

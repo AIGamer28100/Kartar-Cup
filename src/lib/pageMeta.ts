@@ -9,6 +9,8 @@ export interface PageMeta {
   title?: string;
   description?: string;
   image?: string;
+  /** Ask crawlers not to index this page (private links such as /play). */
+  noindex?: boolean;
 }
 
 /** Pure: "Page | Kartar CUP", or just the site name when there is no (or a redundant) page title. */
@@ -40,7 +42,7 @@ function setMeta(attr: 'name' | 'property', key: string, value: string): void {
 
 /** Client-side title/description/OG/Twitter tags. Restores the defaults on unmount. Crawlers that
  * do not run JS only ever see index.html's defaults (SPA limit; per-event cards need prerendering). */
-export function usePageMeta({ title, description, image }: PageMeta): void {
+export function usePageMeta({ title, description, image, noindex }: PageMeta): void {
   useEffect(() => {
     const t = buildTitle(title);
     const d = buildDescription(description);
@@ -50,11 +52,13 @@ export function usePageMeta({ title, description, image }: PageMeta): void {
     setMeta('property', 'og:description', d);
     setMeta('name', 'twitter:title', t);
     setMeta('name', 'twitter:description', d);
+    if (noindex) setMeta('name', 'robots', 'noindex');
     if (image) {
       setMeta('property', 'og:image', image);
       setMeta('name', 'twitter:image', image);
     }
     return () => {
+      if (noindex) document.head.querySelector('meta[name="robots"]')?.remove();
       document.title = SITE_NAME;
       setMeta('name', 'description', DEFAULT_DESCRIPTION);
       setMeta('property', 'og:title', SITE_NAME);
@@ -62,5 +66,5 @@ export function usePageMeta({ title, description, image }: PageMeta): void {
       setMeta('name', 'twitter:title', SITE_NAME);
       setMeta('name', 'twitter:description', DEFAULT_DESCRIPTION);
     };
-  }, [title, description, image]);
+  }, [title, description, image, noindex]);
 }

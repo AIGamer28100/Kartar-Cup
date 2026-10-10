@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
-import { Check, Gauge, List, SignIn, User, WhatsappLogo, X } from '@phosphor-icons/react';
+import { ArrowRight, Check, Gauge, List, SignIn, User, WhatsappLogo, X } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { signInGoogle } from '../lib/firebase';
 import { isInAppBrowser } from '../lib/inAppBrowser';
 import { signInError } from './SignIn';
 import type { EventConfig } from '../lib/types';
 import { useCountdown } from '../lib/useCountdown';
+import { buttonCls } from '../components/Button';
 import Divider from '../components/Divider';
 import { CONTACT } from '../config/contact';
 import { DEVELOPER, OPERATOR } from '../config/legal';
@@ -90,7 +91,7 @@ function HeaderSignIn() {
   return (
     <div className="flex items-center gap-2">
       {err && <span className="hidden text-xs text-muted sm:inline">{err}</span>}
-      <button type="button" className={linkCls} disabled={busy} onClick={() => void start()}>
+      <button type="button" className={buttonCls('secondary', 'press min-h-11 px-4 text-sm')} disabled={busy} onClick={() => void start()}>
         <SignIn size={20} weight="regular" aria-hidden="true" />
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
@@ -210,7 +211,7 @@ function MobileMenu({ user, isHost, ready }: { user: unknown; isHost: boolean | 
                     </Link>
                   )}
                   {showSignIn && (
-                    <button type="button" className={menuItemCls} disabled={signIn.busy} onClick={() => void signIn.start()}>
+                    <button type="button" className={buttonCls('primary', 'press mt-1 w-full')} disabled={signIn.busy} onClick={() => void signIn.start()}>
                       <SignIn size={20} weight="regular" aria-hidden="true" />
                       {signIn.busy ? 'Signing in…' : 'Sign in'}
                     </button>
@@ -279,6 +280,9 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
 const footLinkCls =
   'kerb-link -mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-[current=page]:text-ink';
 
+const footChipCls =
+  'press group inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-raised px-4 text-sm text-ink transition-colors duration-150 hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
 const footHeadCls = 'font-mono text-xs uppercase tracking-widest text-muted';
 
 /** Footer top edge: the brand gradient hairline with a short kerb strip that sweeps across once
@@ -303,7 +307,7 @@ function FooterKerb() {
 }
 
 /** Public-site footer (non-bare pages only). Sits outside <main> so it is the page's contentinfo
- * landmark. Own text wordmark only (R27). Brand + tagline, Explore links, Community/contact with
+ * landmark. Own text wordmark only (R27). Brand + tagline and Community/contact with
  * the real handles from src/config/contact.ts. On phones App pads the page bottom to clear the
  * fixed tab bar and race strip, so nothing here needs its own offset. */
 function SiteFooter() {
@@ -311,8 +315,8 @@ function SiteFooter() {
   return (
     <footer className="mt-auto pt-6">
       <FooterKerb />
-      <div className="grid grid-cols-2 gap-x-6 gap-y-10 py-10 md:grid-cols-[1.3fr_1.5fr_1fr] md:gap-x-12 md:py-14">
-        <InView kind="fade" className="col-span-2 max-w-sm md:col-span-1">
+      <div className="grid grid-cols-1 gap-y-10 py-10 md:grid-cols-[1.5fr_1fr] md:gap-x-12 md:py-14">
+        <InView kind="fade" className="max-w-sm">
           <p className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
             Kartar CUP
@@ -321,24 +325,12 @@ function SiteFooter() {
             Karting events and sim racing. Watch parties with The Karter Club.
           </p>
         </InView>
-        <nav aria-labelledby="foot-explore" className="min-w-0">
-          <h2 id="foot-explore" className={footHeadCls}>Explore</h2>
-          <ul className="m-0 mt-2 list-none p-0 md:grid md:grid-cols-2 md:gap-x-8">
-            {NAV_LINKS.map((l) => (
-              <li key={l.to}>
-                <NavLink to={l.to} end={l.end} className={footLinkCls}>
-                  {l.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
         <div className="min-w-0">
           <h2 className={footHeadCls}>Community</h2>
-          <ul aria-label="Community and contact" className="m-0 mt-2 list-none p-0">
+          <ul aria-label="Community and contact" className="m-0 mt-3 flex list-none flex-wrap gap-2 p-0">
             {CONTACT.instagram.map((i) => (
               <li key={i.handle}>
-                <a href={i.url} target="_blank" rel="noopener noreferrer" className={`${footLinkCls} break-all`}>
+                <a href={i.url} target="_blank" rel="noopener noreferrer" className={`${footChipCls} break-all`}>
                   {i.handle}
                   <span className="sr-only"> on Instagram (opens in a new tab)</span>
                 </a>
@@ -346,15 +338,16 @@ function SiteFooter() {
             ))}
             {whatsapp && (
               <li>
-                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={footLinkCls}>
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={footChipCls}>
                   WhatsApp
                   <span className="sr-only"> community (opens in a new tab)</span>
                 </a>
               </li>
             )}
             <li>
-              <Link to="/contact" className={footLinkCls}>
+              <Link to="/contact" className={footChipCls}>
                 Get in touch
+                <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />
               </Link>
             </li>
           </ul>
@@ -484,5 +477,16 @@ export function TickStrip({ config, ticks }: { config: EventConfig; ticks: Recor
         </motion.li>
       ))}
     </ul>
+  );
+}
+
+/** Kerb strip that sweeps along a card's bottom edge on hover/focus (transform only). */
+export function CardKerb() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[3px] origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-within:scale-x-100 motion-reduce:transition-none"
+      style={{ backgroundImage: 'var(--kerb-stripes)' }}
+    />
   );
 }

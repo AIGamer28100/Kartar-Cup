@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { inputCls } from './settings/ui';
 import { CloudArrowDown, FloppyDisk } from '@phosphor-icons/react';
 import Button from '../components/Button';
@@ -6,6 +6,8 @@ import { getRace } from '../config/calendar';
 import { saveResults } from '../lib/db';
 import { fetchRaceFactsForRace, mapFactsToQuestions } from '../lib/raceResults';
 import { YESNO_OPTIONS } from '../lib/types';
+import { statusLine } from './results/status';
+import { useAutoPull } from './results/useAutoPull';
 import type { EventConfig, QuestionCfg, Results, ResultsDoc } from '../lib/types';
 
 interface Opt {
@@ -22,13 +24,19 @@ function optionsFor(config: EventConfig, q: QuestionCfg): Opt[] {
 }
 
 export default function ResultsForm({
+  eventId,
   config,
   resultsDoc,
   results,
+  autoPull = false,
 }: {
+  /** The quiz the key belongs to (per-event results page). Omitted = the live quiz. */
+  eventId?: string;
   config: EventConfig | null;
   resultsDoc: ResultsDoc | null;
   results: Results;
+  /** Per-event results page: pull from OpenF1 automatically once the data window opens (fills the draft only). */
+  autoPull?: boolean;
 }) {
   const [draft, setDraft] = useState<Results>(results);
   const [source, setSource] = useState(resultsDoc?.source ?? '');
@@ -36,6 +44,11 @@ export default function ResultsForm({
   const [pulling, setPulling] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
+  /** Questions currently holding an OpenF1-derived answer, and those OpenF1 could not answer. */
+  const [derived, setDerived] = useState<string[]>([]);
+  const derivedRef = useRef<Record<string, string>>({});
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   const savedKey = JSON.stringify(results) + (resultsDoc?.source ?? '');
   useEffect(() => {
@@ -57,7 +70,7 @@ export default function ResultsForm({
     setBusy(true);
     setMsg(null);
     try {
-      await saveResults(draft, source.trim());
+      await saveResults(draft, source.trim(), eventId);
       setMsg({ ok: true, text: 'Results saved. Stewards have nothing to add.' });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'Save failed. Try again.' });
@@ -66,38 +79,61 @@ export default function ResultsForm({
     }
   }
 
-  async function pull() {
-    if (!config || !race) return;
-    setPulling(true);
-    setMsg(null);
-    setNotes([]);
-    try {
-      const res = await fetchRaceFactsForRace(race.season, race);
-      if (!res.ok) {
-        setMsg({ ok: false, text: res.reason });
-        return;
+  /** One pull into the draft. `auto` pulls never overwrite an answer the host has edited by hand. */
+  const pullOnce = useCallback(
+    async (auto: boolean) => {
+      const none = { outcome: 'error' as const, found: 0, total: 0 };
+      if (!config || !race) return { ...none, reason: 'no race' };
+      const total = config.questions.filter((q) => q.kind !== 'yesno').length;
+      setPulling(true);
+      setMsg(null);
+      try {
+        const res = await fetchRaceFactsForRace(race.season, race);
+        if (!res.ok) {
+          if (!auto) setMsg({ ok: false, text: res.reason });
+          setNotes([res.reason]);
+          return { ...none, total, reason: res.reason };
+        }
+        const mapped = mapFactsToQuestions(res.facts, config.questions, {
+          team: new Set(config.teams.map((t) => t.id)),
+          driver: new Set(config.drivers.map((d) => d.id)),
+        });
+        const cur = draftRef.current;
+        const apply: Record<string, string[]> = {};
+        for (const [qid, ids] of Object.entries(mapped.answers)) {
+          const mine = (cur[qid] ?? []).length > 0 && JSON.stringify(cur[qid]) !== derivedRef.current[qid];
+          if (!(auto && mine)) apply[qid] = ids;
+        }
+        for (const [qid, ids] of Object.entries(apply)) derivedRef.current[qid] = JSON.stringify(ids);
+        setDraft((d) => ({ ...d, ...apply }));
+        setDerived(Object.entries(derivedRef.current).filter(([, v]) => v !== '[]').map(([qid]) => qid));
+        setSource(`OpenF1 race session ${res.sessionKey}, pulled ${new Date().toLocaleString('en-GB')}`);
+        setNotes([...res.facts.notes, ...mapped.skipped]);
+        if (!auto) {
+          setMsg({ ok: true, text: `Filled ${mapped.filled.length} of ${total} questions from OpenF1. Check them, then save.` });
+        }
+        return { outcome: res.outcome, found: mapped.filled.length, total };
+      } finally {
+        setPulling(false);
       }
-      const mapped = mapFactsToQuestions(res.facts, config.questions, {
-        team: new Set(config.teams.map((t) => t.id)),
-        driver: new Set(config.drivers.map((d) => d.id)),
-      });
-      setDraft((d) => ({ ...d, ...mapped.answers }));
-      setSource(`OpenF1 race session ${res.sessionKey}, pulled ${new Date().toLocaleString('en-GB')}`);
-      setNotes([...res.facts.notes, ...mapped.skipped]);
-      setMsg({
-        ok: true,
-        text: `Filled ${mapped.filled.length} of ${config.questions.filter((q) => q.kind !== 'yesno').length} questions from OpenF1. Check them, then save.`,
-      });
-    } finally {
-      setPulling(false);
-    }
-  }
+    },
+    [config, race],
+  );
+
+  const hasSaved = Object.values(results).some((v) => v.length > 0);
+  const auto = useAutoPull({
+    enabled: autoPull && !!race && !!config && !hasSaved,
+    raceId: config?.raceId,
+    startMs: (config?.raceStartedAt ?? config?.raceStartUtc)?.toMillis() ?? 0,
+    durationMin: config?.raceDurationMin ?? 0,
+    pullOnce: () => pullOnce(true),
+  });
 
   if (!config) {
     return (
       <section aria-label="Results" className="border-b border-line py-8">
         <h2 className="text-2xl font-semibold">Race results</h2>
-        <p className="mt-1 text-muted">No event is live. Set one live in Settings to enter results.</p>
+        <p className="mt-1 text-muted">This quiz could not be loaded.</p>
       </section>
     );
   }
@@ -108,10 +144,25 @@ export default function ResultsForm({
       <p className="mt-1 text-muted">
         Tick every accepted answer. Leave a question empty to void it, nobody scores on it.
       </p>
+      {autoPull && race && (
+        <div className="mt-4 rounded-lg border border-line bg-raised p-4" aria-label="Answers from OpenF1">
+          <h3 className="text-lg font-semibold">Answers from OpenF1</h3>
+          <p role="status" className="mt-1 text-muted">
+            {hasSaved
+              ? 'Results are already saved for this quiz, so nothing is pulled automatically. Use Pull now to refresh the draft.'
+              : statusLine(auto.plan, auto.raceEndMs, auto.last, auto.pulling)}
+          </p>
+          {derived.length > 0 && (
+            <p className="mt-1 text-sm text-muted">
+              From OpenF1: {derived.length} of {config.questions.length} questions; the rest (yes/no and unmatched ones) need a manual answer. Nothing is published until you press Save results.
+            </p>
+          )}
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={!race || pulling} onClick={() => void pull()}>
+        <Button variant="secondary" disabled={!race || pulling} onClick={() => void (autoPull ? auto.pullNow() : pullOnce(false))}>
           <CloudArrowDown size={20} weight="regular" className={pulling ? 'animate-pulse' : undefined} aria-hidden="true" />
-          {pulling ? 'Pulling...' : 'Pull from OpenF1'}
+          {pulling ? 'Pulling...' : autoPull ? 'Pull now' : 'Pull from OpenF1'}
         </Button>
         <p className="text-sm text-muted">
           {race
@@ -136,6 +187,12 @@ export default function ResultsForm({
               <legend className="mb-3 text-xl">
                 <span className="mr-3 font-mono text-muted">{i + 1}</span>
                 {q.prompt}
+                {autoPull && derived.includes(q.id) && picked.length > 0 && (
+                  <span className="ml-3 rounded border border-line px-2 py-0.5 align-middle text-xs text-muted">From OpenF1</span>
+                )}
+                {autoPull && auto.last && q.kind !== 'yesno' && picked.length === 0 && (
+                  <span className="ml-3 rounded border border-line px-2 py-0.5 align-middle text-xs text-accent-text">Needs a manual answer</span>
+                )}
               </legend>
               <p className="mb-3 text-sm text-muted">
                 Saved:{' '}

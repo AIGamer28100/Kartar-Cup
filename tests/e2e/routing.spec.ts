@@ -26,12 +26,12 @@ test('guest visiting /host is redirected to /', async ({ page }) => {
   await expect(page.getByText('pit wall')).toHaveCount(0);
 });
 
-test('guest visiting /host/settings is redirected to /', async ({ page }) => {
+test('guest visiting the per-event quiz editor is redirected to /', async ({ page }) => {
   await page.goto('/');
   await hostLogin(page, 'guest@example.com');
-  await page.goto('/host/settings');
+  await page.goto('/host/bookings/be-quiz/quiz/details');
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Event settings' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Quiz', exact: true })).toHaveCount(0);
 });
 
 test('signed-out /host is redirected to / with no host UI', async ({ page }) => {
@@ -42,6 +42,7 @@ test('signed-out /host is redirected to / with no host UI', async ({ page }) => 
 });
 
 test('host sees the Host console link and can open /host; guest never sees it', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 }); // the Host console link is in the desktop header; phones get it in the menu
   await page.goto('/');
   await hostLogin(page, 'guest@example.com');
   await expect(page.getByRole('link', { name: 'Profile' })).toBeVisible();
@@ -62,7 +63,9 @@ test('/logout signs out and redirects home', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'You are signed out' })).toBeVisible();
   await expect(page.getByTestId('logout-countdown')).toBeVisible();
   await expect(page).toHaveURL(/\/$/, { timeout: 9000 });
-  await expect(page.getByRole('button', { name: /get on the grid/i })).toBeVisible();
+  // Signed out again: the mobile tab bar offers Sign in where Profile was.
+  await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Profile' })).toHaveCount(0);
 });
 
 test('Back to home on /logout cancels the wait', async ({ page }) => {

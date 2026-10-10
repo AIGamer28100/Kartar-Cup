@@ -18,7 +18,22 @@ const GalleryPage = lazy(load.gallery);
 const CupPage = lazy(load.cup);
 const RaceDetailPage = lazy(load.race);
 const ProfilePage = lazy(load.profile);
-const RaceStateMockPage = lazy(() => import('./pages/RaceStateMockPage'));
+/**
+ * The Mock Lab harness. Always on in dev. In a PRODUCTION build it ships only when
+ * VITE_MOCK_LAB_UNTIL is set to a date at build time, and the route then stops resolving once that
+ * moment passes. With the variable unset, Vite folds this to `null`, so Rollup drops the whole
+ * src/dev subtree (fixtures included) rather than emitting an unreachable chunk - keep it unset for
+ * ordinary releases.
+ *
+ * The expiry is a CONVENIENCE, not a security control: it reads the visitor's own clock, so a
+ * changed clock still reaches the page. That is acceptable only because the harness has no
+ * privileged access - it renders fixtures, and anything it touches in Firestore is still subject to
+ * firestore.rules. To remove it for real, rebuild and redeploy without the variable.
+ */
+const MOCK_LAB_UNTIL = import.meta.env.VITE_MOCK_LAB_UNTIL;
+const mockLabOn =
+  import.meta.env.DEV || (!!MOCK_LAB_UNTIL && Date.now() < Date.parse(MOCK_LAB_UNTIL));
+const MockLab = mockLabOn ? lazy(() => import('./dev/harness/MockLab')) : null;
 const TicketPage = lazy(load.ticket);
 const AboutPage = lazy(load.about);
 const ContactPage = lazy(load.contact);
@@ -27,6 +42,7 @@ const StoriesPage = lazy(() => load.content().then((m) => ({ default: m.StoriesP
 const TermsPage = lazy(() => load.legal().then((m) => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => load.legal().then((m) => ({ default: m.PrivacyPage })));
 const JoinPage = lazy(load.join);
+const PlayPage = lazy(() => import('./guest/PlayPage'));
 const HostApp = lazy(() => import('./host/HostApp'));
 const ScreenApp = lazy(() => import('./host/screen/ScreenApp'));
 
@@ -45,9 +61,10 @@ export default function App() {
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/cup" element={<CupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              {import.meta.env.DEV && <Route path="/race-state-mock" element={<RaceStateMockPage />} />}
+              {MockLab && <Route path="/race-state-mock" element={<MockLab />} />}
               <Route path="/tickets/:bookingId" element={<TicketPage />} />
               <Route path="/join/:token" element={<JoinPage />} />
+              <Route path="/play/:token" element={<PlayPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/partners" element={<PartnersPage />} />

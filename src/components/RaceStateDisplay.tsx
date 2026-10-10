@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { DigitRoll } from './motion';
 import { SPRING as MOTION_SPRING } from '../lib/motion';
+import { portraitUrl } from '../lib/portrait';
 
 export type RaceState =
   | 'scheduled'
@@ -264,23 +265,35 @@ function isCautionState(state: RaceState): boolean {
 const PODIUM_STAGE: Record<number, number> = { 3: 0, 2: 1, 1: 2 };
 /** Riser heights (rem) per place, narrow / wide. */
 const RISER: Record<number, string> = { 1: 'h-20 sm:h-24', 2: 'h-14 sm:h-16', 3: 'h-10 sm:h-12' };
-const AVATAR: Record<number, string> = { 1: 'size-14 sm:size-16', 2: 'size-11 sm:size-12', 3: 'size-11 sm:size-12' };
+/** Portrait tile widths per place (the winner's is the largest); `large` is for a podium given the room. */
+const PORTRAIT: Record<number, string> = { 1: 'max-w-[8.5rem]', 2: 'max-w-[7.25rem]', 3: 'max-w-[7.25rem]' };
+const PORTRAIT_LARGE: Record<number, string> = { 1: 'max-w-[11rem]', 2: 'max-w-[9.5rem]', 3: 'max-w-[9.5rem]' };
 
-function DriverFace({ driver }: { driver: PodiumDriver }) {
+/** The driver's head shot on a team-coloured tile (portrait standing on the bottom edge). The code only
+ * shows when the image is missing or fails to load. Decorative: the name is printed under it. */
+function DriverFace({ driver, large }: { driver: PodiumDriver; large: boolean }) {
   const [broken, setBroken] = useState(false);
-  const ring = { borderColor: driver.colour, boxShadow: `0 0 0 3px color-mix(in srgb, ${driver.colour} 22%, transparent), 0 8px 24px color-mix(in srgb, ${driver.colour} 30%, transparent)` };
+  const src = portraitUrl(driver.headshotUrl, driver.position === 1 ? 5 : 3);
+  const width = (large ? PORTRAIT_LARGE : PORTRAIT)[driver.position] ?? PORTRAIT[3];
   return (
-    <span className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-raised ${AVATAR[driver.position] ?? AVATAR[3]}`} style={ring}>
-      {driver.headshotUrl && !broken ? (
-        <img src={driver.headshotUrl} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover object-top" />
+    <span
+      className={`relative flex aspect-square w-full items-end justify-center overflow-hidden rounded-lg border ${width}`}
+      style={{
+        borderColor: `color-mix(in srgb, ${driver.colour} 55%, var(--color-line))`,
+        background: `linear-gradient(165deg, color-mix(in srgb, ${driver.colour} 60%, transparent), color-mix(in srgb, ${driver.colour} 12%, var(--color-base)))`,
+        boxShadow: `0 8px 24px color-mix(in srgb, ${driver.colour} 28%, transparent)`,
+      }}
+    >
+      {src && !broken ? (
+        <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-contain object-bottom" />
       ) : (
-        <span className="font-mono text-xs font-semibold tracking-wider text-ink sm:text-sm">{driver.code}</span>
+        <span className="m-auto font-mono text-sm font-semibold tracking-wider text-ink">{driver.code}</span>
       )}
     </span>
   );
 }
 
-function PodiumCard({ driver }: { driver: PodiumDriver }) {
+function PodiumCard({ driver, large }: { driver: PodiumDriver; large: boolean }) {
   const reduce = useReducedMotion();
   const p = driver.position;
   const stage = PODIUM_STAGE[p] ?? 0;
@@ -297,8 +310,8 @@ function PodiumCard({ driver }: { driver: PodiumDriver }) {
         transition={reduce ? { duration: 0 } : { ...MOTION_SPRING.soft, delay: delay + 0.18 }}
       >
         {p === 1 && <Trophy aria-hidden="true" weight="fill" className="mb-1 size-4 text-gold" />}
-        <DriverFace driver={driver} />
-        <p className="mt-2 w-full truncate text-sm font-semibold text-ink" title={driver.name}>
+        <DriverFace driver={driver} large={large} />
+        <p className="mt-2 w-full truncate text-center text-sm font-semibold text-ink" title={driver.name}>
           <span aria-hidden="true">{surname}</span>
           <span className="sr-only">
             P{p}: {driver.name}, {driver.team}
@@ -308,7 +321,7 @@ function PodiumCard({ driver }: { driver: PodiumDriver }) {
           <span className="inline-block h-2 w-1 shrink-0 rounded-full" style={{ background: driver.colour }} />
           <span className="truncate">{driver.team}</span>
         </p>
-        {driver.detail && <p className="mt-0.5 w-full truncate font-mono text-[0.6875rem] tabular-nums text-muted">{driver.detail}</p>}
+        {driver.detail && <p className="mt-0.5 w-full truncate text-center font-mono text-[0.6875rem] tabular-nums text-muted">{driver.detail}</p>}
         {driver.points > 0 && (
           <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-base/60 px-2 py-0.5 font-mono text-[0.6875rem] font-semibold text-gold">
             +{driver.points}
@@ -339,19 +352,33 @@ function PodiumCard({ driver }: { driver: PodiumDriver }) {
   );
 }
 
-function PodiumDisplay({ drivers, align = 'center' }: { drivers: PodiumDriver[]; align?: 'start' | 'center' }) {
+function PodiumDisplay({
+  drivers,
+  align = 'center',
+  large = false,
+  showLabel = true,
+}: {
+  drivers: PodiumDriver[];
+  align?: 'start' | 'center';
+  /** Wider podium with bigger portraits (the race page); the home hero keeps the compact one. */
+  large?: boolean;
+  /** The small "Podium" caption; a page that already has a heading turns it off. */
+  showLabel?: boolean;
+}) {
   const sorted = [...drivers].filter((d) => d.position >= 1 && d.position <= 3).sort((a, b) => a.position - b.position);
   if (sorted.length === 0) return null;
   return (
-    <section aria-label="Race podium" className="w-full max-w-md">
+    <section aria-label="Race podium" className={`w-full ${large ? 'mx-auto max-w-2xl' : 'max-w-md'}`}>
+      {showLabel && (
       <div className={`flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted ${align === 'start' ? 'justify-start' : 'justify-center'}`}>
         <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
         Podium
         <span aria-hidden="true" className="podium-chequer h-2 w-6 rounded-[1px]" />
       </div>
+      )}
       <ol className="m-0 mt-3 grid list-none grid-cols-3 items-end gap-2 border-b border-line p-0 sm:gap-3">
         {sorted.map((driver) => (
-          <PodiumCard key={driver.position} driver={driver} />
+          <PodiumCard key={driver.position} driver={driver} large={large} />
         ))}
       </ol>
     </section>

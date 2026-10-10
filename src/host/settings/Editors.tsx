@@ -21,7 +21,7 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
     <Section title="Questions" intro="Up to 8. Question ids stay fixed once issued, so existing picks keep matching. Points (1 to 10) is what a right answer adds to the score.">
       <ol className="divide-y divide-line border-y border-line">
         {form.questions.map((q, i) => (
-          <li key={q.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[1fr_12rem_6rem_auto]">
+          <li key={q.id} className="grid grid-cols-1 gap-3 py-4 xl:grid-cols-[minmax(0,1fr)_12rem_6rem_auto]">
             <Field id={`q-prompt-${q.id}`} label={`Question ${i + 1} prompt (${q.id})`}>
               <input id={`q-prompt-${q.id}`} className={inputCls} value={q.prompt} maxLength={80} onChange={(e) => set(q.id, { prompt: e.target.value })} />
             </Field>

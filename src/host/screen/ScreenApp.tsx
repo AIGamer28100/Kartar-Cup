@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import FailurePage from '../../components/FailurePage';
 import { setScreenState } from '../../lib/db';
+import { playUrl, watchPlayLinks } from '../../lib/playLinks';
 import type { ScreenMode } from '../../lib/types';
 import { useScreenData } from './useScreenData';
 import { buildPodium, clampStage, nextStage, prevStage, type Stage } from './podium';
@@ -27,6 +28,16 @@ const MODE_KEYS: Record<string, ScreenMode> = { '1': 'lobby', '2': 'standings', 
 export default function ScreenApp() {
   const { loading, error, eventId, config, ranked, screenState, entryCount } = useScreenData();
   const [hintVisible, setHintVisible] = useState(true);
+  const [link, setLink] = useState<{ forId: string; url: string | null } | null>(null);
+  useEffect(() => {
+    if (!eventId) return;
+    return watchPlayLinks(
+      eventId,
+      (links) => setLink({ forId: eventId, url: links[0] ? playUrl(links[0].token) : null }),
+      () => setLink({ forId: eventId, url: null }),
+    );
+  }, [eventId]);
+  const joinUrl = link && link.forId === eventId ? link.url : null;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const patch = useCallback(
@@ -90,7 +101,7 @@ export default function ScreenApp() {
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-base text-ink">
-      {screenState.mode === 'lobby' && <LobbyScreen config={config} entryCount={entryCount} />}
+      {screenState.mode === 'lobby' && <LobbyScreen config={config} entryCount={entryCount} joinUrl={joinUrl} />}
       {screenState.mode === 'standings' && <StandingsScreen config={config} ranked={ranked} />}
       {screenState.mode === 'podium' && (
         <PodiumScreen p1={p1} p2={p2} p3={p3} stage={stage} totalQuestions={maxScore(config.questions)} weighted={maxScore(config.questions) !== config.questions.length} />

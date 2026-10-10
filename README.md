@@ -55,8 +55,10 @@ updating before they can be trusted.
 ## 2. Who can do what (roles)
 
 * **Guests** sign in with Google, buy tickets, play the quiz, see only their own bookings.
-* **Host-control members** (`host`, `admin`, `venue_host`) run events, bookings and door check-in.
-  **Only they can cancel a booking** (and so release its seats). Guests cannot cancel; the rules reject it.
+* **Host** (`host`, and above) runs events, bookings and door check-in, and **can cancel a booking and refund it**.
+* **Admin** can do all of that plus **release part of a booking** and **set the refund cutoff** (host controls).
+* **Venue host** runs door check-in and ordinary bookings work, but **cannot cancel a booking or give any refund**.
+  Marketing, social admin, contributor and community member cannot either. Guests cannot cancel; the rules reject it.
 * **Super admin**: create a document `hosts/{lowercase-email}` in the Firestore console. There is no
   host sign-up screen on purpose (rule R18). Admins then grant roles from the host console, People tab.
 
@@ -70,14 +72,22 @@ rules enforce what the app shows, so a modified browser cannot cheat:
 * **Event capacity**: `bookedCount` must rise by exactly `qty x seatsPerTicket` in the same write as the booking.
 * **Tier capacity** (tickets, `0` = unlimited): a counter document per tier,
   `bookingEvents/{eventId}/tierCounts/{tierId}`, must rise by exactly `qty` and may not pass the tier's capacity.
-  Guests can only raise a counter; host cancellations lower it.
+  Guests can only raise a counter; a host cancellation or an admin partial release lowers it.
 * **Leftover seats**: when the sum of capped tier capacities is less than event capacity, extra seats go to the
   tier with the fewest seats per ticket (e.g. Single=1 seat, Couple=2 seats). The remainder stays unsold.
 * **QR tokens**: each booking gets a separate random `qrToken` (distinct from the booking id). The QR code
   encodes only this token, not the booking id or personal details, so guests cannot infer another's booking
   from their own code.
-* **Guest cancellations**: guests cannot cancel bookings; only hosts can cancel them from the Bookings admin.
-  A cancelled booking releases its seats and, if paid, the guest receives a sample refund (no money moves).
+* **Cancelling and refunds**: guests cannot cancel. Only a host, admin or super admin can cancel a booking from the
+  Bookings admin (venue hosts cannot). A cancelled booking releases its seats and, if paid, the guest receives a
+  sample refund (no money moves).
+* **Partial release**: only an admin or super admin (not even a host) can release part of a booking. The booking
+  stays active with fewer tickets; seats already checked in can never be released. A paid booking is refunded the
+  pro-rata share, rounded so a refund never exceeds it (the guest's new total is `ceil(total x kept / qty)`).
+* **Refund cutoff**: no refund within 60 minutes of the event start by default (`refundCutoffMin` on the event, 0 to
+  10080). Only an admin or super admin can change it. The rules check it against the server clock, using the
+  event's `dateMs` (saved with the event; an older event without it refuses paid refunds until it is saved once).
+  An unpaid reservation can still be cancelled inside the window, and cancelling the whole event refunds everyone.
 * **Event cancellation**: hosts can cancel an event from the Bookings list (Booking Event > Cancel event button).
   Cancellation closes sales immediately, refunds and marks every booking (including checked-in ones) as cancelled,
   and keeps all records for audit. The event stays in the history and is never deleted by the app (only by hand
@@ -97,24 +107,44 @@ same Firestore rules), then forwards the request. Cloudflare's free plan (100,00
 
 One-time setup:
 
-1. **Google Cloud**: enable the *Places API* on the project, create an API key, and restrict it to
-   "Places API" only (API restriction). No referrer restriction is needed because only the Worker uses it.
-2. **Cloudflare**: create a free account, then from `worker/places-proxy`:
+1. **Google Cloud**: enable the *Places API* on the project and create an API key with an **API
+   restriction of "Places API" and NO application (HTTP referrer) restriction**. The Places *web
+   service* refuses referrer-restricted keys outright (`REQUEST_DENIED`, "API keys with referer
+   restrictions cannot be used with this API"), so a key made for a browser will not work here. Only
+   the Worker ever uses this key, so an API restriction is the right lock.
+2. **Cloudflare**: create a free account, then either export `CLOUDFLARE_API_TOKEN` (made from the
+   "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`, or run `npx wrangler login` on a
+   machine with a browser. Then:
    ```bash
-   cd worker/places-proxy
-   npx wrangler login
-   npx wrangler secret put GOOGLE_PLACES_API_KEY    # paste the key when prompted
-   npx wrangler deploy                               # prints https://kartar-places-proxy.<you>.workers.dev
+   scripts/deploy-worker.sh      # stores the secret, deploys, prints the Worker URL and next steps
    ```
+   Or by hand: `npm run worker:secret` then `npm run worker:deploy`.
+
    Check `wrangler.toml`: `FIREBASE_PROJECT_ID` must match your project, and `ALLOWED_ORIGINS` must list
-   every production site origin that may call the Worker (your Hosting URLs). `http://localhost:5173` is allowed only in the `dev` environment.
+   every production site origin that may call the Worker (your Hosting URLs). The localhost origins are
+   allowed only in the `dev` environment.
 3. Put the printed URL in `VITE_PLACES_PROXY_URL` (in `.env.local` for dev, and in your build
    environment for production), then rebuild and redeploy the site.
 
-Local Worker testing: `npx wrangler dev --env dev`, with the key in `worker/places-proxy/.dev.vars` (a line `GOOGLE_PLACES_API_KEY=...`,
-git-ignored, never commit it), and point `VITE_PLACES_PROXY_URL` at the printed localhost URL.
+Local Worker:
 
-If the key ever leaks, rotate it in Google Cloud and run `npx wrangler secret put GOOGLE_PLACES_API_KEY` again.
+```bash
+cp worker/places-proxy/.dev.vars.example worker/places-proxy/.dev.vars   # paste the key into it (git-ignored)
+npm run worker:dev        # http://127.0.0.1:8787
+npm run worker:smoke      # security checks: no token / bad origin / non-GET / no key in any body
+```
+
+`.env.local` ships pointing `VITE_PLACES_PROXY_URL` at `http://127.0.0.1:8787`, so `npm run dev` plus
+`npm run worker:dev` gives working venue search locally.
+
+`npm run worker:smoke` only covers the rejection paths by default. To also check the signed-in path,
+pass a host's Firebase ID token: `PLACES_TEST_ID_TOKEN=<token> npm run worker:smoke` (get one in the
+browser console while signed in as a host). Against a deployed Worker:
+`PROXY=https://... ORIGIN=https://kartar-cup.web.app npm run worker:smoke`.
+
+The Google key must never appear in `.env*` — anything named `VITE_*` is readable in the browser. Its
+only two homes are `worker/places-proxy/.dev.vars` (local) and the Worker secret (production). If it
+ever leaks, rotate it in Google Cloud and run `npm run worker:secret` again.
 
 ## 5. Deploy
 

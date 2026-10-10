@@ -23,7 +23,9 @@ function fmt(ms: number): string {
   return `${h}:${m}:${sec}`;
 }
 
-export default function LobbyScreen({ config, entryCount }: { config: EventConfig; entryCount: number }) {
+/** `joinUrl` is the quiz's /play/<token> link (the quiz is link-only, so the site root is no way in);
+ * without one there is nothing to scan and the QR block is left out. */
+export default function LobbyScreen({ config, entryCount, joinUrl = null }: { config: EventConfig; entryCount: number; joinUrl?: string | null }) {
   const [qr, setQr] = useState<string | null>(null);
   const reduce = useReducedMotion();
   const status = deriveStatus(config, Date.now());
@@ -31,14 +33,15 @@ export default function LobbyScreen({ config, entryCount }: { config: EventConfi
   const remaining = useCountdown(closesMs);
 
   useEffect(() => {
+    if (!joinUrl) return;
     let cancelled = false;
-    QRCode.toDataURL(window.location.origin, { margin: 1, width: 480, color: { dark: '#111', light: '#fff' } })
+    QRCode.toDataURL(joinUrl, { margin: 1, width: 480, color: { dark: '#111', light: '#fff' } })
       .then((url) => !cancelled && setQr(url))
       .catch(() => !cancelled && setQr(null));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [joinUrl]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-10 px-8 py-12 text-center">
@@ -59,6 +62,7 @@ export default function LobbyScreen({ config, entryCount }: { config: EventConfi
         {config.name}
       </motion.h1>
       <div className="grid w-full max-w-5xl grid-cols-1 items-center gap-10 md:grid-cols-2">
+        {joinUrl && (
         <motion.div
           initial={reduce ? { opacity: 0 } : { opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
@@ -73,10 +77,8 @@ export default function LobbyScreen({ config, entryCount }: { config: EventConfi
           ) : (
             <div className="size-[clamp(10rem,20vw,22rem)] animate-pulse rounded-2xl bg-raised" />
           )}
-          <p className="max-w-[28ch] break-all font-mono text-[clamp(0.75rem,1.2vw,1rem)] text-muted">
-            {window.location.origin}
-          </p>
         </motion.div>
+        )}
         <motion.div
           initial={reduce ? { opacity: 0 } : { opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}

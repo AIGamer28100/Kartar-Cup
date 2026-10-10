@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { hostLogin, resetAndSeed, saveResultsAdmin } from './helpers';
+import { PLAY_URL, hostLogin, resetAndSeed, saveResultsAdmin } from './helpers';
 
 test.beforeEach(async () => {
   await resetAndSeed();
@@ -15,13 +15,12 @@ async function serious(page: Page) {
 }
 
 test('guest sign-in and quiz have no serious violations', async ({ page }) => {
-  await page.goto('/');
+  await page.goto(PLAY_URL);
   await expect(page.getByRole('button', { name: /get on the grid/i })).toBeVisible();
   expect(await serious(page)).toEqual([]);
 
   await hostLogin(page, 'guest@example.com'); // emulator Google credential (R14)
-  await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.getByRole('combobox')).toBeVisible();
+  await expect(page.getByRole('radiogroup')).toBeVisible();
   expect(await serious(page)).toEqual([]);
 });
 

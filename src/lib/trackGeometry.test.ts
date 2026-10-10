@@ -5,11 +5,15 @@ import {
   bounds,
   cumulativeLengths,
   distanceFractions,
+  inRacingDirection,
   parsePolylinePath,
+  pointsToPath,
   pointAtFraction,
   sectorOfIndex,
   sectorRanges,
   segmentAt,
+  shoelaceSum,
+  windingOf,
 } from './trackGeometry';
 
 const square = [
@@ -109,5 +113,42 @@ describe('sectors', () => {
     expect(fr[fr.length - 1]).toBe(1);
     expect(fr[p!.s1End]).toBeGreaterThan(0.1);
     expect(fr[p!.s2End]).toBeLessThan(0.95);
+  });
+});
+
+describe('winding and racing direction', () => {
+  // SVG space, y down: right, down, left, up is CLOCKWISE on screen.
+  const cw = square;
+  const ccw = [...square].reverse();
+
+  it('shoelaceSum is positive for clockwise and negative for anti-clockwise', () => {
+    expect(shoelaceSum(cw)).toBe(100);
+    expect(shoelaceSum(ccw)).toBe(-100);
+  });
+
+  it('windingOf names the on-screen winding', () => {
+    expect(windingOf(cw)).toBe('cw');
+    expect(windingOf(ccw)).toBe('ccw');
+  });
+
+  it('a degenerate path has no winding', () => {
+    const two = [{ x: 0, y: 0 }, { x: 5, y: 5 }];
+    expect(shoelaceSum(two)).toBe(0);
+    expect(windingOf(two)).toBeNull();
+    expect(windingOf([])).toBeNull();
+    expect(inRacingDirection(two, 'ccw')).toBe(two);
+  });
+
+  it('inRacingDirection keeps a matching path and reverses a mismatching one, staying closed', () => {
+    expect(inRacingDirection(cw, 'cw')).toBe(cw);
+    const flipped = inRacingDirection(cw, 'ccw');
+    expect(windingOf(flipped)).toBe('ccw');
+    expect(flipped[0]).toEqual(cw[0]);
+    expect(flipped[flipped.length - 1]).toEqual(cw[cw.length - 1]);
+    expect(cw[1]).toEqual({ x: 10, y: 0 }); // input not mutated
+  });
+
+  it('pointsToPath round-trips through parsePolylinePath', () => {
+    expect(parsePolylinePath(pointsToPath(ccw))).toEqual(ccw);
   });
 });

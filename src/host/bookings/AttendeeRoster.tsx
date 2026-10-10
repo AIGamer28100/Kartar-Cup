@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, DownloadSimple } from '@phosphor-icons/react';
 import Button from '../../components/Button';
 import { RowsSkeleton } from '../../components/Skeleton';
+import { useAuth } from '../../lib/auth';
+import { refundWindowClosed } from '../../guest/bookingModel';
 import { cancelBooking, watchAllBookings } from '../../lib/bookings';
 import { bookingsToCsv } from '../../lib/csv';
 import type { Booking, BookingEvent } from '../../lib/types';
@@ -31,6 +33,8 @@ function Stat({ label, value }: { label: string; value: number }) {
 /** Host attendee roster for one booking event: live bookings, search + status filter, tallies,
  * per-row host cancel (confirmed) and CSV export. Host-only (rules gate the bookings query). */
 export default function AttendeeRoster({ event, onBack }: { event: BookingEvent; onBack: () => void }) {
+  const { access } = useAuth();
+  const canRefund = access?.canRefund === true;
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
@@ -155,7 +159,7 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
               </p>
               <ul className="mt-2 divide-y divide-line border-y border-line">
                 {shown.map((b) => (
-                  <li key={b.id} className="grid grid-cols-1 gap-2 py-4 md:grid-cols-[1.5fr_1fr_5rem_8rem_8rem_auto] md:items-center md:gap-4">
+                  <li key={b.id} className="grid grid-cols-1 gap-2 py-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_5rem_8rem_8rem_auto] xl:items-center xl:gap-4">
                     <div className="min-w-0">
                       <p className="truncate font-medium">{b.buyerName}</p>
                       <p className="truncate font-mono text-sm text-muted">{b.buyerEmail}</p>
@@ -166,12 +170,29 @@ export default function AttendeeRoster({ event, onBack }: { event: BookingEvent;
                     <p className="font-mono text-xs uppercase tracking-widest">
                       {bookingStatusLabel(b.status)}
                       {b.status === 'cancelled' && b.refund === 'mock_refunded' ? ' (refunded)' : ''}
+                      {b.checkInMethod === 'manual' ? ' (manual)' : ''}
                     </p>
                     <div>
                       {b.status !== 'cancelled' && b.status !== 'checked_in' && confirmId !== b.id && (
-                        <Button variant="secondary" onClick={() => { setActionError(''); setConfirmId(b.id); }}>
-                          Cancel
-                        </Button>
+                        <>
+                          {/* Mirrors firestore.rules: a cancel needs canRefund (never venue_host), and a paid booking
+                              cannot be cancelled inside the refund cutoff unless the whole event is cancelled. */}
+                          {(() => {
+                            const blocked = !canRefund
+                              ? 'Only a host can cancel a booking.'
+                              : b.status === 'paid_mock' && !event.cancelled && refundWindowClosed(event, Date.now())
+                                ? 'Inside the refund cutoff: a paid booking can no longer be cancelled.'
+                                : null;
+                            return (
+                              <>
+                                <Button variant="secondary" disabled={blocked !== null} onClick={() => { setActionError(''); setConfirmId(b.id); }}>
+                                  Cancel
+                                </Button>
+                                {blocked && <p className="mt-1 max-w-xs text-xs text-muted">{blocked}</p>}
+                              </>
+                            );
+                          })()}
+                        </>
                       )}
                       {confirmId === b.id && (
                         <div role="group" aria-label={`Confirm cancelling ${b.buyerName}`} className="flex flex-wrap items-center gap-2">

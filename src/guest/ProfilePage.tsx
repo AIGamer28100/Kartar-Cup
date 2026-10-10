@@ -1,21 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { Navigate } from 'react-router';
-import { ArrowRight, Medal, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
+import { ArrowRight, Medal, Phone, QrCode, SignOut, Ticket as TicketIcon, Trophy } from '@phosphor-icons/react';
 import { Link } from 'react-router';
 import Divider from '../components/Divider';
 import Skeleton, { Busy, PageSkeleton } from '../components/Skeleton';
 import { useAuth } from '../lib/auth';
 import { watchBookingEvent, watchOwnBookings } from '../lib/bookings';
 import { listOwnEntries } from '../lib/db';
+import { updateOwnPhone, watchOwnUser } from '../lib/users';
 import { useTimedOut } from '../lib/useTimedOut';
 import type { Booking, BookingEvent } from '../lib/types';
 import AchievementsSection from './AchievementsSection';
 
 import { accountName } from './SignIn';
-import { bookingStatusLabel, entryStatusLabel, formatInr, initials, sortOwnEntries } from './profileModel';
+import { PHONE_ERROR, bookingStatusLabel, entryStatusLabel, formatInr, initials, parsePhone, sortOwnEntries } from './profileModel';
 import type { OwnEntryRow } from './profileModel';
-import { Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
+import { CardKerb, Eyebrow, H3, PageTitle, Reveal, Shell } from './parts';
+import Button, { buttonCls } from '../components/Button';
 import { Stagger, StaggerItem } from '../components/motion';
 
 function Avatar({ photoUrl, name, email }: { photoUrl?: string | null; name: string; email?: string | null }) {
@@ -90,11 +92,10 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
   const tierLabel = ev?.tiers.find((t) => t.id === booking.tierId)?.label ?? booking.tierId;
   return (
     <Reveal index={index} kind="slide">
-      {index > 0 && <Divider />}
       <Link
         to={`/tickets/${booking.id}`}
         aria-label={`Open ticket for ${ev?.title ?? 'watch party'}`}
-        className="press group relative -mx-3 flex flex-wrap items-start justify-between gap-4 overflow-hidden rounded-lg px-3 py-4 transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="press group relative my-3 flex flex-wrap items-start justify-between gap-4 overflow-hidden rounded-lg border border-line bg-raised p-4 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <div>
           <p className="font-medium text-ink">
@@ -117,6 +118,7 @@ function BookingRow({ booking, index }: { booking: Booking; index: number }) {
             <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none" />
           </p>
         </div>
+        <CardKerb />
       </Link>
     </Reveal>
   );
@@ -138,7 +140,15 @@ function Bookings({ bookings, err }: { bookings: Booking[] | undefined; err: Err
   }
   if (err) return <p className="py-6 text-sm text-muted">Couldn&rsquo;t load your bookings right now.</p>;
   if (bookings.length === 0) {
-    return <p className="py-6 text-muted">No bookings yet — grab a ticket from the events page.</p>;
+    return (
+      <div className="my-4 flex flex-col items-start gap-4 rounded-lg border border-dashed border-line p-5">
+        <p className="text-muted">No bookings yet. Grab a ticket from the events page.</p>
+        <Link to="/events" className={buttonCls('primary', 'press group')}>
+          Browse events
+          <ArrowRight size={16} weight="bold" aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />
+        </Link>
+      </div>
+    );
   }
   return (
     <div>
@@ -189,6 +199,85 @@ function useOwnBookings(uid: string) {
   return { bookings, err };
 }
 
+/** Optional phone for the WhatsApp community invite (R67): lives on the profile, never in the quiz. */
+function PhoneSection({ uid }: { uid: string }) {
+  const [saved, setSaved] = useState<string | undefined>(undefined); // undefined = still loading
+  const [value, setValue] = useState('');
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [err, setErr] = useState('');
+  const loaded = useRef(false);
+  useEffect(
+    () =>
+      watchOwnUser(
+        uid,
+        (u) => {
+          setSaved(u?.phone ?? '');
+          if (!loaded.current) {
+            loaded.current = true;
+            setValue(u?.phone ?? '');
+          }
+        },
+        () => setSaved(''),
+      ),
+    [uid],
+  );
+  const save = async () => {
+    const phone = parsePhone(value);
+    if (phone === null) {
+      setErr(PHONE_ERROR);
+      setState('error');
+      return;
+    }
+    setErr('');
+    setState('saving');
+    try {
+      await updateOwnPhone(uid, phone);
+      setValue(phone);
+      setState('saved');
+    } catch {
+      setErr('Could not save your number. Check your signal and try again.');
+      setState('error');
+    }
+  };
+  return (
+    <div className="mt-4 max-w-md">
+      <label htmlFor="p-phone" className="mb-2 block text-sm font-medium">
+        Phone <span className="font-normal text-muted">(optional)</span>
+      </label>
+      <div className="flex gap-3">
+        <input
+          id="p-phone"
+          className="min-h-12 w-full rounded-lg border border-line bg-raised px-4 font-mono text-[1rem] text-ink placeholder:text-muted focus:border-accent"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={value}
+          disabled={saved === undefined}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setState('idle');
+          }}
+          aria-invalid={state === 'error'}
+          aria-describedby={err ? 'p-phone-err p-phone-hint' : 'p-phone-hint'}
+          placeholder="+91 98765 43210"
+        />
+        <Button variant="secondary" disabled={saved === undefined || state === 'saving'} onClick={() => void save()}>
+          Save
+        </Button>
+      </div>
+      {err && (
+        <p id="p-phone-err" role="alert" className="mt-2 text-sm text-accent-text">
+          {err}
+        </p>
+      )}
+      <p role="status" className="mt-2 text-sm text-muted">{state === 'saved' ? 'Saved.' : ''}</p>
+      <p id="p-phone-hint" className="text-sm text-muted">
+        If you add a number, we may invite you to The Karter Cup WhatsApp community. Leave it blank to skip.
+      </p>
+    </div>
+  );
+}
+
 /** Signed-in guest's own profile (R31): identity, own quiz history, own bookings — never another
  * guest's data (R15). Route itself redirects signed-out visitors home (no page-wide sign-in gate,
  * R28); the header's general sign-in button lands here afterwards. */
@@ -225,6 +314,14 @@ function ProfileContent({ user }: { user: User }) {
           <SignOut size={20} weight="regular" aria-hidden="true" />
           Sign out
         </Link>
+      </Reveal>
+
+      <Reveal index={2} className="mt-8">
+        <h2 className={`flex items-center gap-2 text-ink ${H3}`}>
+          <Phone size={20} weight="regular" aria-hidden="true" />
+          Contact
+        </h2>
+        <PhoneSection uid={user.uid} />
       </Reveal>
 
       <Divider className="mt-10" />

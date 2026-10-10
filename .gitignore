@@ -162,3 +162,12 @@ src/**/*.js
 # Cloudflare Worker local secrets and state
 worker/**/.dev.vars
 worker/**/.wrangler/
+
+# Cloudflare deploy credentials for scripts/deploy-worker.sh (never commit)
+worker/**/.cf.env
+
+# Emulator/e2e mode file: no secrets, must be shared so the e2e run is reproducible
+!.env.e2e
+
+# Clean-room product specification (local only)
+spec/

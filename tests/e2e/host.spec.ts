@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { SCREENS, hostLogin, resetAndSeed } from './helpers';
+import { BOOKING_ID, SCREENS, hostLogin, resetAndSeed } from './helpers';
 
 test.beforeEach(async () => {
   await resetAndSeed();
@@ -18,6 +18,8 @@ test('gate rejects non-host, host runs the whole night', async ({ page }) => {
   await page.getByRole('button', { name: /lock the pit lane/i }).click();
   await expect(page.getByRole('button', { name: /reopen entries/i })).toBeVisible();
 
+  // The answer key now lives with the booking event's quiz, not on the console.
+  await page.goto(`/host/bookings/${BOOKING_ID}/quiz/results`);
   const results = page.getByRole('region', { name: 'Results' });
   const set: [string, string][] = [
     ['Which constructor has the SLOWEST', 'Williams'],
@@ -35,6 +37,7 @@ test('gate rejects non-host, host runs the whole night', async ({ page }) => {
   await page.getByRole('button', { name: /save results/i }).click();
   await expect(page.getByText(/results saved/i)).toBeVisible();
 
+  await page.goto('/host');
   const board = page.getByRole('region', { name: 'Leaderboard' });
   const first = board.locator('li').first();
   await expect(first).toContainText('Priya Venkatesh');

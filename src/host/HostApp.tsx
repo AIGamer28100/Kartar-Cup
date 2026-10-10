@@ -1,78 +1,90 @@
-import { Navigate, NavLink, Route, Routes } from 'react-router';
+import type { ReactNode } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
 import { HostFrame } from '../pages/HostFrame';
 import ActivityLog from './ActivityLog';
 import BookingsAdmin, { BookingEventForm, BookingEventAttendees, BookingEventCards } from './bookings/BookingsAdmin';
+import { BookingEventQuiz, BookingEventQuizResults } from './bookings/QuizSetup';
 import CheckinScanner from './CheckinScanner';
-import ContentAdmin from './ContentAdmin';
+import ContentAdmin, { ContentLegalTab, ContentPartnersTab, ContentStoriesTab } from './ContentAdmin';
 import CupAdmin from './cup/CupAdmin';
 import HostConsole from './HostConsole';
-import SettingsPage from './settings/SettingsPage';
+import { HostBurger, HostDrawer, useHostDrawer } from './HostDrawer';
+import { CONTENT_TABS, QUIZ_RESULTS, QUIZ_TABS, SECTION, visibleNav } from './nav';
+import {
+  SettingsDetailsTab,
+  SettingsGridTab,
+  SettingsQuestionsTab,
+  SettingsTeamsTab,
+} from './settings/SettingsPage';
 import UsersAdmin from './UsersAdmin';
+import { OverlayPage, OverlayProvider } from './overlay/OverlayProvider';
 import { useAuth } from '../lib/auth';
-
-const tabCls =
-  'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-3 text-muted hover:text-ink aria-[current=page]:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 export default function HostApp() {
   const { access } = useAuth();
-  return (
-    <HostFrame signedIn>
-      <nav aria-label="Host sections" className="flex gap-2 overflow-x-auto border-b border-line py-2">
-        {access?.isHost && (
-          <NavLink to="/host" end className={tabCls}>
-            Console
-          </NavLink>
-        )}
-        {access?.isHost && (
-          <NavLink to="/host/settings" className={tabCls}>
-            Settings
-          </NavLink>
-        )}
-        <NavLink to="/host/bookings" className={tabCls}>
-          Bookings
-        </NavLink>
-        {access?.isHost && (
-          <NavLink to="/host/cup" className={tabCls}>
-            Cup
-          </NavLink>
-        )}
-        <NavLink to="/host/checkin" className={tabCls}>
-          Check-in
-        </NavLink>
-        {access?.isHost && (
-          <NavLink to="/host/activity" className={tabCls}>
-            Activity
-          </NavLink>
-        )}
-        {access?.isHost && (
-          <NavLink to="/host/content" className={tabCls}>
-            Content
-          </NavLink>
-        )}
-        {access?.isHost && (
-          <NavLink to="/host/users" className={tabCls}>
-            People
-          </NavLink>
-        )}
-      </nav>
-      <Routes>
-        {/* A venue_host runs bookings and check-in only: the quiz console, settings and activity are
-            isHost-only in firestore.rules, so send them to bookings instead of a permission error. */}
-        <Route index element={access?.isHost ? <HostConsole /> : <Navigate to="/host/bookings" replace />} />
-        <Route path="settings" element={access?.isHost ? <SettingsPage /> : <Navigate to="/host/bookings" replace />} />
-        <Route path="bookings" element={<BookingsAdmin />}>
-          <Route path="new" element={<BookingEventForm />} />
-          <Route path=":eventId/edit" element={<BookingEventForm />} />
-          <Route path=":eventId/attendees" element={<BookingEventAttendees />} />
-          <Route path=":eventId/cards" element={<BookingEventCards />} />
-        </Route>
-        <Route path="cup" element={<CupAdmin />} />
-        <Route path="checkin" element={<CheckinScanner />} />
-        <Route path="activity" element={access?.isHost ? <ActivityLog /> : <Navigate to="/host/bookings" replace />} />
-        <Route path="content" element={<ContentAdmin />} />
-        <Route path="users" element={<UsersAdmin />} />
-        <Route path="*" element={<Navigate to="/host" replace />} />
-      </Routes>
+  const isHost = !!access?.isHost;
+  const items = visibleNav(isHost);
+  const drawer = useHostDrawer();
+  /** isHost-only screens: a venue_host is sent to bookings instead of a permission error (firestore.rules). */
+  const hostOnly = (el: ReactNode) => (isHost ? el : <Navigate to="/host/bookings" replace />);
+
+  const framed = (
+    <HostFrame
+      signedIn
+      drawerOpen={drawer.open}
+      leading={<HostBurger state={drawer} />}
+      aside={<HostDrawer items={items} state={drawer} />}
+    >
+      <div className="min-w-0">
+        <Routes>
+          <Route index element={hostOnly(<HostConsole />)} />
+          <Route path={SECTION.more} element={<Navigate to="/host" replace />} />
+          {/* R57: the global quiz editor moved into each booking event; old bookmarks land on the list. */}
+          <Route path={`${SECTION.settings}/*`} element={<Navigate to={`/host/${SECTION.bookings}`} replace />} />
+          <Route path={SECTION.bookings} element={<BookingsAdmin />}>
+            <Route path="new" element={<BookingEventForm />} />
+            <Route path=":eventId/edit" element={<BookingEventForm />} />
+            <Route path=":eventId/attendees" element={<BookingEventAttendees />} />
+            <Route path=":eventId/cards" element={<BookingEventCards />} />
+            {/* Quiz editor (tabs share one form held by the layout) and, beside it, the results key. */}
+            <Route path=":eventId/quiz" element={hostOnly(<BookingEventQuiz />)}>
+              <Route index element={<Navigate to={QUIZ_TABS[0].id} replace />} />
+              <Route path="details" element={<SettingsDetailsTab />} />
+              <Route path="grid" element={<SettingsGridTab />} />
+              <Route path="teams" element={<SettingsTeamsTab />} />
+              <Route path="questions" element={<SettingsQuestionsTab />} />
+            </Route>
+            <Route path={`:eventId/quiz/${QUIZ_RESULTS.id}`} element={hostOnly(<BookingEventQuizResults />)} />
+          </Route>
+          <Route path={SECTION.league}>
+            <Route index element={<CupAdmin />} />
+            <Route path=":seasonId" element={<CupAdmin />} />
+          </Route>
+          <Route path="cup" element={<Navigate to={`/host/${SECTION.league}`} replace />} />
+          <Route path={SECTION.checkin} element={<CheckinScanner />} />
+          <Route path={SECTION.auditLog} element={hostOnly(<ActivityLog />)} />
+          <Route path="activity" element={<Navigate to={`/host/${SECTION.auditLog}`} replace />} />
+          <Route path={SECTION.content} element={<ContentAdmin />}>
+            <Route index element={<Navigate to={CONTENT_TABS[0].id} replace />} />
+            <Route path="partners" element={<ContentPartnersTab />} />
+            <Route path="stories" element={<ContentStoriesTab />} />
+            <Route path="legal" element={<ContentLegalTab />} />
+          </Route>
+          <Route path={SECTION.users} element={<UsersAdmin />} />
+          <Route path="*" element={<Navigate to="/host" replace />} />
+        </Routes>
+      </div>
     </HostFrame>
+  );
+
+  // The live overlay is mounted once here so it outlives navigation between host pages. Its popup
+  // fallback (/host/overlay) renders only the overlay: no HostFrame, no drawer.
+  return (
+    <OverlayProvider>
+      <Routes>
+        <Route path="overlay" element={hostOnly(<OverlayPage />)} />
+        <Route path="*" element={framed} />
+      </Routes>
+    </OverlayProvider>
   );
 }

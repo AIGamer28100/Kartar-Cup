@@ -52,3 +52,12 @@ export function initials(name?: string | null, email?: string | null): string {
   const e = (email ?? '').trim();
   return e ? e.slice(0, 2).toUpperCase() : '??';
 }
+
+/** Optional WhatsApp-community phone: digits, + and spaces, 7 to 16 long (mirrors firestore.rules). */
+export const PHONE_RE = /^[0-9+ ]{7,16}$/;
+export const PHONE_ERROR = 'Digits, + and spaces only, 7 to 16 long.';
+/** '' for blank (clears the field), the trimmed number when valid, null when invalid. */
+export function parsePhone(raw: string): string | null {
+  const p = raw.trim();
+  return p === '' || PHONE_RE.test(p) ? p : null;
+}

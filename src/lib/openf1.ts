@@ -7,6 +7,8 @@
  * Every exported async function returns a typed result and never throws.
  */
 
+import { openF1IdsFor } from '../config/tracks/openf1Ids';
+
 export const BASE = 'https://api.openf1.org/v1';
 
 interface OpenF1Session {
@@ -59,13 +61,34 @@ export async function getJson(url: string): Promise<unknown> {
 }
 
 /**
- * Finds the Race session_key for a given year + race, by fetching every Race session for
- * that year and picking the closest match on country/location and race date.
+ * Finds the Race session_key for a given year + race.
+ *
+ * Id-first: when `race.id` is in OPENF1_IDS we look the meeting up by meeting_key. Names are
+ * unreliable because OpenF1 labels a meeting after the commercial Grand Prix, not the venue:
+ * 2026-r16-malaysia runs at Sepang but is reported as country "Bahrain" / location "Kuala Lumpur",
+ * so country/locality matching finds nothing. Only an unmapped id (unknown or 'custom') falls back
+ * to the year-wide scan, picking the closest match on country/location and race date.
  */
 export async function findSessionKey(
   year: number,
-  race: { country: string; locality: string; raceDate: string },
+  race: { id?: string; country: string; locality: string; raceDate: string },
 ): Promise<SessionLookupResult> {
+  const ids = race.id ? openF1IdsFor(race.id) : undefined;
+  if (ids) {
+    let rows: unknown;
+    try {
+      rows = await getJson(`${BASE}/sessions?meeting_key=${ids.meetingKey}&session_type=Race`);
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : 'network error' };
+    }
+    const hit = Array.isArray(rows)
+      ? (rows as OpenF1Session[]).find((s) => typeof s.session_key === 'number')
+      : undefined;
+    if (!hit) {
+      return { ok: false, reason: `no OpenF1 session for meeting ${ids.meetingKey} (${race.id}) yet` };
+    }
+    return { ok: true, sessionKey: hit.session_key };
+  }
   let raw: unknown;
   try {
     raw = await getJson(`${BASE}/sessions?session_type=Race&year=${year}`);
@@ -139,7 +162,7 @@ export async function fetchDrivers(sessionKey: number): Promise<LineupResult> {
 /** Convenience: find the session then fetch its lineup, for a given race. */
 export async function fetchLineupForRace(
   year: number,
-  race: { country: string; locality: string; raceDate: string },
+  race: { id?: string; country: string; locality: string; raceDate: string },
 ): Promise<LineupResult> {
   const session = await findSessionKey(year, race);
   if (!session.ok) return session;

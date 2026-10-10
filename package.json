@@ -9,7 +9,16 @@
     "test": "vitest run",
     "lint": "eslint .",
     "deploy": "firebase deploy --project kartar-cup --only hosting,firestore:rules",
-    "deploy:all": "firebase deploy --project kartar-cup"
+    "deploy:all": "firebase deploy --project kartar-cup",
+    "worker:dev": "cd worker/places-proxy && wrangler dev --env dev --port 8787",
+    "worker:secret": "cd worker/places-proxy && wrangler secret put GOOGLE_PLACES_API_KEY",
+    "worker:deploy": "cd worker/places-proxy && wrangler deploy",
+    "check:openf1": "node scripts/check-openf1-ids.mjs",
+    "worker:smoke": "node scripts/smoke-places-proxy.mjs",
+    "worker:live:dev": "cd worker/openf1-live && wrangler dev --env dev --port 8788",
+    "worker:live:secret": "cd worker/openf1-live && wrangler secret put OPENF1_USERNAME && wrangler secret put OPENF1_PASSWORD",
+    "worker:live:deploy": "cd worker/openf1-live && wrangler deploy",
+    "worker:live:smoke": "node scripts/smoke-live-worker.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",
@@ -42,6 +51,7 @@
     "typescript": "6.0",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "wrangler": "^4.148.0"
   }
 }

@@ -39,7 +39,7 @@ export function TiersEditor({ form, errors, patch }: { form: FormState; errors: 
     <Section title="Price tiers" intro="Up to 10 tiers. New events start with one placeholder tier at ₹0 — set real prices before opening sales.">
       <ul className="divide-y divide-line border-y border-line">
         {form.tiers.map((t, i) => (
-          <li key={t.id} className="grid grid-cols-1 gap-3 py-4 md:grid-cols-[1fr_10rem_10rem_8rem_8rem_auto] md:items-end">
+          <li key={t.id} className="grid grid-cols-1 gap-3 py-4 2xl:grid-cols-[minmax(0,1fr)_10rem_10rem_8rem_8rem_auto] 2xl:items-end">
             <Field id={`tier-label-${t.id}`} label={`Tier ${i + 1} label`}>
               <input
                 id={`tier-label-${t.id}`}

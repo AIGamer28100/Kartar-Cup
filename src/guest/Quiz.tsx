@@ -1,12 +1,29 @@
-import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Check, MagnifyingGlass } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, LockSimple, MagnifyingGlass, X } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { pointsOf } from '../lib/scoring';
-import type { EventConfig } from '../lib/types';
+import { DUR, EASE, SPRING } from '../lib/motion';
+import { maxScore, pointsOf } from '../lib/scoring';
+import type { EventConfig, QuestionCfg } from '../lib/types';
 import type { PickMap } from './draft';
-import { optionLabel, optionsFor } from './model';
-import { CloseTimer, Eyebrow, H2, PageTitle, PicksList, SPRING, Shell } from './parts';
+import PicksCard from './PicksCard';
+import AnswerGrid from './quiz/AnswerGrid';
+import { useFaces } from './quiz/faces';
+import { cardsFor } from './quiz/grid';
+import {
+  ADVANCE_MS,
+  SCORING_NOTE,
+  SEARCH_MIN_OPTIONS,
+  closesCopy,
+  countAnswered,
+  delayedHold,
+  filterCards,
+  nextAfterPick,
+} from './quiz/logic';
+import PlayShell from './quiz/PlayShell';
+import PointsBadge from './quiz/PointsBadge';
+import { ClosePill } from './quiz/RaceClock';
+import { LightsRail } from './quiz/StartLights';
 
 interface Props {
   config: EventConfig;
@@ -14,338 +31,334 @@ interface Props {
   step: number;
   submitting: boolean;
   error: string;
-  isEdit: boolean;
   onAnswer: (qid: string, id: string) => void;
   onStep: (n: number) => void;
   onSubmit: () => void;
-  onCancel?: () => void;
 }
 
-export default function Quiz({
-  config,
-  answers,
-  step,
-  submitting,
-  error,
-  isEdit,
-  onAnswer,
-  onStep,
-  onSubmit,
-  onCancel,
-}: Props) {
+const KIND_LABEL: Record<QuestionCfg['kind'], string> = {
+  driver: 'Pick a driver',
+  team: 'Pick a team',
+  yesno: 'Yes or no',
+};
+
+/** Sticky action bar on phones (thumb reach), inline beside the grid on wide screens. */
+const barCls =
+  'sticky bottom-0 z-10 -mx-4 mt-6 flex gap-3 border-t border-line bg-base/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6 md:-mx-10 md:px-10 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:backdrop-blur-none';
+
+/**
+ * The quiz as a game: one call per screen, start-light progress rail, answer cards that auto-advance after
+ * a short beat (Back always cancels it), then "Your grid" review with one big lock-in button.
+ */
+export default function Quiz({ config, answers, step, submitting, error, onAnswer, onStep, onSubmit }: Props) {
   const reduce = useReducedMotion();
+  const live = config;
   const QUESTIONS = config.questions;
   const total = QUESTIONS.length;
   const review = step >= total;
+  const [fromReview, setFromReview] = useState(false);
+  const [dir, setDir] = useState(1);
+  // The pending auto-advance, tagged with the step it was started on so a stale one never shows.
+  const timer = useRef<number | undefined>(undefined);
+  const [advanceFrom, setAdvanceFrom] = useState<number | null>(null);
+  const advancing = advanceFrom === step;
+
+  const cancel = () => {
+    window.clearTimeout(timer.current);
+    timer.current = undefined;
+    setAdvanceFrom(null);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => () => window.clearTimeout(timer.current), [step]);
+
+  const go = (n: number) => {
+    cancel();
+    setDir(n >= step ? 1 : -1);
+    if (n >= total) setFromReview(false);
+    onStep(n);
+  };
+  const jump = (n: number) => {
+    if (review) setFromReview(true);
+    go(n);
+  };
+
+  const pick = (q: QuestionCfg, id: string) => {
+    onAnswer(q.id, id);
+    window.clearTimeout(timer.current);
+    setAdvanceFrom(step);
+    const target = nextAfterPick(step, total, fromReview);
+    timer.current = window.setTimeout(() => {
+      timer.current = undefined;
+      setAdvanceFrom(null);
+      setDir(1);
+      if (target >= total) setFromReview(false);
+      onStep(target);
+    }, ADVANCE_MS);
+  };
+
+  const made = countAnswered(QUESTIONS, answers);
   const q = QUESTIONS[Math.min(step, total - 1)];
 
   return (
-    <Shell>
-      <CloseTimer closesAt={config.closesAt.toMillis()} className="mb-5" />
-      <div className="flex items-center justify-between">
-        <Eyebrow>{review ? 'Final check' : 'Question'}</Eyebrow>
-        <p className="font-mono text-sm tabular-nums text-muted" aria-live="polite">
-          {Math.min(step + 1, total)} / {total}
-        </p>
-      </div>
-      <div
-        className="mt-3 flex gap-1.5"
-        role="progressbar"
-        aria-valuemin={1}
-        aria-valuemax={total}
-        aria-valuenow={Math.min(step + 1, total)}
-        aria-label="Quiz progress"
-      >
-        {QUESTIONS.map((x, i) => (
-          <span
-            key={x.id}
-            className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
-              i <= step ? 'bg-accent' : 'bg-line'
-            }`}
-          />
-        ))}
-      </div>
-
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={step}
-          className="mt-8 grid flex-1 content-start gap-8 lg:grid-cols-[5fr_7fr] lg:gap-24"
-          initial={reduce ? false : { opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, x: -24 }}
-          transition={SPRING}
-        >
+    <PlayShell hud={<ClosePill config={live} />}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <LightsRail questions={QUESTIONS} answers={answers} current={step} onJump={jump} />
+        <p className="font-mono text-xs uppercase tracking-widest text-muted" aria-live="polite">
           {review ? (
             <>
-              <div className="min-w-0">
-                <h1 className={PageTitle}>Ready to commit?</h1>
-                <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">Use back to change a pick. Picks close when the pit lane does.</p>
-                <Rail config={config} answers={answers} step={step} onStep={onStep} />
-              </div>
-              <div className="flex min-w-0 flex-col lg:max-w-xl">
-                <div className="lg:hidden">
-                  <PicksList config={config} answers={answers} />
-                </div>
-                {error && (
-                  <p role="alert" className="mt-4 text-sm text-accent-text">
-                    {error}
-                  </p>
-                )}
-                <div className="mt-6 flex gap-3">
-                  <Button variant="secondary" aria-label="Back" onClick={() => onStep(total - 1)}>
-                    <ArrowLeft size={20} weight="regular" aria-hidden="true" />
-                  </Button>
-                  <Button className="flex-1" disabled={submitting} onClick={onSubmit}>
-                    {submitting ? 'Transmitting...' : isEdit ? 'Update my picks' : 'Lock in my picks'}
-                  </Button>
-                </div>
-              </div>
+              Your grid <span className="tabular-nums text-ink">{made}</span>/<span className="tabular-nums">{total}</span>
             </>
           ) : (
-            <Step
-              key={q.id}
+            <>
+              Call <span className="tabular-nums text-ink">{step + 1}</span> of <span className="tabular-nums">{total}</span>
+            </>
+          )}
+        </p>
+      </div>
+      {delayedHold(live) && (
+        <p role="status" className="mt-3 rounded-lg border border-warn/50 bg-warn/10 px-3 py-2 text-sm text-ink">
+          {closesCopy(live)}
+        </p>
+      )}
+
+      <AnimatePresence mode="wait" initial={false} custom={dir}>
+        <motion.div
+          key={review ? 'review' : q.id}
+          className="mt-6 flex flex-1 flex-col md:mt-8"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, x: 40 * dir }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, x: -40 * dir }}
+          transition={reduce ? { duration: DUR.fast } : { duration: DUR.base, ease: EASE.out }}
+        >
+          {review ? (
+            <Review
               config={config}
-              qi={step}
-              value={answers[q.id]}
               answers={answers}
-              onStep={onStep}
-              onPick={(id) => onAnswer(q.id, id)}
-              onBack={step > 0 ? () => onStep(step - 1) : onCancel}
-              onNext={() => onStep(step + 1)}
+              made={made}
+              submitting={submitting}
+              error={error}
+              onEdit={jump}
+              onBack={() => go(total - 1)}
+              onSubmit={onSubmit}
+            />
+          ) : (
+            <Question
+              config={config}
+              q={q}
+              value={answers[q.id]}
+              advancing={advancing}
+              onPick={(id) => pick(q, id)}
+              onBack={step > 0 ? () => go(step - 1) : undefined}
+              onNext={() => go(fromReview ? total : step + 1)}
+              last={step === total - 1 || fromReview}
             />
           )}
         </motion.div>
       </AnimatePresence>
-    </Shell>
+    </PlayShell>
   );
 }
 
-function Step({
+function Question({
   config,
-  qi,
+  q,
   value,
-  answers,
-  onStep,
+  advancing,
   onPick,
   onBack,
   onNext,
+  last,
 }: {
   config: EventConfig;
-  qi: number;
+  q: QuestionCfg;
   value: string | undefined;
-  answers: PickMap;
-  onStep: (n: number) => void;
+  advancing: boolean;
   onPick: (id: string) => void;
   onBack?: () => void;
   onNext: () => void;
+  last: boolean;
 }) {
-  const QUESTIONS = config.questions;
-  const q = QUESTIONS[qi];
-  const opts = useMemo(() => optionsFor(config, q), [config, q]);
+  const reduce = useReducedMotion();
+  const faces = useFaces();
+  const cards = useMemo(() => cardsFor(config, q, faces), [config, q, faces]);
   const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
+  const shown = useMemo(() => filterCards(cards, query), [cards, query]);
   const uid = useId();
-  const listId = `${uid}-list`;
-
-  const shown = useMemo(() => {
-    const t = query.trim().toLowerCase();
-    return t
-      ? opts.filter((o) => `${o.label} ${o.sub ?? ''}`.toLowerCase().includes(t))
-      : opts;
-  }, [opts, query]);
-  const cur = Math.min(active, Math.max(0, shown.length - 1));
-
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActive(Math.min(cur + 1, shown.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActive(Math.max(cur - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const o = shown[cur];
-      if (o) {
-        if (o.id === value) onNext();
-        else onPick(o.id);
-      }
-    }
-  };
-
-  useEffect(() => {
-    document.getElementById(`${uid}-o-${shown[cur]?.id}`)?.scrollIntoView({ block: 'nearest' });
-  }, [cur, shown, uid]);
-
-  const pts = pointsOf(q);
-  const heading = (
-    <div className="min-w-0">
-      <h1 className={H2}>{q.prompt}</h1>
-      {q.hint && <p className="mt-3 max-w-[40ch] text-pretty text-muted md:text-lg">{q.hint}</p>}
-      {pts > 1 && <p className="mt-3 font-mono text-sm tabular-nums text-muted">Worth {pts} points</p>}
-      <Rail config={config} answers={answers} step={qi} onStep={onStep} />
-    </div>
-  );
-
-  if (q.kind === 'yesno') {
-    return (
-      <>
-        {heading}
-        <div className="flex min-w-0 flex-col">
-          <div role="group" aria-label={q.prompt} className="grid grid-cols-2 gap-3 lg:max-w-md">
-            {opts.map((o) => {
-              const sel = o.id === value;
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  aria-pressed={sel}
-                  onClick={() => onPick(o.id)}
-                  className={`flex min-h-20 items-center justify-center gap-2 rounded-xl border-2 px-4 text-xl font-semibold transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none motion-reduce:active:scale-100 ${
-                    sel ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-raised text-ink hover:border-muted'
-                  }`}
-                >
-                  {sel && <Check size={22} weight="bold" aria-hidden="true" />}
-                  {o.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex gap-3 pt-6 lg:max-w-md">
-            {onBack && (
-              <Button variant="secondary" aria-label="Back" onClick={onBack}>
-                <ArrowLeft size={20} weight="regular" aria-hidden="true" />
-              </Button>
-            )}
-            <Button className="flex-1" disabled={!value} onClick={onNext}>
-              {qi === QUESTIONS.length - 1 ? 'Review picks' : 'Next question'}
-              <ArrowRight size={20} weight="regular" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const headId = `${uid}-q`;
+  const searchable = cards.length >= SEARCH_MIN_OPTIONS;
+  const picked = cards.find((c) => c.id === value);
 
   return (
-    <>
-      {heading}
-      <div className="flex min-w-0 flex-col">
-      <label htmlFor={`${uid}-search`} className="mb-2 block text-sm font-medium">
-        Search {q.kind === 'team' ? 'constructors' : 'drivers'}
-      </label>
-      <div className="relative">
-        <MagnifyingGlass
-          size={20}
-          weight="regular"
-          aria-hidden="true"
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-        />
-        <input
-          id={`${uid}-search`}
-          role="combobox"
-          aria-expanded="true"
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-activedescendant={shown[cur] ? `${uid}-o-${shown[cur].id}` : undefined}
-          autoComplete="off"
-          className="min-h-12 w-full rounded-lg border border-line bg-raised pl-11 pr-4 text-[1rem] text-ink placeholder:text-muted focus:border-accent"
-          placeholder={q.kind === 'team' ? 'Type a team' : 'Type a driver or team'}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActive(0);
-          }}
-          onKeyDown={onKey}
-        />
+    <div className="grid flex-1 content-start gap-x-14 gap-y-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <PointsBadge pts={pointsOf(q)} />
+          <span className="font-mono text-xs uppercase tracking-widest text-muted">{KIND_LABEL[q.kind]}</span>
+        </div>
+        <motion.h1
+          id={headId}
+          className="mt-4 max-w-[22ch] text-h2 font-semibold text-balance"
+          initial={reduce ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...SPRING.soft, delay: 0.05 }}
+        >
+          {q.prompt}
+        </motion.h1>
+        {q.hint && <p className="mt-3 max-w-[40ch] text-pretty text-muted">{q.hint}</p>}
+        <p className="mt-4 hidden min-h-6 text-sm text-muted lg:block">
+          {picked ? (
+            <>
+              Your call: <span className="font-semibold text-ink">{picked.label}</span>
+            </>
+          ) : (
+            'Tap a card to make your call.'
+          )}
+        </p>
       </div>
 
-      <ul
-        id={listId}
-        role="listbox"
-        aria-label={q.prompt}
-        className="m-0 mt-2 grid max-h-[42dvh] list-none grid-cols-1 gap-x-8 overflow-y-auto p-0 sm:grid-cols-2 lg:max-h-[58dvh] xl:grid-cols-3"
-      >
-        {shown.map((o, i) => {
-          const sel = o.id === value;
-          return (
-            <li
-              key={o.id}
-              id={`${uid}-o-${o.id}`}
-              role="option"
-              aria-selected={sel}
-              onClick={() => onPick(o.id)}
-              className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 border-b border-line px-2 py-2 transition-colors duration-150 active:bg-raised ${
-                i === cur ? 'bg-raised' : ''
-              }`}
-            >
-              <span>
-                <span className={`block text-[1rem] ${sel ? 'font-semibold text-ink' : 'text-ink'}`}>
-                  {o.label}
-                </span>
-                {o.sub && <span className="block font-mono text-xs text-muted">{o.sub}</span>}
-              </span>
-              {sel && <Check size={20} weight="regular" className="shrink-0 text-accent-text" aria-label="Selected" />}
-            </li>
-          );
-        })}
-        {shown.length === 0 && (
-          <li className="py-6 text-muted">Nothing on the grid matches that. Check the spelling.</li>
+      <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        {searchable && (
+          <div className="relative mb-3 sm:max-w-sm">
+            <label htmlFor={`${uid}-s`} className="sr-only">
+              Find a {q.kind === 'team' ? 'team' : 'driver or team'}
+            </label>
+            <MagnifyingGlass size={18} weight="regular" aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              id={`${uid}-s`}
+              type="search"
+              autoComplete="off"
+              enterKeyHint="search"
+              className="min-h-11 w-full rounded-full border border-line bg-raised pl-10 pr-11 text-[1rem] text-ink placeholder:text-muted focus:border-accent"
+              placeholder={q.kind === 'team' ? 'Find a team' : 'Find a driver or team'}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery('')}
+                className="absolute right-0 top-0 flex size-11 items-center justify-center rounded-full text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <X size={16} weight="regular" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )}
-      </ul>
-
-      <div className="flex gap-3 pt-6 lg:max-w-md">
-        {onBack && (
-          <Button variant="secondary" aria-label="Back" onClick={onBack}>
-            <ArrowLeft size={20} weight="regular" aria-hidden="true" />
+        {shown.length > 0 ? (
+          <AnswerGrid cards={shown} value={value} onPick={onPick} labelledBy={headId} />
+        ) : (
+          <div role="status" className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-muted">
+            Nobody on the grid matches that.{' '}
+            <button type="button" onClick={() => setQuery('')} className="min-h-11 font-medium text-ink underline focus-visible:outline-2 focus-visible:outline-accent">
+              Show everyone
+            </button>
+          </div>
+        )}
+        <p className="mt-3 hidden font-mono text-[0.7rem] uppercase tracking-widest text-muted pointer-fine:block">
+          Arrow keys to move, Enter to pick, 1-9 to quick-pick
+        </p>
+        <span className="sr-only" aria-live="polite">
+          {picked ? `Picked ${picked.label}` : ''}
+        </span>
+      </div>
+        <div className={`${barCls} lg:col-start-1 lg:row-start-2 lg:mt-0 lg:max-w-sm lg:self-start`}>
+          {onBack && (
+            <Button variant="secondary" onClick={onBack} className="min-w-12 px-4">
+              <ArrowLeft size={20} weight="regular" aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only">Back</span>
+            </Button>
+          )}
+          <Button className="relative flex-1 overflow-hidden" disabled={!value} onClick={onNext}>
+            {last ? 'Review my grid' : 'Next call'}
+            <ArrowRight size={20} weight="regular" aria-hidden="true" />
+            {advancing && !reduce && (
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-1 origin-left bg-accent-ink/70"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: ADVANCE_MS / 1000, ease: 'linear' }}
+              />
+            )}
           </Button>
-        )}
-        <Button className="flex-1" disabled={!value} onClick={onNext}>
-          {qi === QUESTIONS.length - 1 ? 'Review picks' : 'Next question'}
-          <ArrowRight size={20} weight="regular" aria-hidden="true" />
-        </Button>
-      </div>
-      </div>
-    </>
+        </div>
+    </div>
   );
 }
 
-/** Numbered progress rail (lg+): lists every step with the answered pick. */
-function Rail({
+function Review({
   config,
   answers,
-  step,
-  onStep,
+  made,
+  submitting,
+  error,
+  onEdit,
+  onBack,
+  onSubmit,
 }: {
   config: EventConfig;
   answers: PickMap;
-  step: number;
-  onStep: (n: number) => void;
+  made: number;
+  submitting: boolean;
+  error: string;
+  onEdit: (i: number) => void;
+  onBack: () => void;
+  onSubmit: () => void;
 }) {
+  const total = config.questions.length;
+  const complete = made === total;
+  const live = config;
   return (
-    <ol className="m-0 mt-10 hidden list-none p-0 lg:block" aria-label="Your picks so far">
-      {config.questions.map((x, i) => {
-        const picked = answers[x.id];
-        return (
-          <li key={x.id} className="border-t border-line">
-            <button
-              type="button"
-              onClick={() => onStep(i)}
-              aria-current={i === step ? 'step' : undefined}
-              className="grid min-h-14 w-full grid-cols-[2.5rem_1fr] items-baseline gap-3 py-3 text-left transition-colors duration-150 hover:text-ink aria-[current=step]:text-ink"
-            >
-              <span className={`font-mono text-sm tabular-nums ${i === step ? 'text-accent-text' : 'text-muted'}`}>
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm text-muted">{x.prompt}</span>
-                <span className={`block truncate ${picked ? 'font-medium text-ink' : 'text-muted'}`}>
-                  {picked ? optionLabel(config, x, picked) : 'Not picked'}
+    <div className="grid flex-1 content-start gap-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-14">
+      <div className="min-w-0">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted">Final check</p>
+        <h1 className="mt-3 text-h2 font-semibold text-balance">Your grid</h1>
+        <p className="mt-3 max-w-[40ch] text-pretty text-muted">
+          {complete ? `All ${total} calls made.` : `${made} of ${total} calls made. Fill the gaps to lock in.`} Up to{' '}
+          <span className="font-num text-lg font-extrabold italic tabular-nums text-gold">{maxScore(config.questions)}</span> points on the line.
+        </p>
+        <p className="mt-3 max-w-[40ch] text-pretty text-sm text-muted">{SCORING_NOTE}</p>
+        <p className="mt-2 max-w-[40ch] text-pretty text-sm text-muted">{closesCopy(live)}</p>
+      </div>
+      <div className="min-w-0">
+        <PicksCard config={config} answers={answers} title="Your calls" onEdit={onEdit} />
+        {error && (
+          <p role="alert" className="mt-4 rounded-lg border border-accent/60 bg-accent/10 px-3 py-2 text-sm text-accent-text">
+            {error}
+          </p>
+        )}
+        <div className={barCls}>
+          <Button variant="secondary" onClick={onBack} className="min-h-16 min-w-14 px-4" aria-label="Back to the last call">
+            <ArrowLeft size={20} weight="regular" aria-hidden="true" />
+          </Button>
+          <button
+            type="button"
+            disabled={!complete || submitting}
+            aria-disabled={!complete || submitting}
+            onClick={onSubmit}
+            className="press relative flex min-h-16 flex-1 items-center justify-center gap-3 overflow-hidden rounded-xl bg-accent px-5 text-lg font-semibold text-accent-ink shadow-[0_8px_30px_-8px_rgb(216_30_54/0.7)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+          >
+            {submitting ? (
+              <>
+                <span className="start-lights" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
                 </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
+                Transmitting
+              </>
+            ) : (
+              <>
+                <LockSimple size={22} weight="bold" aria-hidden="true" />
+                {!complete ? `Make all ${total} calls` : 'Lock in my picks'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

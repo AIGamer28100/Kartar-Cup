@@ -3,6 +3,8 @@ import { useReducedMotion } from 'framer-motion';
 import { ArrowCounterClockwise, HandGrabbing, Pause, Play } from '@phosphor-icons/react';
 import type { TrackProfile } from '../config/tracks/profiles';
 import { bezierAt, EASE, formatLapTime } from '../lib/motion';
+import type { RaceFacts } from '../config/tracks/raceFacts';
+import { TrackFacts } from './TrackFacts';
 import { distanceFractions, sectorOfIndex, sectorRanges } from '../lib/trackGeometry';
 import {
   chunkRanges,
@@ -105,7 +107,20 @@ const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] 
 
 const MINUS = '−';
 
-export default function TrackLayout({ profile, name, lengthKm }: { profile: TrackProfile; name: string; lengthKm?: number }) {
+export default function TrackLayout({
+  profile,
+  name,
+  lengthKm,
+  facts,
+  season,
+}: {
+  profile: TrackProfile;
+  name: string;
+  lengthKm?: number;
+  /** The circuit's headline numbers; shown under the 3D view when given. */
+  facts?: RaceFacts;
+  season?: number;
+}) {
   const reduce = useReducedMotion() ?? false;
 
   const geo = useMemo(() => {
@@ -625,6 +640,12 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
     return lengthKm ? `${(f * lengthKm).toFixed(2)} km` : `${Math.round(f * 100)}% of the lap`;
   };
   const sectorAt = (i: number) => SECTOR_META[sectorOfIndex(i, geo.ranges[1][0], geo.ranges[2][0])].label;
+  // Each sector's share of the lap, from the telemetry lap's own distance fractions (the boundaries are where
+  // the sectors start), scaled to the official length.
+  const f2 = geo.fracs[geo.ranges[1][0]] ?? null;
+  const f3 = geo.fracs[geo.ranges[2][0]] ?? null;
+  const sectorKm: (number | null)[] =
+    lengthKm && f2 != null && f3 != null ? [f2 * lengthKm, (f3 - f2) * lengthKm, (1 - f3) * lengthKm] : [null, null, null];
   const highM = Math.round(st.range);
   const climbM = Math.round(st.totalClimb);
   const riseM = Math.round(st.biggestRise.metres);
@@ -638,7 +659,7 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
     'press inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-sm font-medium text-ink transition-colors hover:border-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
   return (
-    <figure className="relative isolate m-0 min-w-0 overflow-hidden rounded-xl border border-line bg-base">
+    <figure className="@container relative isolate m-0 min-w-0 overflow-hidden rounded-xl border border-line bg-base">
       <div aria-hidden="true" className="tl-backdrop pointer-events-none absolute inset-0 -z-10" />
 
       <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 md:px-5 md:pt-5">
@@ -661,6 +682,8 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
         </div>
       </header>
 
+      {/* Narrow card (a column, a phone): everything stacks. Wide card (full-width page): 3D view left, details right. */}
+      <div className="@[56rem]:grid @[56rem]:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] @[56rem]:items-start @[56rem]:gap-6 @[56rem]:pr-5">
       <div className="relative mt-2 px-1 sm:px-3">
         <div
           ref={wrapRef}
@@ -675,8 +698,7 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
           onPointerCancel={onPointerCancel}
           onDoubleClick={resetView}
           onKeyDown={onKeyDown}
-          className="relative w-full cursor-grab touch-pan-y select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing"
-          style={{ height: 320 }}
+          className="relative h-80 w-full cursor-grab touch-pan-y select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent active:cursor-grabbing @[56rem]:h-[26rem]"
         >
           <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
         </div>
@@ -692,8 +714,17 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
         </p>
       </div>
 
+      <div className="min-w-0">
+      {facts && season != null && (
+        <section aria-label="Circuit facts" className="mt-4 px-4 md:px-5">
+          <h3 className="m-0 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-muted">Circuit</h3>
+          <TrackFacts facts={facts} season={season} className="mt-2" />
+        </section>
+      )}
+
       {/* Elevation in figures (also what screen readers get). */}
-      <dl className="m-0 mt-3 grid grid-cols-2 gap-2 px-4 sm:grid-cols-4 md:px-5">
+      <h3 className="m-0 mt-4 px-4 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-muted md:px-5">Elevation</h3>
+      <dl className="m-0 mt-2 grid grid-cols-2 gap-2 px-4 @[30rem]:grid-cols-4 md:px-5">
         <div className={cell}>
           <dt className={cellLabel}>Highest point</dt>
           <dd className="m-0">
@@ -732,13 +763,17 @@ export default function TrackLayout({ profile, name, lengthKm }: { profile: Trac
         </div>
       </dl>
 
+      </div>
+      </div>
+
       <figcaption className="mt-3 border-t border-line px-4 pb-4 pt-3 md:px-5 md:pb-5">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          {SECTOR_META.map((m) => (
+          {SECTOR_META.map((m, i) => (
             <span key={m.short} className="inline-flex items-center gap-2">
               <span aria-hidden="true" className="inline-block h-1.5 w-6 rounded-full" style={{ background: `var(${m.token})` }} />
               <span className="font-mono text-xs text-muted">{m.short}</span>
               {m.label}
+              {sectorKm[i] != null && <span className="font-mono text-xs tabular-nums text-muted">{sectorKm[i]!.toFixed(2)} km</span>}
             </span>
           ))}
           <span className="inline-flex items-center gap-2 text-muted">

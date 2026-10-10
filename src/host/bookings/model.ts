@@ -157,6 +157,24 @@ export function distributeLeftoverSeats(tiers: PriceTier[], capacity: number): P
   );
 }
 
+/** The event start the form saves as `dateMs` (R56: the rules check the refund cutoff against it). */
+export function formDateMs(f: Pick<FormState, 'dateUtc'>): number {
+  return fromLocalInput(f.dateUtc);
+}
+
+/** A5: the rules refuse every paid refund for an event without a numeric dateMs (fail closed), so
+ * the host is told and offered a fix. A cancelled event refunds regardless, so it is not flagged. */
+export function refundsOffNoDate(e: Pick<BookingEvent, 'dateMs' | 'cancelled'>): boolean {
+  return !e.cancelled && !(typeof e.dateMs === 'number' && Number.isInteger(e.dateMs) && e.dateMs > 0);
+}
+
+/** A5: the dateMs that saving this event through the form would write (same conversion, no copy).
+ * null when the stored date cannot be read. */
+export function dateMsToSave(e: BookingEvent): number | null {
+  const ms = formDateMs(eventToForm(e));
+  return Number.isInteger(ms) && ms > 0 ? ms : null;
+}
+
 /** Builds the payload for createBookingEvent/updateBookingEvent. Caller should validate() first. */
 export function formToEvent(f: FormState): NewBookingEvent {
   const venue: Venue = {
@@ -171,10 +189,13 @@ export function formToEvent(f: FormState): NewBookingEvent {
   const capacity = Number(f.capacity);
   const tiers = distributeLeftoverSeats(f.tiers, capacity);
 
+  const startMs = formDateMs(f);
   const ev: NewBookingEvent = {
     title: f.title.trim(),
     venue,
-    dateUtc: new Date(fromLocalInput(f.dateUtc)).toISOString(),
+    dateUtc: new Date(startMs).toISOString(),
+    // R56: the rules enforce the refund cutoff against this number (they cannot parse dateUtc).
+    dateMs: startMs,
     tiers,
     discounts: f.discounts.map(formToDiscount),
     capacity,

@@ -71,6 +71,11 @@ async function cached<T>(url: string, ttl: number): Promise<T> {
   return v;
 }
 
+/** Dev/test only: drops the in-memory response cache so a changed data source takes effect at once. */
+export function clearMemoryCache(): void {
+  mem.clear();
+}
+
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 

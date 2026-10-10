@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { ArrowRight, Copy } from '@phosphor-icons/react';
-import Button from '../components/Button';
+import Button, { buttonCls } from '../components/Button';
 import Divider from '../components/Divider';
 import { isInAppBrowser } from '../lib/inAppBrowser';
-import { Eyebrow, PageTitle, Reveal, Shell, Split } from './parts';
-
-export const PHONE_RE = /^[0-9+ ]{7,16}$/;
 
 /** Display name from the Google account (falls back to the email local part). */
 export const accountName = (u: User): string =>
@@ -102,7 +99,7 @@ export default function GoogleCta({ onGoogle }: CtaProps) {
       {err && (
         <p role="alert" className="text-sm text-accent-text">
           {err}{' '}
-          <button type="button" onClick={() => void go()} className={`min-h-11 font-medium underline ${focusCls}`}>
+          <button type="button" onClick={() => void go()} className={`${buttonCls("secondary", "min-h-11 px-4 text-sm")} ${focusCls}`}>
             Retry
           </button>
         </p>
@@ -110,79 +107,5 @@ export default function GoogleCta({ onGoogle }: CtaProps) {
       {inApp && <Divider />}
       {inApp && <InAppPanel />}
     </div>
-  );
-}
-
-interface ProfileProps {
-  user: User;
-  phone: string;
-  onPhone: (p: string) => void;
-  onContinue: () => void;
-  onSwitch: () => void;
-}
-
-/** Signed in with Google, no entry yet: confirm the account and optionally add a phone. */
-export function Profile({ user, phone, onPhone, onContinue, onSwitch }: ProfileProps) {
-  const [phoneErr, setPhoneErr] = useState('');
-  const next = () => {
-    if (phone.trim() && !PHONE_RE.test(phone.trim())) {
-      setPhoneErr('Digits, + and spaces only, 7 to 16 long.');
-      return;
-    }
-    onContinue();
-  };
-  return (
-    <Shell>
-      <Split
-        left={
-      <Reveal>
-        <Eyebrow>Driver briefing</Eyebrow>
-        <h1 className={`mt-3 ${PageTitle}`}>You are on the radio</h1>
-      <div className="mt-8">
-        <p className="text-sm text-muted">Signed in as</p>
-        <p className="mt-1 text-xl font-semibold">{accountName(user)}</p>
-        {user.email && <p className="font-mono text-sm text-muted">{user.email}</p>}
-        <button type="button" onClick={onSwitch} className={`mt-1 min-h-11 text-sm text-muted underline ${focusCls}`}>
-          Not you? Switch account
-        </button>
-      </div>
-      </Reveal>
-        }
-        right={
-      <div className="max-w-md">
-      <Reveal index={2}>
-        <label htmlFor="g-phone" className="mb-2 block text-sm font-medium">
-          Phone <span className="font-normal text-muted">(optional)</span>
-        </label>
-        <input
-          id="g-phone"
-          className={`${inputCls} font-mono`}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(e) => onPhone(e.target.value)}
-          aria-invalid={!!phoneErr}
-          aria-describedby={phoneErr ? 'g-phone-err g-phone-hint' : 'g-phone-hint'}
-          placeholder="+91 98765 43210"
-        />
-        {phoneErr && (
-          <p id="g-phone-err" role="alert" className="mt-2 text-sm text-accent-text">
-            {phoneErr}
-          </p>
-        )}
-        <p id="g-phone-hint" className="mt-2 text-sm text-muted">
-          If you add a number, we may invite you to The Karter Cup WhatsApp community. Leave it blank to skip.
-        </p>
-      </Reveal>
-      <Reveal index={3} className="pt-8">
-        <Button className="w-full" onClick={next}>
-          Continue
-        </Button>
-      </Reveal>
-      </div>
-        }
-      />
-    </Shell>
   );
 }

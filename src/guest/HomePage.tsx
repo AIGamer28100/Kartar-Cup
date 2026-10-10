@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { DUR, EASE } from "../lib/motion";
 import {
-  ArrowLeft,
   ArrowRight,
   Images,
+  CalendarBlank,
   InstagramLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
@@ -15,19 +15,17 @@ import { computeRaceState } from "../lib/raceState";
 import { raceStartFor } from "../lib/f1api";
 import Divider from "../components/Divider";
 import { buttonCls } from "../components/Button";
-import Skeleton, { PageSkeleton } from "../components/Skeleton";
+import Skeleton from "../components/Skeleton";
 import TrackMap from "../components/TrackMap";
 import { ALL_RACES, nextRace } from "../config/calendar";
 import { trackForRace } from "../config/tracks";
 import { GALLERY_PLACEHOLDERS, gallerySrc } from "./galleryData";
 import { istReadout } from "./model";
 import { useCommunityLink } from "../lib/useCommunityLink";
-import { Eyebrow, H1, H2, Reveal, Shell } from "./parts";
+import { CardKerb, Eyebrow, H1, H2, Reveal, Shell } from "./parts";
 import ChampionshipSection from "./Championship";
-import QuizBanner from "./QuizBanner";
 import { ScrollProgressPath, useDesktopMotion } from "./scrollFx";
 import { KerbDraw, Magnetic, Stagger, StaggerItem, SplitWords } from "../components/motion";
-import { useGuestSession } from "./useGuestSession";
 import { nextSession } from "../lib/f1api";
 import { useSchedule } from "../lib/useSchedule";
 import { usePageMeta } from "../lib/pageMeta";
@@ -35,13 +33,8 @@ import { watchBookingEvents } from "../lib/bookings";
 import type { BookingEvent } from "../lib/types";
 import { nextHostedRace } from "./eventsModel";
 
-const GuestApp = lazy(() => import("./GuestApp"));
-
 const INSTAGRAM_CUP = "https://www.instagram.com/thekartercup/";
 const INSTAGRAM_CLUB = "https://www.instagram.com/thekarterclub/";
-
-const linkCls =
-  "kerb-link kerb-link--rest inline-flex min-h-11 w-fit items-center gap-2 text-ink";
 
 /** Section heading used across the community page (distinct from the quiz's H1 to keep the
  * page's own type rhythm — same clamp scale, reused, not duplicated ad hoc). */
@@ -177,16 +170,19 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
       {next && raceStateInfo && (
         <div
           ref={trackWrapRef}
-          className="flex flex-col justify-center gap-6 rounded-none border-y border-line py-8 lg:flex-row lg:items-center lg:gap-10"
+          className="group relative flex flex-col justify-center gap-6 overflow-hidden rounded-lg border border-line px-5 py-8 transition-colors hover:border-accent lg:flex-row lg:items-center lg:gap-10 lg:px-8"
         >
-          <div className="min-w-0">
+          <div className="min-w-0 lg:flex-[3]">
             <Reveal index={1}>
               <p className="font-mono text-xs uppercase tracking-widest text-muted">
                 Round {String(next.round).padStart(2, "0")} ·{" "}
                 {hostedNext?.id === next.id ? "watch-party night" : "next race"}
               </p>
               <p className="mt-1 text-h3 text-balance font-medium text-ink">
-                <Link to={`/races/${next.id}`} className="underline decoration-line underline-offset-4 hover:decoration-accent">
+                <Link
+                  to={`/races/${next.id}`}
+                  className="after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
                   {next.name}
                 </Link>
               </p>
@@ -194,14 +190,19 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
                 {istReadout(targetMs).day} {istReadout(targetMs).month} ·{" "}
                 {next.locality}, {next.country}
               </p>
+              <p className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-text">
+                Open race
+                <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />
+              </p>
               {hostedNext && hostedNext.id !== next.id && (
-                <p className="mt-2 text-sm text-muted">
-                  Next watch party:{" "}
-                  <Link to={`/races/${hostedNext.id}`} className="font-medium text-accent-text underline decoration-line underline-offset-4 hover:decoration-accent">
-                    {hostedNext.name}
-                  </Link>{" "}
-                  · {hostedStart?.day} {hostedStart?.month}
-                </p>
+                <Link
+                  to={`/races/${hostedNext.id}`}
+                  className={buttonCls("secondary", "press group/chip relative z-10 mt-3 min-h-11 w-fit text-sm")}
+                >
+                  <CalendarBlank size={16} weight="regular" aria-hidden="true" />
+                  Next watch party: {hostedNext.name} · {hostedStart?.day} {hostedStart?.month}
+                  <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-150 group-hover/chip:translate-x-1 motion-reduce:transition-none" />
+                </Link>
               )}
               {upNext && upNext.key !== "race" && (
                 <p className="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted">
@@ -232,7 +233,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
             </Reveal>
           </div>
           {track && (
-            <Reveal index={3} className="min-w-0 flex-1">
+            <Reveal index={3} className="min-w-0 lg:flex-[2]">
               <motion.div
                 style={
                   desktopMotion ? { y: trackY, opacity: trackOpacity } : undefined
@@ -242,6 +243,7 @@ function HeroAndNextRace({ onRaceStateChange }: { onRaceStateChange: (state: Rac
               </motion.div>
             </Reveal>
           )}
+          <CardKerb />
         </div>
       )}
     </div>
@@ -275,27 +277,6 @@ function AboutSection() {
 /** R32 follow-up: only the NEXT event, with its real circuit visualization and a live countdown —
  * the full schedule moved to its own page (/events), so this section stays a single, focused
  * "what's on next" moment rather than a 3-up list. */
-/** The quiz's entry point (R25: minor, event-only) — race details/clock/track now live in
- * HeroAndNextRace up top, so this is just the banner, full-width, no longer sharing a row. */
-function QuizBannerSection({
-  event,
-  status,
-  quizRevealed,
-  onReveal,
-}: {
-  event: ReturnType<typeof useGuestSession>["event"];
-  status: ReturnType<typeof useGuestSession>["status"];
-  quizRevealed: boolean;
-  onReveal: () => void;
-}) {
-  if (quizRevealed) return null;
-  return (
-    <div id="events">
-      <QuizBanner event={event} status={status} onReveal={onReveal} />
-    </div>
-  );
-}
-
 function PartnershipsSection() {
   const slots = [
     "Title partner slot",
@@ -335,49 +316,78 @@ function PartnershipsSection() {
   );
 }
 
+const communityCardCls =
+  "group press relative flex min-h-24 flex-col justify-between gap-3 overflow-hidden rounded-lg border border-line bg-raised p-5 text-ink transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+function CommunityCard({
+  href,
+  icon,
+  title,
+  note,
+  primary = false,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  note: string;
+  primary?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${communityCardCls} ${primary ? "border-accent" : ""}`}
+    >
+      <span className="flex items-center gap-3 text-[1rem] font-medium">
+        {icon}
+        {title}
+        <ArrowRight size={16} weight="regular" aria-hidden="true" className="ml-auto shrink-0 transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />
+      </span>
+      <span className="text-sm text-muted">{note}</span>
+      <CardKerb />
+    </a>
+  );
+}
+
 function JoinCommunitySection() {
   const wa = useCommunityLink();
   return (
     <div>
       <SectionHeading eyebrow="Join in">Join the community</SectionHeading>
-      <Reveal index={1} className="mt-6 flex flex-col gap-4">
-        {wa ? (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={linkCls}
-          >
-            <WhatsappLogo size={22} weight="regular" aria-hidden="true" />
-            Join the WhatsApp community
-          </a>
-        ) : (
-          <p className="text-muted">
-            WhatsApp link not open yet — ask at the event.
-          </p>
-        )}
-        <a
-          href={INSTAGRAM_CUP}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={linkCls}
-        >
-          <InstagramLogo size={22} weight="regular" aria-hidden="true" />
-          @thekartercup
-        </a>
-        <a
-          href={INSTAGRAM_CLUB}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={linkCls}
-        >
-          <InstagramLogo size={22} weight="regular" aria-hidden="true" />
-          @thekarterclub{" "}
-          <span className="text-sm text-muted">
-            — an initiative by The Karter Cup, for watch parties
-          </span>
-        </a>
-      </Reveal>
+      <Stagger className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <StaggerItem>
+          {wa ? (
+            <CommunityCard
+              primary
+              href={wa}
+              icon={<WhatsappLogo size={24} weight="regular" aria-hidden="true" />}
+              title="Join on WhatsApp"
+              note="Event news and race-night chat"
+            />
+          ) : (
+            <p className="flex min-h-24 items-center rounded-lg border border-dashed border-line p-5 text-sm text-muted">
+              WhatsApp link not open yet — ask at the event.
+            </p>
+          )}
+        </StaggerItem>
+        <StaggerItem>
+          <CommunityCard
+            href={INSTAGRAM_CUP}
+            icon={<InstagramLogo size={24} weight="regular" aria-hidden="true" />}
+            title="@thekartercup"
+            note="The league on Instagram"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <CommunityCard
+            href={INSTAGRAM_CLUB}
+            icon={<InstagramLogo size={24} weight="regular" aria-hidden="true" />}
+            title="@thekarterclub"
+            note="Our watch parties"
+          />
+        </StaggerItem>
+      </Stagger>
     </div>
   );
 }
@@ -391,7 +401,8 @@ function GallerySection() {
       <SectionHeading eyebrow="Past events">Gallery</SectionHeading>
       <Stagger className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {preview.map((g) => (
-          <StaggerItem key={g.seed} kind="scale" className="overflow-hidden rounded-lg border border-line bg-raised">
+          <StaggerItem key={g.seed} kind="scale" className="group relative overflow-hidden rounded-lg border border-line bg-raised transition-colors hover:border-accent">
+            <Link to="/gallery" aria-label={`Open gallery: ${g.caption}`} className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" />
             <img
               src={gallerySrc(g.seed, 320, 320)}
               alt={g.caption}
@@ -402,50 +413,23 @@ function GallerySection() {
         ))}
       </Stagger>
       <Reveal index={2} className="mt-5">
-        <Link
-          to="/gallery"
-          className="-mx-2 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-medium text-ink transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        >
-          <Images size={20} weight="regular" aria-hidden="true" />
-          See the full gallery
-          <ArrowRight size={16} weight="regular" aria-hidden="true" />
-        </Link>
+        <Magnetic>
+          <Link to="/gallery" className={buttonCls("secondary", "press group w-fit")}>
+            <Images size={20} weight="regular" aria-hidden="true" />
+            See the full gallery
+            <ArrowRight size={16} weight="regular" aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-1 motion-reduce:transition-none" />
+          </Link>
+        </Magnetic>
       </Reveal>
     </div>
   );
 }
 
-/** The Kartar CUP home page: a community/brand page. The quiz is demoted to a small, contextual
- * banner (see QuizBanner + quizGate) — never the hero's main CTA or its own headline section. */
+/** The Kartar CUP home page: a community/brand page. The quiz is not offered here; it lives behind
+ * the host's /play link. */
 export default function HomePage() {
   usePageMeta({});
-  const s = useGuestSession();
-  const [quizRevealed, setQuizRevealed] = useState(false);
   const [raceState, setRaceState] = useState<RaceState | null>(null);
-  // The mobile tab bar's Predict tab (and its Home tab, to leave the quiz) navigate here with
-  // router state; same-path navigations get a fresh key, so key drives the sync.
-  const location = useLocation();
-  useEffect(() => {
-    setQuizRevealed((location.state as { quiz?: boolean } | null)?.quiz === true);
-  }, [location.key, location.state]);
-
-  if (quizRevealed) {
-    return (
-      <Suspense fallback={<PageSkeleton />}>
-        <div className="mx-auto w-full max-w-[87.5rem] px-6 pt-4 md:px-10 md:pt-6 lg:px-16">
-          <button
-            type="button"
-            onClick={() => setQuizRevealed(false)}
-            className="inline-flex min-h-11 items-center gap-2 text-sm text-muted transition hover:text-ink"
-          >
-            <ArrowLeft size={18} weight="regular" aria-hidden="true" />
-            Back to The Karter Cup
-          </button>
-        </div>
-        <GuestApp />
-      </Suspense>
-    );
-  }
 
   return (
     <>
@@ -454,14 +438,6 @@ export default function HomePage() {
       <div className="relative z-10">
         <Shell>
           <HeroAndNextRace onRaceStateChange={setRaceState} />
-          <div className="mt-10">
-            <QuizBannerSection
-              event={s.event}
-              status={s.status}
-              quizRevealed={quizRevealed}
-              onReveal={() => setQuizRevealed(true)}
-            />
-          </div>
           <CheckerDivider />
           <AboutSection />
           <PlainDivider />

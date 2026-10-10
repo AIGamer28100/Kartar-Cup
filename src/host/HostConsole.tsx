@@ -10,15 +10,16 @@ import { maxScore, pointsMap, rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
 import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
+import LiveControls from './settings/LiveControls';
 import PodiumController from './screen/PodiumController';
-import ResultsForm from './ResultsForm';
+import OverlayControls from './overlay/OverlayControls';
 import RaceControl from './RaceControl';
 import RevealWinner from './RevealWinner';
 import { useCardBonus } from './useCardBonus';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
-  const { loading, error, config, entries, resultsDoc, results } = useHostData();
+  const { loading, error, config, entries, results } = useHostData();
   const stuck = useTimedOut(loading);
   const cardBonus = useCardBonus(config?.raceId);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
@@ -82,8 +83,9 @@ export default function HostConsole() {
         max={config ? maxScore(config.questions) : undefined}
       />
       <CrowdReveal config={config} entries={entries} results={results} />
-      <ResultsForm config={config} resultsDoc={resultsDoc} results={results} />
+      <LiveControls />
       <PodiumController />
+      <OverlayControls />
       <div className="py-8">
         <Button variant="secondary" disabled={entries.length === 0} onClick={exportCsv}>
           <DownloadSimple size={20} weight="regular" aria-hidden="true" /> Export entries CSV

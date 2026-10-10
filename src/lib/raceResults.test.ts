@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveRaceFacts, factForPrompt, mapFactsToQuestions, type RawRaceData } from './raceResults';
+import { deriveRaceFacts, factForPrompt, mapFactsToQuestions, nextResultsPull, pullOutcome, type RawRaceData } from './raceResults';
 
 const drivers = [
   { driver_number: 1, full_name: 'Max Verstappen', team_name: 'Red Bull Racing' },
@@ -139,5 +139,58 @@ describe('mapFactsToQuestions', () => {
     const none = deriveRaceFacts({ ...base(), sessionResult: base().sessionResult.map((r) => ({ ...r, dnf: false })) });
     const out = mapFactsToQuestions(none, [{ id: 'q3', kind: 'driver', prompt: 'Which driver will DNF?' }], valid);
     expect(out.answers).toEqual({ q3: [] });
+  });
+});
+
+describe('nextResultsPull', () => {
+  const END = Date.UTC(2026, 9, 11, 8, 52);
+  const MIN = 60_000;
+  const plan = (now: number, extra: Partial<Parameters<typeof nextResultsPull>[0]> = {}) =>
+    nextResultsPull({ raceEndMs: END, now, ...extra });
+
+  it('waits before the race ends and never polls', () => {
+    const p = plan(END - 1);
+    expect(p).toEqual({ state: 'waiting', raceEndMs: END, dataFromMs: END + 30 * MIN });
+  });
+  it('is in blackout from race end to end + 30 min, with a countdown', () => {
+    expect(plan(END)).toMatchObject({ state: 'blackout', msLeft: 30 * MIN });
+    expect(plan(END + 10 * MIN)).toMatchObject({ state: 'blackout', msLeft: 20 * MIN });
+    expect(plan(END + 30 * MIN - 1)).toMatchObject({ state: 'blackout', msLeft: 1 });
+  });
+  it('pulls immediately once after the blackout', () => {
+    expect(plan(END + 30 * MIN).state).toBe('pull');
+    expect(plan(END + 5 * 60 * MIN).state).toBe('pull');
+  });
+  it('retries every 2 minutes while partial', () => {
+    const last = END + 31 * MIN;
+    expect(plan(last + MIN, { lastPullMs: last, lastOutcome: 'partial', attempts: 1 })).toMatchObject({
+      state: 'retrying',
+      nextPullMs: last + 2 * MIN,
+      msLeft: MIN,
+    });
+    expect(plan(last + 2 * MIN, { lastPullMs: last, lastOutcome: 'partial', attempts: 1 }).state).toBe('pull');
+    expect(plan(last + 3 * MIN, { lastPullMs: last, lastOutcome: 'none', attempts: 3 }).state).toBe('pull');
+  });
+  it('stops after 10 attempts', () => {
+    const last = END + 60 * MIN;
+    expect(plan(last + 5 * MIN, { lastPullMs: last, lastOutcome: 'partial', attempts: 9 }).state).toBe('pull');
+    expect(plan(last + 5 * MIN, { lastPullMs: last, lastOutcome: 'partial', attempts: 10 }).state).toBe('stopped');
+  });
+  it('is ready after a complete pull and stays so', () => {
+    const last = END + 31 * MIN;
+    expect(plan(last + 1, { lastPullMs: last, lastOutcome: 'complete' }).state).toBe('ready');
+    expect(plan(last + 99 * MIN, { lastPullMs: last, lastOutcome: 'complete', attempts: 12 }).state).toBe('ready');
+  });
+});
+
+describe('pullOutcome', () => {
+  const full = { failed: [], pits: [{ driver_number: 1 }], overtakes: [{ overtaking_driver_number: 1 }], laps: [{ driver_number: 1 }], sessionResult: [{ driver_number: 1 }] };
+  it('complete when every dataset has rows', () => expect(pullOutcome(full)).toBe('complete'));
+  it('partial when a dataset failed or is empty', () => {
+    expect(pullOutcome({ ...full, failed: ['pit'] })).toBe('partial');
+    expect(pullOutcome({ ...full, overtakes: [] })).toBe('partial');
+  });
+  it('none when classification and laps are both missing', () => {
+    expect(pullOutcome({ ...full, sessionResult: [], laps: [] })).toBe('none');
   });
 });

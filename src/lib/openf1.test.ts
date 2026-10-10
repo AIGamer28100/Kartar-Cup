@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { normalizeDrivers, findSessionKey, fetchDrivers, fetchLineupForRace } from './openf1';
+import { BASE, normalizeDrivers, findSessionKey, fetchDrivers, fetchLineupForRace } from './openf1';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -72,6 +72,46 @@ describe('findSessionKey', () => {
     ]);
     const res = await findSessionKey(2024, race);
     expect(res.ok).toBe(false);
+  });
+});
+
+describe('findSessionKey (id-first)', () => {
+  const calls = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+
+  it('resolves a mapped race by meeting_key and never scans the year', async () => {
+    mockFetchSequence([{ ok: true, json: [{ session_key: 9590, session_type: 'Race', date_start: '2026-10-11T13:00:00Z' }] }]);
+    const res = await findSessionKey(2026, { id: '2026-r17-singapore', country: 'x', locality: 'y', raceDate: '2026-10-11' });
+    expect(res).toEqual({ ok: true, sessionKey: 9590 });
+    expect(calls()).toEqual([`${BASE}/sessions?meeting_key=1296&session_type=Race`]);
+  });
+
+  it('2026-r16-malaysia resolves to session 11731 despite OpenF1 labelling it Bahrain', async () => {
+    mockFetchSequence([{ ok: true, json: [{ session_key: 11731, session_type: 'Race', date_start: '2026-10-04T08:00:00Z', country_name: 'Bahrain', location: 'Kuala Lumpur' }] }]);
+    const res = await findSessionKey(2026, { id: '2026-r16-malaysia', country: 'Malaysia', locality: 'Sepang', raceDate: '2026-10-04' });
+    expect(res).toEqual({ ok: true, sessionKey: 11731 });
+    expect(calls()).toEqual([`${BASE}/sessions?meeting_key=1308&session_type=Race`]);
+  });
+
+  it('2027-r17-turkiye resolves via its mapping', async () => {
+    mockFetchSequence([{ ok: true, json: [{ session_key: 777, session_type: 'Race', date_start: '2027-10-03T11:00:00Z', country_name: 'Turkey', location: 'Istanbul' }] }]);
+    const res = await findSessionKey(2027, { id: '2027-r17-turkiye', country: 'Turkiye', locality: 'Turkiye', raceDate: '2027-10-03' });
+    expect(res).toEqual({ ok: true, sessionKey: 777 });
+    expect(calls()).toEqual([`${BASE}/sessions?meeting_key=1326&session_type=Race`]);
+  });
+
+  it('mapped race with no Race session yet returns the no-data reason config/event.ts expects', async () => {
+    mockFetchSequence([{ ok: true, json: [] }]);
+    const res = await findSessionKey(2027, { id: '2027-r24-abu-dhabi', country: 'x', locality: 'y', raceDate: '2027-12-12' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toContain('no OpenF1 session');
+    expect(calls()).toHaveLength(1);
+  });
+
+  it('unmapped id falls back to name matching over the year', async () => {
+    mockFetchSequence([{ ok: true, json: [{ session_key: 9590, session_type: 'Race', date_start: '2024-09-01T13:00:00Z', country_name: 'Italy', location: 'Monza' }] }]);
+    const res = await findSessionKey(2024, { id: 'custom', country: 'Italy', locality: 'Monza', raceDate: '2024-09-01' });
+    expect(res).toEqual({ ok: true, sessionKey: 9590 });
+    expect(calls()).toEqual([`${BASE}/sessions?session_type=Race&year=2024`]);
   });
 });
 

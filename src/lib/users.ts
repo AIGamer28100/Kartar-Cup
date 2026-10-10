@@ -1,6 +1,7 @@
 import {
   Timestamp,
   collection,
+  deleteField,
   doc,
   getDoc,
   limit,
@@ -22,6 +23,8 @@ export interface UserRecord {
   email: string;
   name: string;
   photoURL?: string;
+  /** Optional, set by the player on their Profile page (WhatsApp community invite). */
+  phone?: string;
   createdAt: Timestamp;
   lastSeenAt: Timestamp;
   roles: string[];
@@ -71,6 +74,12 @@ export async function ensureUserDoc(user: User): Promise<void> {
 
 export function watchOwnUser(uid: string, cb: (u: UserRecord | null) => void, onErr?: (e: Error) => void): Unsubscribe {
   return onSnapshot(userRef(uid), (s) => cb(s.exists() ? (s.data() as UserRecord) : null), onErr);
+}
+
+/** Own optional phone (digits, +, spaces; validated by the caller and the rules). Empty clears it. */
+export async function updateOwnPhone(uid: string, phone: string): Promise<void> {
+  const p = phone.trim();
+  await updateDoc(userRef(uid), { phone: p ? p : deleteField(), lastSeenAt: serverTimestamp() });
 }
 
 /** Admin-only (rules): the whole directory, newest first. */

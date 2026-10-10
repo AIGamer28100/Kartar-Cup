@@ -69,3 +69,19 @@ export function applyDiscount(
     rejectedReason: null,
   };
 }
+
+/** R55: what a booking costs after part of it is released. The customer keeps paying the same average
+ * price per ticket; the total is rounded UP so a refund never exceeds the pro-rata share. The discount
+ * absorbs the difference so unit price x qty - discount still equals the total. firestore.rules check
+ * this exact formula (ceil(total x newQty / qty)). */
+export function partialReleaseTotals(
+  before: { qty: number; unitPriceInr: number; totalInr: number },
+  newQty: number,
+): { totalInr: number; discountAmountInr: number; refundInr: number } {
+  const totalInr = Math.ceil((before.totalInr * newQty) / before.qty);
+  return {
+    totalInr,
+    discountAmountInr: before.unitPriceInr * newQty - totalInr,
+    refundInr: before.totalInr - totalInr,
+  };
+}

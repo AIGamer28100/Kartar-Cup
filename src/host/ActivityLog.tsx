@@ -51,8 +51,8 @@ export default function ActivityLog() {
   );
 
   return (
-    <section aria-label="Activity" className="py-6">
-      <h2 className="text-2xl font-semibold md:text-3xl">Activity</h2>
+    <section aria-label="Audit log" className="py-6">
+      <h2 className="text-2xl font-semibold md:text-3xl">Audit log</h2>
       <p className="mt-1 max-w-2xl text-muted">
         The last 100 actions taken from the host console. Entries cannot be edited or deleted.
       </p>
@@ -67,7 +67,7 @@ export default function ActivityLog() {
       ) : (
         <ol className="mt-6 divide-y divide-line border-y border-line">
           {rows.map((r) => (
-            <li key={r.id} className="grid gap-x-6 gap-y-1 py-3 md:grid-cols-[11rem_1fr_16rem] md:items-baseline">
+            <li key={r.id} className="grid gap-x-6 gap-y-1 py-3 xl:grid-cols-[11rem_minmax(0,1fr)_16rem] xl:items-baseline">
               <span className="font-mono text-sm text-muted">{fmtLocal(r.at.toMillis())}</span>
               <span>
                 <span className="text-ink">{LABELS[r.action] ?? r.action}</span>

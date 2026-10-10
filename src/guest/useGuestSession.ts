@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth, signInGoogle, signOutUser } from '../lib/firebase';
-import { watchActiveEventId, watchEventConfig, watchOwnEntry, watchResults, submitEntry } from '../lib/db';
+import { watchEventConfig, watchOwnEntry, watchResults, submitEntry } from '../lib/db';
 import { useEventStatus } from '../lib/eventStatus';
 import type { Answers, DerivedStatus, Entry, EventConfig, ResultsDoc } from '../lib/types';
 import type { PickMap } from './draft';
@@ -17,13 +17,12 @@ export interface GuestSession {
   results: ResultsDoc | null;
   google: () => Promise<User>;
   signOut: () => Promise<void>;
-  submit: (a: { name: string; phone?: string; answers: PickMap }) => Promise<void>;
+  submit: (a: { name: string; answers: PickMap }) => Promise<void>;
 }
 
-export function useGuestSession(): GuestSession {
+export function useGuestSession({ eventId, accessToken }: { eventId: string; accessToken: string }): GuestSession {
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [eventId, setEventId] = useState<string | null | undefined>(undefined);
   const [event, setEvent] = useState<EventConfig | null | undefined>(undefined);
   const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
   const [pending, setPending] = useState(false);
@@ -39,14 +38,7 @@ export function useGuestSession(): GuestSession {
     [],
   );
 
-  useEffect(() => watchActiveEventId(setEventId, setLoadError), []);
-
   useEffect(() => {
-    if (eventId === undefined) return;
-    if (eventId === null) {
-      setEvent(null);
-      return;
-    }
     setEvent(undefined);
     return watchEventConfig(eventId, setEvent, setLoadError);
   }, [eventId]);
@@ -58,6 +50,7 @@ export function useGuestSession(): GuestSession {
     setEntry(undefined);
     if (!uid) return;
     return watchOwnEntry(
+      eventId,
       uid,
       (e, p) => {
         setEntry(e);
@@ -65,40 +58,37 @@ export function useGuestSession(): GuestSession {
       },
       setLoadError,
     );
-  }, [uid]);
+  }, [eventId, uid]);
 
   const scored = status === 'scored';
   useEffect(() => {
     setResults(null);
     if (!scored || !uid) return;
-    return watchResults(setResults, () => setResults(null));
+    return watchResults(eventId, setResults, () => setResults(null));
   }, [scored, uid, eventId]);
 
   const google = useCallback(async () => (await signInGoogle()).user, []);
   const signOut = useCallback(() => signOutUser(), []);
 
   const submit = useCallback(
-    async (a: { name: string; phone?: string; answers: PickMap }) => {
+    async (a: { name: string; answers: PickMap }) => {
       const u = auth.currentUser;
       if (!u || u.isAnonymous || !u.email) throw new Error('not signed in');
       const photoURL =
         u.photoURL && /^https:\/\/lh[0-9]\.googleusercontent\.com\/.*/.test(u.photoURL)
           ? u.photoURL
           : undefined;
-      await submitEntry(
-        {
-          uid: u.uid,
-          name: a.name,
-          email: u.email,
-          ...(a.phone ? { phone: a.phone } : {}),
-          ...(photoURL ? { photoURL } : {}),
-          provider: 'google',
-          answers: a.answers as unknown as Answers,
-        },
-        !entry,
-      );
+      await submitEntry(eventId, {
+        uid: u.uid,
+        name: a.name,
+        email: u.email,
+        ...(photoURL ? { photoURL } : {}),
+        provider: 'google',
+        answers: a.answers as unknown as Answers,
+        accessToken,
+      });
     },
-    [entry],
+    [eventId, accessToken],
   );
 
   return { authReady, user, event, status, entry, pending, loadError, results, google, signOut, submit };

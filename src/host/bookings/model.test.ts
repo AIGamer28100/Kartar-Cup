@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import type { BookingEvent } from '../../lib/types';
 import { fromLocalInput } from '../settings/time';
-import { blankForm, eventToForm, formToEvent, raceDefaultDateUtc, upcomingRaceOptions, validate, distributeLeftoverSeats } from './model';
+import { blankForm, dateMsToSave, refundsOffNoDate, eventToForm, formToEvent, raceDefaultDateUtc, upcomingRaceOptions, validate, distributeLeftoverSeats } from './model';
 
 function makeEvent(): BookingEvent {
   return {
@@ -219,5 +219,24 @@ describe('bookings model', () => {
       // Add floor(2/4) = 0 tickets, remainder 2 seats stays unsold
       expect(result[0].capacity).toBe(2);
     });
+  });
+});
+
+describe('A5: refunds off without dateMs', () => {
+  const base = {
+    id: 'e1', title: 'T', venue: { id: 'v', name: 'V', city: 'C' }, dateUtc: '2026-11-01T13:30:00.000Z',
+    tiers: [{ id: 't1', label: 'GA', priceInr: 0 }], discounts: [], capacity: 10, bookedCount: 0, salesOpen: true,
+    createdAt: Timestamp.fromMillis(0), updatedAt: Timestamp.fromMillis(0),
+  } as BookingEvent;
+  it('flags a live event with no or bad dateMs, never a cancelled one', () => {
+    expect(refundsOffNoDate({ dateMs: undefined })).toBe(true);
+    expect(refundsOffNoDate({ dateMs: 0 })).toBe(true);
+    expect(refundsOffNoDate({ dateMs: 1.5 })).toBe(true);
+    expect(refundsOffNoDate({ dateMs: 1_800_000_000_000 })).toBe(false);
+    expect(refundsOffNoDate({ dateMs: undefined, cancelled: true })).toBe(false);
+  });
+  it('the fix writes what saving the form would write', () => {
+    expect(dateMsToSave(base)).toBe(formToEvent(eventToForm(base)).dateMs);
+    expect(dateMsToSave({ ...base, dateUtc: 'not a date' })).toBeNull();
   });
 });

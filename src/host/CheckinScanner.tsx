@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { CheckCircle, Warning, QrCode, XCircle } from '@phosphor-icons/react';
 import Button from '../components/Button';
-import { checkIn, getBookingEvent, lookupBookingById } from '../lib/bookings';
+import { checkIn, checkInMethodFor, getBookingEvent, lookupBookingById, lookupTicket, type CheckInMethod } from '../lib/bookings';
 import { formatInr } from '../guest/profileModel';
 import { useAuth } from '../lib/auth';
 import type { Booking, BookingEvent } from '../lib/types';
@@ -14,7 +14,7 @@ type ScanState =
   | { kind: 'camera-unavailable'; reason: string }
   | { kind: 'looking-up' }
   | { kind: 'not-found' }
-  | { kind: 'found'; booking: Booking; event: BookingEvent | null };
+  | { kind: 'found'; booking: Booking; event: BookingEvent | null; method: CheckInMethod };
 
 /** Status -> plain-language result for the host, pure and testable. */
 export function statusCopy(status: Booking['status']): { tone: 'ok' | 'warn' | 'bad'; msg: string } {
@@ -57,20 +57,21 @@ export default function CheckinScanner() {
     streamRef.current = null;
   }, []);
 
-  const lookup = useCallback(async (id: string) => {
+  const lookup = useCallback(async (id: string, source: 'camera' | 'typed') => {
     scanningRef.current = false;
     stopCamera(); // no live camera (battery/privacy) while a result is on screen; "Scan next" restarts it
     setState({ kind: 'looking-up' });
     setCheckinErr(null);
     setCheckedOk(false);
     try {
-      const booking = await lookupBookingById(id.trim());
-      if (!booking) {
+      const hit = await lookupTicket(id.trim());
+      if (!hit) {
         setState({ kind: 'not-found' });
         return;
       }
+      const { booking, matchedBy } = hit;
       const event = await getBookingEvent(booking.bookingEventId).catch(() => null);
-      setState({ kind: 'found', booking, event });
+      setState({ kind: 'found', booking, event, method: checkInMethodFor(source, matchedBy) });
     } catch {
       setState({ kind: 'not-found' });
     }
@@ -97,7 +98,7 @@ export default function CheckinScanner() {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const result = jsQR(imageData.data, imageData.width, imageData.height);
         if (result && result.data) {
-          void lookup(result.data);
+          void lookup(result.data, 'camera');
           return;
         }
       }
@@ -147,12 +148,12 @@ export default function CheckinScanner() {
     }
   }
 
-  async function doCheckIn(booking: Booking, count?: number) {
+  async function doCheckIn(booking: Booking, method: CheckInMethod, count?: number) {
     if (!user?.email) return;
     setCheckinBusy(true);
     setCheckinErr(null);
     try {
-      await checkIn(booking.id, user.email.toLowerCase(), count);
+      await checkIn(booking.id, user.email.toLowerCase(), count, method);
       setCheckedOk(true);
       // Re-read: a partial check-in leaves the booking paid_mock with an updated count.
       const fresh = await lookupBookingById(booking.id);
@@ -209,7 +210,8 @@ export default function CheckinScanner() {
           busy={checkinBusy}
           err={checkinErr}
           ok={checkedOk}
-          onCheckIn={(count) => void doCheckIn(state.booking, count)}
+          method={state.method}
+          onCheckIn={(count) => void doCheckIn(state.booking, state.method, count)}
           onNext={scanNext}
         />
       )}
@@ -229,7 +231,7 @@ export default function CheckinScanner() {
           <Button
             variant="secondary"
             disabled={!manualId.trim() || state.kind === 'looking-up'}
-            onClick={() => void lookup(manualId)}
+            onClick={() => void lookup(manualId, 'typed')}
           >
             Look up
           </Button>
@@ -245,6 +247,7 @@ function ResultCard({
   busy,
   err,
   ok,
+  method,
   onCheckIn,
   onNext,
 }: {
@@ -253,6 +256,7 @@ function ResultCard({
   busy: boolean;
   err: string | null;
   ok: boolean;
+  method: CheckInMethod;
   onCheckIn: (count?: number) => void;
   onNext: () => void;
 }) {
@@ -268,7 +272,11 @@ function ResultCard({
 
   return (
     <div className="rounded-lg border border-line bg-raised p-5">
-      <p className="text-lg font-semibold">{booking.buyerName}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-lg font-semibold">{booking.buyerName}</p>
+        {/* A3: a typed id (or any non-token match) is recorded and logged as a manual check-in. */}
+        {method === 'manual' && <ManualMarker />}
+      </div>
       <p className="text-muted">{event?.title ?? booking.bookingEventId}</p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
         <dt className="text-muted">Tier</dt>
@@ -300,7 +308,7 @@ function ResultCard({
         >
           {copy.tone !== 'ok' && <Warning size={20} weight="regular" aria-hidden="true" />}
           {booking.status === 'checked_in' && booking.checkedInBy
-            ? `Already checked in by ${booking.checkedInBy}.`
+            ? `Already checked in by ${booking.checkedInBy}${booking.checkInMethod === 'manual' ? ' (manual entry)' : ''}.`
             : isPartiallyCheckedIn
               ? `Partially checked in (${checkedInCount}/${totalSeats}).`
               : copy.msg}
@@ -346,5 +354,14 @@ function ResultCard({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Small "Manual" marker for a check-in that did not come from scanning the ticket's QR token (A3). */
+export function ManualMarker() {
+  return (
+    <span className="inline-flex min-h-6 items-center rounded-full border border-accent-text px-2.5 text-xs font-medium text-accent-text">
+      Manual
+    </span>
   );
 }

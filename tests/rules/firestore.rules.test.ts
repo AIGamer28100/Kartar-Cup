@@ -7,7 +7,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, getDocs, collection, setDoc, deleteDoc, serverTimestamp, Timestamp,
+  doc, getDoc, getDocs, collection, setDoc, deleteDoc, serverTimestamp, Timestamp, updateDoc,
 } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
@@ -19,13 +19,15 @@ const HOST_TOKEN = {
 };
 
 const future = () => Timestamp.fromMillis(Date.now() + 3600_000);
+const TOKEN = 'abcdefghij0123456789ABCD'; // a 24-character play token (the quiz link capability)
+const minutes = (n: number) => Timestamp.fromMillis(Date.now() + n * 60_000);
 const past = () => Timestamp.fromMillis(Date.now() - 3600_000);
 const EID = 'ev1';
 const QIDS = ['q1', 'q2', 'q3', 'q4', 'q5'];
 
 const eventDoc = (over: Record<string, unknown> = {}) => ({
   id: EID, raceId: 'custom', name: 'Test Race', subtitle: 'Sub', circuit: null, themeId: 't',
-  raceStartUtc: past(), raceDurationMin: 90, opensAt: past(), closesAt: future(),
+  raceStartUtc: minutes(-5), raceDurationMin: 90, opensAt: minutes(-15), closesAt: minutes(20),
   override: 'none', whatsappUrl: '',
   teams: [{ id: 'a', label: 'A' }],
   drivers: [{ id: 'd', label: 'D', teamId: 'a', grid: 1 }],
@@ -42,6 +44,7 @@ async function seed(over: Record<string, unknown> = {}, activeId: string | null 
     await setDoc(doc(db, 'events/' + EID + '/results/answers'), {
       answers: { q1: ['a'], q2: ['b'], q3: ['c'], q4: ['d'], q5: ['e'] }, source: 's', updatedAt: Timestamp.now(),
     });
+    await setDoc(doc(db, 'playLinks/' + TOKEN), { eventId: EID, revoked: false, createdAt: Timestamp.now(), createdBy: 'host@x.com' });
     await setDoc(doc(db, 'hosts/host@x.com'), { role: 'host' });
     await setDoc(doc(db, 'events/' + EID + '/entries/other'), { uid: 'other', name: 'Other' });
   });
@@ -52,7 +55,7 @@ const RES = 'events/' + EID + '/results/answers';
 
 const answers = () => ({ q1: 'a', q2: 'b', q3: 'c', q4: 'd', q5: 'e' });
 const entry = (uid: string, over: Record<string, unknown> = {}) => ({
-  uid, name: 'Guest One', provider: 'google', email: 'guest1@example.com', answers: answers(),
+  uid, name: 'Guest One', provider: 'google', email: 'guest1@example.com', answers: answers(), accessToken: TOKEN,
   submittedAt: serverTimestamp(), createdAt: serverTimestamp(), ...over,
 });
 
@@ -107,14 +110,12 @@ describe('4 window (server clock)', () => {
     await seed({ override: 'open', opensAt: Timestamp.fromMillis(Date.now() - 7200_000), closesAt: past() });
     await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
-  it('denied for a non-active event', async () => {
+  it('does not depend on settings/active any more: the play token is the gate', async () => {
     await seed({}, 'other-event');
-    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
-  });
-  it('denied when no active event is set', async () => {
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
     await env.clearFirestore();
     await seed({}, null);
-    await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+    await assertSucceeds(setDoc(doc(guest(), E + 'g1'), entry('g1')));
   });
 });
 describe('4b questionIds', () => {
@@ -187,14 +188,19 @@ describe('7 update', () => {
       });
     });
   }
-  it('owner updates answers while open', async () => {
+  it('locked after submit: owner cannot change answers even while open (R68)', async () => {
     await seedOwn();
-    await assertSucceeds(setDoc(doc(guest(), E + 'g1'),
+    await assertFails(setDoc(doc(guest(), E + 'g1'),
       entry('g1', { answers: { ...answers(), q1: 'z' }, createdAt: created })));
+    await assertFails(updateDoc(doc(guest(), E + 'g1'), { answers: { ...answers(), q1: 'z' }, submittedAt: serverTimestamp() }));
   });
-  it('changing createdAt denied', async () => {
+  it('a second create over an existing entry is denied', async () => {
     await seedOwn();
     await assertFails(setDoc(doc(guest(), E + 'g1'), entry('g1')));
+  });
+  it('host can still delete an entry', async () => {
+    await seedOwn();
+    await assertSucceeds(deleteDoc(doc(host(), E + 'g1')));
   });
 });
 describe('8 reads', () => {
@@ -248,6 +254,32 @@ describe('11 host', () => {
   it('writes results', async () => {
     await assertSucceeds(setDoc(doc(host(), RES),
       { answers: { q1: [], q2: [], q3: [], q4: [], q5: [] }, source: 'x', updatedAt: Timestamp.now() }));
+  });
+});
+describe('11a auto-id quiz docs (R57)', () => {
+  const AUTO = 'Zk3PqR9xT1mVb7LwN2cA'; // events/{id} is no longer a race id
+  it('host creates a quiz under an auto-id, two on the same race, and makes one live', async () => {
+    const A = 'AutoIdQuizAAAAAAAAAA', B = 'AutoIdQuizBBBBBBBBBB';
+    await assertSucceeds(setDoc(doc(host(), 'events/' + A), eventDoc({ id: A, raceId: '2026-r16-malaysia' })));
+    await assertSucceeds(setDoc(doc(host(), 'events/' + B), eventDoc({ id: B, raceId: '2026-r16-malaysia' })));
+    await assertSucceeds(setDoc(doc(host(), 'settings/active'), { eventId: A }));
+  });
+  it('the id must still match the doc id', async () => {
+    await assertFails(setDoc(doc(host(), 'events/' + AUTO), eventDoc({ id: EID })));
+  });
+  it('a guest can enter an auto-id quiz with ITS token, and not another quiz with that token', async () => {
+    const A = 'AutoIdQuizAAAAAAAAAA', B = 'AutoIdQuizBBBBBBBBBB';
+    const TA = 'AAAAAAAAAAAAAAAAAAAAAAAA', TB = 'BBBBBBBBBBBBBBBBBBBBBBBB';
+    await env.withSecurityRulesDisabled(async (c) => {
+      const d = c.firestore();
+      await setDoc(doc(d, 'events/' + A), eventDoc({ id: A }));
+      await setDoc(doc(d, 'events/' + B), eventDoc({ id: B }));
+      await setDoc(doc(d, 'playLinks/' + TA), { eventId: A, revoked: false, createdAt: Timestamp.now(), createdBy: 'host@x.com' });
+      await setDoc(doc(d, 'playLinks/' + TB), { eventId: B, revoked: false, createdAt: Timestamp.now(), createdBy: 'host@x.com' });
+    });
+    await assertSucceeds(setDoc(doc(guest(), `events/${A}/entries/g1`), entry('g1', { accessToken: TA })));
+    await assertFails(setDoc(doc(guest(), `events/${B}/entries/g1`), entry('g1', { accessToken: TA })));
+    await assertSucceeds(setDoc(doc(guest(), `events/${B}/entries/g1`), entry('g1', { accessToken: TB })));
   });
 });
 describe('11b event validation (host)', () => {

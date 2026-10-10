@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { watchActiveEventConfig, watchEntries, watchResults } from '../lib/db';
+import { watchActiveEventConfig, watchEntries, watchActiveResults } from '../lib/db';
 import type { Entry, EventConfig, Results, ResultsDoc } from '../lib/types';
 
 export const EMPTY_RESULTS: Results = { q1: [], q2: [], q3: [], q4: [], q5: [] };
@@ -27,7 +27,7 @@ export function useHostData(): HostData {
       setEntries(e);
       setReady((r) => ({ ...r, entries: true }));
     }, fail);
-    const u3 = watchResults(setResultsDoc, (err) => setError(err.message));
+    const u3 = watchActiveResults(setResultsDoc, (err) => setError(err.message));
     const u4 = watchActiveEventConfig((c) => {
       setConfig(c);
       setReady((r) => ({ ...r, config: true }));
