@@ -1,0 +1,4 @@
+# Local-only secret for `npm run worker:dev` (wrangler dev --env dev). Copy to .dev.vars (git-ignored)
+# and paste in a real Google key with an API restriction of "Places API" and NO HTTP referrer
+# restriction — see README.md section 4.
+GOOGLE_PLACES_API_KEY=
