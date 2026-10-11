@@ -19,8 +19,8 @@ export interface SizePreset {
 }
 
 export const SIZE_PRESETS: Record<OverlaySize, SizePreset> = {
-  compact: { id: 'compact', label: 'Compact', width: 360, height: 220, hint: 'QR, countdown and entries' },
-  wide: { id: 'wide', label: 'Wide', width: 640, height: 300, hint: 'Adds the top 5 beside the QR' },
+  compact: { id: 'compact', label: 'Compact', width: 360, height: 220, hint: 'QR and the closing countdown' },
+  wide: { id: 'wide', label: 'Wide', width: 640, height: 300, hint: 'A larger QR and countdown' },
 };
 export const SIZE_ORDER: OverlaySize[] = ['compact', 'wide'];
 export const DEFAULT_SIZE: OverlaySize = 'compact';

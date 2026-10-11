@@ -16,7 +16,7 @@ const JOIN = 'https://kartar-cup.web.app/play/Ab3dE5fG7hJ9kL2mN4pQ6rS8';
 
 type StateId = 'open' | 'scheduled' | 'closed' | 'no-link' | 'long' | 'no-quiz' | 'loading' | 'error';
 const STATES: { id: StateId; label: string; note: string }[] = [
-  { id: 'open', label: 'Open', note: 'Quiz open, closes in under 15 minutes, 12 players in.' },
+  { id: 'open', label: 'Open', note: 'Quiz open, closes in under 15 minutes.' },
   { id: 'scheduled', label: 'Scheduled', note: 'Before opening: counts down to the open time.' },
   { id: 'closed', label: 'Closed', note: 'Quiz window over: the timer says so under the QR.' },
   { id: 'no-link', label: 'No link', note: 'No unrevoked play link: tells the host where to create one.' },

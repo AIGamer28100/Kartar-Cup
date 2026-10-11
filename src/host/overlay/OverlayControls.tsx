@@ -43,7 +43,7 @@ export function OverlayControlsView({ overlay, data }: { overlay: OverlayContext
         </p>
       </div>
       <p className="mt-2 max-w-[70ch] text-sm text-muted">
-        A small panel over the race: join QR, closing countdown, players in, then the top 5. To show it on the big screen, cast your
+        A small panel over the race: join QR and a closing countdown. To show it on the big screen, cast your
         whole screen (Chrome menu, Cast, Sources, Cast screen), not just a tab: the overlay is its own window.
       </p>
 

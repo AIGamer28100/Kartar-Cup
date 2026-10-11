@@ -195,3 +195,16 @@ The user asked for the next-year calendar to look like the upcoming-event cards 
 - **Alternative that costs nothing:** take the weekend schedule out of the live OpenF1 path (bundle or snapshot it), so session times and weather survive the blackout. Not built yet; results/classification would still wait for the window to close.
 - **Licensing inquiry sent to OpenF1 (2026-10-10), awaiting reply.** Asks: is hobby/club use OK under the "personal use" plan (incl. a later paid freelance handover), do paid in-person watch-party bookings affect the licence (the F1 data is never paywalled), legal/attribution requirements, server-side proxy + caching, and whether the rate limits are per account or per IP. Do NOT subscribe, deploy the Worker with the key, or put the key behind the public site until they answer. Record their answer here and in `rules.md`.
 - **Rejected: self-hosting the open-source OpenF1 (br-g/openf1) for the live data.** It ingests F1's own unofficial live-timing feed via `fastf1_livetiming` (optional `F1_TOKEN` from an F1 TV account, ~4-day validity), so it does not remove F1's rights over the data; the repo is itself CC BY-NC-SA 4.0 (non-commercial, share-alike); and it needs MongoDB + an always-on ingestor + a way for the site to reach it. Fine for local experiments only; never feed the public site from it, never use a personal F1 TV token on the site.
+
+## Overlay content scope finalised; page-transition timing centralised (2026-10-11)
+- **Live overlay is QR + countdown only**, at both size presets (compact 360x220, wide 640x300). The
+  player count, leader and standings that an earlier build showed were removed at the owner's request;
+  "wide" now differs from "compact" only in size, not content. `src/host/overlay/LiveOverlay.tsx`,
+  `overlayModel.ts` `SIZE_PRESETS`.
+- **Page-transition timing lives in one place**, `PAGE_TRANSITION_MS` (`src/lib/motion.ts`): `cover` (the
+  panel sweeps over the old page), `hold` (screen stays fully covered so the route label is readable
+  and the next page loads behind it), `reveal` (the panel clears, the new page glides in). Every
+  transition kind shares these three numbers (`TIMING` in `src/guest/transitions/variants.ts`); only the
+  graphic differs. `PAGE_BUDGET_MS` is their sum, not a fixed ceiling. The R40 section of
+  `docs/HANDOFF.md` predates this (it lists an old 350ms/150ms scheme from before the redesign) — treat
+  `src/lib/motion.ts` as the source of truth for current timings, not that doc.
