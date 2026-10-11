@@ -1,16 +1,14 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import { deriveStatus } from '../../lib/eventStatus';
-import type { EventConfig, RankedRow } from '../../lib/types';
+import type { EventConfig } from '../../lib/types';
 import { overlayClock, shortJoinUrl } from './overlayModel';
 
 /**
  * The live overlay itself: what the room sees over the race. One component for every host (Document
  * PiP window, fallback popup, Mock Lab preview). It fills whatever box it is given and adapts with
- * container queries:
- *   - small (~360x220): QR + countdown + players in (after results: the leader instead of the clock);
- *   - wide (>= 30rem): adds the top 5 beside the QR once results are in.
- * Never scrolls; the only motion is the pulsing live dot (motion-safe). Gold is for scores only.
+ * container queries. Owner's call: the QR and the timer below it, nothing else (no join text, no
+ * player count, no standings). Never scrolls; the only motion is the pulsing live dot (motion-safe).
  */
 
 export type OverlayQuiz = Pick<EventConfig, 'name' | 'opensAt' | 'closesAt' | 'override' | 'winnerRevealed'>;
@@ -26,9 +24,6 @@ export interface OverlayData {
   joinUrl: string | null;
   /** Where the host creates a link (the owning watch party's Quiz tab). */
   quizTabHref: string;
-  entryCount: number;
-  /** Top 5 once results are in; null before. */
-  standings: RankedRow[] | null;
 }
 
 export interface LiveOverlayProps extends OverlayData {
@@ -102,7 +97,7 @@ function Message({ title, body, tone = 'muted' }: { title: string; body: ReactNo
 
 function QrBlock({ joinUrl, quizTabHref, onQuizTab }: { joinUrl: string | null; quizTabHref: string; onQuizTab?: () => void }) {
   const qr = useQr(joinUrl);
-  const box = 'aspect-square h-full max-w-[50cqw] shrink-0 rounded-[3cqmin]';
+  const box = 'aspect-square h-full max-w-full shrink-0 rounded-[3cqmin]';
   if (!joinUrl) {
     const click = (e: MouseEvent<HTMLAnchorElement>) => {
       if (!onQuizTab) return;
@@ -131,37 +126,7 @@ function QrBlock({ joinUrl, quizTabHref, onQuizTab }: { joinUrl: string | null; 
   );
 }
 
-function Stat({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
-  return (
-    <div className={`min-w-0 ${className}`}>
-      <p className={label}>{title}</p>
-      <div className="mt-[1.5cqh] min-w-0 overflow-hidden whitespace-nowrap">{children}</div>
-    </div>
-  );
-}
-
-function Standings({ rows }: { rows: RankedRow[] }) {
-  return (
-    <div className="hidden min-h-0 min-w-0 flex-col @min-[30rem]:flex">
-      <p className={label}>Standings</p>
-      {rows.length === 0 ? (
-        <p className="mt-[2cqh] text-[clamp(0.8rem,7cqh,1.4rem)] text-muted">No picks yet.</p>
-      ) : (
-        <ol className="mt-[1.5cqh] grid min-h-0 flex-1 auto-rows-fr divide-y divide-line">
-          {rows.map((r) => (
-            <li key={r.uid} className="grid min-h-0 grid-cols-[1.6em_minmax(0,1fr)_auto] items-center gap-x-[0.5em] text-[clamp(0.8rem,min(8.5cqh,4cqw),1.6rem)] leading-none">
-              <span className="font-mono tabular-nums text-muted">{r.rank}</span>
-              <span className="truncate font-semibold">{r.name}</span>
-              <span className="font-num text-[1.2em] font-bold italic tabular-nums text-gold">{r.score}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
-export default function LiveOverlay({ loading, error, quiz, joinUrl, quizTabHref, entryCount, standings, nowMs, onQuizTab }: LiveOverlayProps) {
+export default function LiveOverlay({ loading, error, quiz, joinUrl, quizTabHref, nowMs, onQuizTab }: LiveOverlayProps) {
   const now = useTick(nowMs);
 
   if (error) return <Message tone="error" title="Live feed lost" body={<>{error}. The overlay reconnects on its own; check the host console if this stays.</>} />;
@@ -185,65 +150,20 @@ export default function LiveOverlay({ loading, error, quiz, joinUrl, quizTabHref
 
   const status = deriveStatus(quiz, now);
   const clock = overlayClock(status, quiz.opensAt.toMillis(), quiz.closesAt.toMillis(), now);
-  const leader = standings?.[0] ?? null;
-  const wideCols = standings
-    ? '@min-[30rem]:grid-cols-[auto_minmax(0,0.85fr)_minmax(0,1.25fr)]'
-    : '';
-
   const clockBody = clock.counting ? <p className={big}>{clock.value}</p> : <p className={phrase}>{clock.value}</p>;
 
   return (
     <Frame label={`Live quiz overlay: ${quiz.name}`}>
-      <div className="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-[3cqmin] p-[4cqmin]">
-        <div className={`grid min-h-0 grid-cols-[auto_minmax(0,1fr)] gap-[4cqmin] ${wideCols}`}>
+      <div className="flex h-full flex-col items-center gap-[3cqh] p-[4cqmin]">
+        <div className="flex min-h-0 w-full flex-1 justify-center">
           <QrBlock joinUrl={joinUrl} quizTabHref={quizTabHref} onQuizTab={onQuizTab} />
-
-          <div className="flex min-h-0 min-w-0 flex-col justify-between gap-[2cqh]">
-            <p className={`flex min-w-0 items-center gap-[0.5em] ${label}`}>
-              <LiveDot />
-              <span className="truncate">{quiz.name}</span>
-            </p>
-            {leader ? (
-              <>
-                {/* Small window: the leader replaces the (by now finished) clock. */}
-                <Stat title="Leader" className="@min-[30rem]:hidden">
-                  <p className="flex min-w-0 items-baseline gap-[0.4em]">
-                    <span className="truncate text-[clamp(1rem,min(11cqh,7cqw),2.25rem)] font-semibold">{leader.name}</span>
-                    <span className="font-num text-[clamp(1.25rem,min(14cqh,9cqw),3rem)] font-bold italic tabular-nums text-gold">{leader.score}</span>
-                  </p>
-                </Stat>
-                <Stat title={clock.label} className="hidden @min-[30rem]:block">
-                  {clockBody}
-                </Stat>
-              </>
-            ) : (
-              <Stat title={clock.label}>
-                <span aria-live="off">{clockBody}</span>
-              </Stat>
-            )}
-            <Stat title="Players in">
-              <p className={big} aria-live="polite">
-                {entryCount}
-              </p>
-            </Stat>
-          </div>
-
-          {standings && <Standings rows={standings} />}
         </div>
-
-        <p className="flex min-w-0 items-center justify-between gap-[1em] text-[clamp(0.6rem,6cqh,1rem)] leading-none">
-          {joinUrl ? (
-            <>
-              <span className="shrink-0 font-semibold uppercase tracking-[0.12em] text-muted">Scan or visit</span>
-              <span className="min-w-0 truncate font-mono text-ink" dir="rtl">
-                {/* rtl truncation keeps the token end visible; the bidi isolate keeps the URL itself in order */}
-                <bdi>{shortJoinUrl(joinUrl)}</bdi>
-              </span>
-            </>
-          ) : (
-            <span className="truncate text-muted">Guests join with the link or QR the host shares.</span>
-          )}
-        </p>
+        <div className="flex shrink-0 flex-col items-center gap-[1.5cqh] text-center" aria-live="off">
+          <p className={`flex items-center gap-[0.5em] ${label}`}>
+            <LiveDot /> {clock.label}
+          </p>
+          {clockBody}
+        </div>
       </div>
     </Frame>
   );

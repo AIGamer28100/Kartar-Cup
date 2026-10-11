@@ -5,7 +5,7 @@ import { OverlayControlsView } from '../../../host/overlay/OverlayControls';
 import type { OverlayContextValue } from '../../../host/overlay/OverlayProvider';
 import { SIZE_PRESETS, type OverlaySize } from '../../../host/overlay/overlayModel';
 import { usePictureInPicture } from '../../../host/overlay/usePictureInPicture';
-import { mockEventConfig, mockRanked, ts } from '../../fixtures';
+import { mockEventConfig, ts } from '../../fixtures';
 import type { PanelProps } from '../MockLab';
 import { Case, Grid, LabButton, Pick } from '../parts';
 
@@ -14,12 +14,11 @@ import { Case, Grid, LabButton, Pick } from '../parts';
 const MIN = 60_000;
 const JOIN = 'https://kartar-cup.web.app/play/Ab3dE5fG7hJ9kL2mN4pQ6rS8';
 
-type StateId = 'open' | 'scheduled' | 'results' | 'results-empty' | 'no-link' | 'long' | 'no-quiz' | 'loading' | 'error';
+type StateId = 'open' | 'scheduled' | 'closed' | 'no-link' | 'long' | 'no-quiz' | 'loading' | 'error';
 const STATES: { id: StateId; label: string; note: string }[] = [
   { id: 'open', label: 'Open', note: 'Quiz open, closes in under 15 minutes, 12 players in.' },
   { id: 'scheduled', label: 'Scheduled', note: 'Before opening: counts down to the open time.' },
-  { id: 'results', label: 'Results in', note: 'Compact shows the leader; wide adds the top 5 (gold scores).' },
-  { id: 'results-empty', label: 'Results, 0 entries', note: 'Results key saved but nobody played.' },
+  { id: 'closed', label: 'Closed', note: 'Quiz window over: the timer says so under the QR.' },
   { id: 'no-link', label: 'No link', note: 'No unrevoked play link: tells the host where to create one.' },
   { id: 'long', label: 'Long text', note: 'Very long quiz name, 4-digit count, a 2-day countdown.' },
   { id: 'no-quiz', label: 'No live quiz', note: 'Nothing is set live.' },
@@ -34,26 +33,22 @@ function data(id: StateId, now: number): OverlayData {
     quiz: mockEventConfig({ opensAt: ts(now - 60 * MIN), closesAt: ts(now + 14 * MIN + 32_000) }),
     joinUrl: JOIN,
     quizTabHref: '/host/bookings/mock-event/quiz/details',
-    entryCount: 12,
-    standings: null,
   };
   switch (id) {
     case 'scheduled':
-      return { ...base, entryCount: 0, quiz: mockEventConfig({ opensAt: ts(now + 42 * MIN), closesAt: ts(now + 3 * 60 * MIN) }) };
-    case 'results':
-      return { ...base, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }), standings: mockRanked().slice(0, 5) };
-    case 'results-empty':
-      return { ...base, entryCount: 0, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }), standings: [] };
+      return { ...base, quiz: mockEventConfig({ opensAt: ts(now + 42 * MIN), closesAt: ts(now + 3 * 60 * MIN) }) };
+    case 'closed':
+      return { ...base, quiz: mockEventConfig({ opensAt: ts(now - 3 * 60 * MIN), closesAt: ts(now - 60 * MIN) }) };
     case 'no-link':
       return { ...base, joinUrl: null };
     case 'long':
       return {
         ...base,
-        entryCount: 1284,
+       
         quiz: mockEventConfig({ name: 'Formula 1 Qatar Airways Grand Prix de Sao Paulo Watch Party Special', opensAt: ts(now - MIN), closesAt: ts(now + 2 * 24 * 60 * MIN + 4 * 60 * MIN) }),
       };
     case 'no-quiz':
-      return { ...base, quiz: null, joinUrl: null, entryCount: 0 };
+      return { ...base, quiz: null, joinUrl: null };
     case 'loading':
       return { ...base, loading: true };
     case 'error':

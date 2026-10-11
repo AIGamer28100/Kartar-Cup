@@ -2,16 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   SIZE_PRESETS,
   formatClock,
-  hasResults,
   isOverlaySize,
   overlayClock,
   popupFeatures,
   selectStyleCopies,
   shortJoinUrl,
-  topStandings,
   type StyleNodeLike,
 } from './overlayModel';
-import type { RankedRow } from '../../lib/types';
 
 const node = (tagName: string, attrs: Record<string, string> = {}, extra: Partial<StyleNodeLike> = {}): StyleNodeLike => ({
   tagName,
@@ -40,15 +37,6 @@ describe('overlayModel', () => {
     expect(popupFeatures('compact')).toBe('popup,width=380,height=260');
     expect(isOverlaySize('wide') && !isOverlaySize('x')).toBe(true);
     expect(SIZE_PRESETS.wide.width).toBe(640);
-  });
-
-  it('detects results and slices standings', () => {
-    expect(hasResults(null)).toBe(false);
-    expect(hasResults({ q1: [] })).toBe(false);
-    expect(hasResults({ q1: [], q2: ['a'] })).toBe(true);
-    const rows = Array.from({ length: 8 }, (_, i) => ({ uid: String(i) }) as RankedRow);
-    expect(topStandings(rows)).toHaveLength(5);
-    expect(topStandings(rows, -1)).toHaveLength(0);
   });
 
   it('copies only enabled, non-alternate stylesheets', () => {

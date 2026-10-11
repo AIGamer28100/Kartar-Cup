@@ -1,4 +1,4 @@
-import type { DerivedStatus, RankedRow } from '../../lib/types';
+import type { DerivedStatus } from '../../lib/types';
 
 /**
  * Pure helpers for the host's live overlay (the always-on-top panel cast over the race). No DOM, no
@@ -72,17 +72,6 @@ export function selectStyleCopies(nodes: Iterable<StyleNodeLike>): StyleCopy[] {
 
 /** Used when the page's CSS variables cannot be read. */
 export const PIP_FALLBACK = { background: '#070b14', color: '#f2f5fa', font: '"Geist Variable", system-ui, sans-serif' };
-
-/* ---------- standings ---------- */
-
-export function topStandings(ranked: RankedRow[], n = 5): RankedRow[] {
-  return ranked.slice(0, Math.max(0, n));
-}
-
-/** Results are "in" once any question has an accepted answer (a voided [] does not count). */
-export function hasResults(answers: Record<string, string[]> | null | undefined): boolean {
-  return answers ? Object.values(answers).some((a) => Array.isArray(a) && a.length > 0) : false;
-}
 
 /* ---------- clock ---------- */
 
