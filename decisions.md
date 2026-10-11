@@ -216,3 +216,16 @@ Everything the app imports was rebuilt (see the recovery commits from 71b2379 on
 - `scripts/validate-calendar.py`: already obsolete before the loss (superseded by OpenF1/Jolpica, R30; HANDOFF called it safe to delete).
 - `scripts/fetch-results.py`, `src/guest/EventDetailPage.tsx`: never built. R19's script stayed a plan; R41 shipped as `src/guest/RaceDetailPage.tsx` at `/races/:raceId`.
 - `spec/*.md`, `docs/research/redbull-paddock.md`: local-only by design (`spec/` and `docs/` are git-ignored), so not part of the loss.
+
+## Production builds read .env.production.local, never the dev proxy (2026-10-11, incident)
+A hosting deploy built from `.env.local` shipped `VITE_PLACES_PROXY_URL=http://127.0.0.1:8787` (the local
+`wrangler dev` Worker) to production, so every host's venue search called their own machine, and it left
+`VITE_MOCK_LAB_UNTIL` empty, which drops the Mock Lab from the bundle. Fix: production-only values live in
+`.env.production.local` (git-ignored; Vite loads it for `vite build` and it overrides `.env.local`): the
+deployed Worker URL and the Mock Lab expiry. `.env.local` keeps the local Worker for `npm run dev`.
+Check before every hosting deploy: `grep -l 127.0.0.1 dist/assets/*.js` must print nothing.
+- Cloudflare Access must not front the places-proxy hostname. Access blocks the browser's CORS preflight
+  (preflights carry no credentials) and the app's hosts are not members of the Access team, so venue
+  search fails with a CORS error. The Worker's own gate (origin allowlist + Firebase ID token) is the
+  access control. Rejected: Access SSO (no login flow inside a fetch) and an Access service token (its
+  secret would sit in the public bundle).
