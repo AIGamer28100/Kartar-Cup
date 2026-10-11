@@ -208,3 +208,11 @@ The user asked for the next-year calendar to look like the upcoming-event cards 
   graphic differs. `PAGE_BUDGET_MS` is their sum, not a fixed ceiling. The R40 section of
   `docs/HANDOFF.md` predates this (it lists an old 350ms/150ms scheme from before the redesign) — treat
   `src/lib/motion.ts` as the source of truth for current timings, not that doc.
+
+## Files lost in the 2026-10-10 worktree deletion that were NOT rebuilt (2026-10-11)
+Everything the app imports was rebuilt (see the recovery commits from 71b2379 on). These were checked and left out on purpose:
+- `tests/e2e/hostlayout.spec.ts` (created 2026-10-08: 768px host header truncation, quiz move to `/host/bookings/:eventId/quiz/results`). No copy survives anywhere (git objects, session logs, editor history). The features it covered are intact: `src/host/HostDrawer.tsx` (drawer, push-aside on md+), `src/host/nav.test.ts`, and `tests/e2e/host.spec.ts:22` already opens the quiz-results route. Not rewritten blind: its exact assertions are unknown, and e2e runs need the emulators, which the owner does not want running. Rewrite it when the e2e suite is next touched.
+- `scripts/capture-f1-fixtures.mjs`, `scripts/seed-emulator.mjs`: dev-only tooling; nothing references them now. Mock Lab fixtures under `src/dev/fixtures/net/` were rebuilt, partly approximated (tyre compounds, weather track temperature, some meeting/session keys), because OpenF1 refused requests during a live session at rebuild time.
+- `scripts/validate-calendar.py`: already obsolete before the loss (superseded by OpenF1/Jolpica, R30; HANDOFF called it safe to delete).
+- `scripts/fetch-results.py`, `src/guest/EventDetailPage.tsx`: never built. R19's script stayed a plan; R41 shipped as `src/guest/RaceDetailPage.tsx` at `/races/:raceId`.
+- `spec/*.md`, `docs/research/redbull-paddock.md`: local-only by design (`spec/` and `docs/` are git-ignored), so not part of the loss.
