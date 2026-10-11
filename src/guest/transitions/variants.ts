@@ -1,6 +1,6 @@
 /** R40: pure transition selection for the public site. No React, no DOM, so it is unit-testable. */
 
-import { PAGE_BUDGET_MS } from '../../lib/motion';
+import { PAGE_BUDGET_MS, PAGE_TRANSITION_MS } from '../../lib/motion';
 
 /**
  * - kerb-sweep: default forward navigation; a navy panel with red/white kerb edges sweeps across.
@@ -19,21 +19,24 @@ export interface Transition {
   kind: TransitionKind;
   /** Time for the overlay to fully cover the page (the new route swaps in after this). */
   coverMs: number;
+  /** Minimum time the screen stays fully covered before the new page is revealed. */
+  holdMs: number;
   /** Time for the overlay to clear off the new page. */
   revealMs: number;
-  /** coverMs + revealMs (when the route chunk is already loaded). */
+  /** coverMs + holdMs + revealMs (when the route chunk is already loaded). */
   durationMs: number;
   dir: Dir;
 }
 
-export const TIMING: Record<TransitionKind, { coverMs: number; revealMs: number }> = {
-  // Doubled 2026-10-11 at the owner's request (was 200/230, 260/180, 130/150); reduced motion unchanged.
-  'kerb-sweep': { coverMs: 400, revealMs: 460 },
-  chequered: { coverMs: 400, revealMs: 460 },
-  'pit-lane': { coverMs: 400, revealMs: 460 },
-  'lights-out': { coverMs: 520, revealMs: 360 },
-  crossfade: { coverMs: 260, revealMs: 300 },
-  reduced: { coverMs: 70, revealMs: 80 },
+const SAME = { coverMs: PAGE_TRANSITION_MS.cover, holdMs: PAGE_TRANSITION_MS.hold, revealMs: PAGE_TRANSITION_MS.reveal };
+/** Every kind shares one timing (src/lib/motion.ts PAGE_TRANSITION_MS); only the graphic differs. */
+export const TIMING: Record<TransitionKind, { coverMs: number; holdMs: number; revealMs: number }> = {
+  'kerb-sweep': SAME,
+  chequered: SAME,
+  'pit-lane': SAME,
+  'lights-out': SAME,
+  crossfade: SAME,
+  reduced: { coverMs: 70, holdMs: 0, revealMs: 80 },
 };
 
 /** If the next route's code has not arrived when the cover completes, hold at most this long before
@@ -106,8 +109,9 @@ export function sweepDir(from: string, to: string): Dir {
 const make = (kind: TransitionKind, dir: Dir): Transition => ({
   kind,
   coverMs: TIMING[kind].coverMs,
+  holdMs: TIMING[kind].holdMs,
   revealMs: TIMING[kind].revealMs,
-  durationMs: TIMING[kind].coverMs + TIMING[kind].revealMs,
+  durationMs: TIMING[kind].coverMs + TIMING[kind].holdMs + TIMING[kind].revealMs,
   dir,
 });
 

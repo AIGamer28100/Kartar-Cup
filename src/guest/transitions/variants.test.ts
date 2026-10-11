@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PAGE_TRANSITION_MS as P } from '../../lib/motion';
 import {
   forMotionPreference,
   MAX_HOLD_MS,
@@ -15,9 +16,10 @@ describe('transitionFor', () => {
   it('kerb-sweep between ordinary public pages', () => {
     expect(transitionFor('/', '/events', 'PUSH', false)).toEqual({
       kind: 'kerb-sweep',
-      coverMs: 400,
-      revealMs: 460,
-      durationMs: 860,
+      coverMs: P.cover,
+      holdMs: P.hold,
+      revealMs: P.reveal,
+      durationMs: PAGE_BUDGET_MS,
       dir: 1,
     });
     expect(transitionFor('/events', '/gallery', 'PUSH', false)?.kind).toBe('kerb-sweep');
@@ -36,12 +38,12 @@ describe('transitionFor', () => {
     expect(transitionFor('/profile', '/tickets/t1', 'PUSH', false)?.kind).toBe('pit-lane');
   });
   it('lights-out only for the first navigation away from landing', () => {
-    expect(transitionFor('/', '/events', 'PUSH', true)).toMatchObject({ kind: 'lights-out', durationMs: 880 });
+    expect(transitionFor('/', '/events', 'PUSH', true)).toMatchObject({ kind: 'lights-out', durationMs: PAGE_BUDGET_MS });
     expect(transitionFor('/', '/events', 'PUSH', false)?.kind).toBe('kerb-sweep');
     expect(transitionFor('/events', '/gallery', 'PUSH', true)?.kind).toBe('kerb-sweep');
   });
   it('back/forward is a quick crossfade, even on first visit', () => {
-    expect(transitionFor('/events', '/', 'POP', false)).toMatchObject({ kind: 'crossfade', dir: -1, durationMs: 560 });
+    expect(transitionFor('/events', '/', 'POP', false)).toMatchObject({ kind: 'crossfade', dir: -1, durationMs: PAGE_BUDGET_MS });
     expect(transitionFor('/', '/events', 'POP', true)?.kind).toBe('crossfade');
   });
   it('replace navigations stay quiet', () => {
@@ -70,9 +72,9 @@ describe('transitionFor', () => {
 });
 
 describe('timing budget', () => {
-  it('every transition fits the 450ms page budget', () => {
+  it('every transition fits the page budget', () => {
     for (const [kind, t] of Object.entries(TIMING)) {
-      expect(t.coverMs + t.revealMs, kind).toBeLessThanOrEqual(PAGE_BUDGET_MS);
+      expect(t.coverMs + t.holdMs + t.revealMs, kind).toBeLessThanOrEqual(PAGE_BUDGET_MS);
       expect(t.coverMs).toBeGreaterThan(0);
       expect(t.revealMs).toBeGreaterThan(0);
     }

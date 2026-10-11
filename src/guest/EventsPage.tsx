@@ -498,7 +498,7 @@ export default function EventsPage() {
 
   const tab: EventsTab = parseTab(params.get('tab')) ?? defaultTab(seasons.length > 0);
   const setTab = (t: EventsTab) => setParams({ tab: t }, { preventScrollReset: true });
-  const events = bookingEvents ?? [];
+  const events = useMemo(() => bookingEvents ?? [], [bookingEvents]);
   const cupEvents = useMemo(() => eventsInCategory(events, 'cup'), [events]);
   const clubEvents = useMemo(() => eventsInCategory(events, 'club'), [events]);
   const otherF1 = useMemo(() => standaloneEvents(events, ALL_RACES).filter((e) => categoryOf(e) === 'f1'), [events]);

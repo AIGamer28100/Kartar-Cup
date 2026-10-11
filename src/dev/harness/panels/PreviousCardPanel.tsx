@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { MemoryRouter } from 'react-router';
 import { PreviousRaceCard } from '../../../guest/PreviousRaceCard';
 import { getRace } from '../../../config/calendar';
 import { clearPodiumCache } from '../../../lib/podium';
@@ -61,9 +60,9 @@ export default function PreviousCardPanel(_props: PanelProps) {
         <Pick label="Podium state" value={state} options={STATES} onChange={setState} />
         <div className="mt-4 max-w-md">
           {/* keyed: the card fetches once per race object, so a state change must remount it */}
-          <MemoryRouter key={state}>
+          <div key={state}>
             <PreviousRaceCard race={race} range="02-04 OCT 2026" circuit="Sepang International Circuit, Kuala Lumpur" />
-          </MemoryRouter>
+          </div>
         </div>
       </Case>
     </Grid>

@@ -613,6 +613,9 @@ function getTone(state: RaceState): 'muted' | 'accent' | 'warn' | 'ok' | 'bad' {
   }
 }
 
+
+// Module-level so the rolling-restart state keeps one identity across renders (effects key on it).
+const ROLLING_RESTART: RaceState = { type: 'safety-car', isRollingRestart: true };
 export function RaceStateDisplay({
   state,
   raceStartMs,
@@ -708,7 +711,7 @@ export function RaceStateDisplay({
   }, [redFlagResumeAtMs]);
 
   const displayState: RaceState = redFlagResumeComplete
-    ? redFlagResumeProcedure === 'rolling' ? { type: 'safety-car', isRollingRestart: true } : 'in-progress'
+    ? redFlagResumeProcedure === 'rolling' ? ROLLING_RESTART : 'in-progress'
     : isStandingRedFlagRestart && redFlagSequenceStarted
       ? lightsOutCountdownStarted
         ? countdownComplete ? 'in-progress' : 'lights-out-countdown'

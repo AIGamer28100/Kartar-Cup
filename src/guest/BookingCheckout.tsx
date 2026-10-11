@@ -572,7 +572,7 @@ export default function BookingCheckout() {
       setTierId('');
       setQty(1);
     }
-  }, [event?.bookedCount, tier, tierCounts]);
+  }, [event, tier, tierCounts]);
 
   // `buyer` is passed right after a popup sign-in, when the `user` from useAuth is still stale.
   const reserve = async (buyer: { uid: string; displayName: string | null; email: string | null } | null = user) => {

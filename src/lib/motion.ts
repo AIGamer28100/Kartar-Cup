@@ -4,7 +4,7 @@
  * motion.test.ts checks the two stay in sync. Pure module: no React, no DOM.
  *
  * Rules of thumb
- * - Page transitions finish in under 900ms (PAGE_BUDGET_MS) and never block input.
+ * - Page transitions take PAGE_BUDGET_MS (PAGE_TRANSITION_MS) and never block input.
  * - Animate transform / opacity only (SVG stroke-dashoffset is fine).
  * - Under prefers-reduced-motion: no movement; use `reduced()` to collapse a transition to an
  *   instant or short opacity-only one.
@@ -33,8 +33,16 @@ export const DUR_MS = {
   ticker: 1100,
 } as const satisfies Record<keyof typeof DUR, number>;
 
-/** Hard ceiling for any route transition (cover + reveal). */
-export const PAGE_BUDGET_MS = 900;
+/** Every page-to-page transition, in one place (R40). Change these numbers only.
+ * cover: the panel sweeps over the page (2.5x the original 200ms).
+ * hold: the screen stays covered so the route label and graphic can be read; the next page loads
+ *   behind it, and the hold stretches (up to MAX_HOLD_MS) if its code is still arriving.
+ * reveal: the panel clears off the new page (2.5x the original 230ms); the page glides in alongside.
+ * prefers-reduced-motion ignores this and keeps a very short opacity fade. */
+export const PAGE_TRANSITION_MS = { cover: 600, hold: 650, reveal: 475 } as const;
+
+/** Total time of a route transition when the next page's code is already loaded. */
+export const PAGE_BUDGET_MS = PAGE_TRANSITION_MS.cover + PAGE_TRANSITION_MS.hold + PAGE_TRANSITION_MS.reveal;
 
 /** The owner's TrackMap outline draw-on duration (R44: deliberate, never shorten). Mirrors
  * --track-draw-duration in tokens.css; the kart dot that leads the line uses the same value. */

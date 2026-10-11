@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation, useNavigationType, type Location } from 'react-router';
 import { preloadRoute } from '../../routes';
-import { DUR, EASE } from '../../lib/motion';
+import { DUR, EASE, PAGE_TRANSITION_MS } from '../../lib/motion';
 import { TransitionOverlay, type Phase } from './graphics';
 import {
   forMotionPreference,
@@ -22,10 +22,11 @@ import {
  *   1. cover: the overlay sweeps in over the old page while the new route's code preloads;
  *   2. swap: once covered AND the code is ready (or after MAX_HOLD_MS), the rendered location
  *      switches, scroll is restored, and the new page mounts exactly once, hidden under the overlay;
- *   3. reveal: the overlay clears while the new page glides in (PageEnter).
+ *   3. hold: the screen stays covered for holdMs so the route label can be read and the page loads;
+ *   4. reveal: the overlay clears while the new page glides in (PageEnter, delayed by the hold).
  * Every step is driven by timers and a promise, never animation callbacks, so navigation always
  * completes (hidden tab, failed animation, slow network). The overlay never takes pointer events.
- * Host / excluded routes swap synchronously. Total time with code ready: < 900ms.
+ * Host / excluded routes swap synchronously. Total time with code ready: cover + hold + reveal (PAGE_TRANSITION_MS).
  */
 
 const LIGHTS_KEY = 'kc-lights-out-seen';
@@ -78,7 +79,7 @@ export function PageEnter({ animate, dir, children }: { animate: boolean; dir: D
     <motion.div
       initial={animate ? (reduce ? { opacity: 0 } : { opacity: 0, x: dir * 28 }) : false}
       animate={{ opacity: 1, x: 0 }}
-      transition={reduce ? { duration: DUR.fast } : { duration: DUR.slow * 2, ease: EASE.out }}
+      transition={reduce ? { duration: DUR.fast } : { duration: PAGE_TRANSITION_MS.reveal / 1000, delay: PAGE_TRANSITION_MS.hold / 1000, ease: EASE.out }}
     >
       {children}
     </motion.div>
@@ -186,13 +187,15 @@ export default function TransitionLayer({ children }: { children: (location: Loc
       setDisplayed(location);
       setEnter({ id: ++seq.current, dir: t.dir });
       settle();
-      setRun((r) => (r && r.id === runId ? { ...r, phase: 'reveal' } : r));
+      // Hold: the new page mounts and loads behind the still-covered screen, and the route label
+      // stays up long enough to read, before the reveal starts.
       timers.push(
+        window.setTimeout(() => setRun((r) => (r && r.id === runId ? { ...r, phase: 'reveal' } : r)), t.holdMs),
         window.setTimeout(() => {
           setRun((r) => (r && r.id === runId ? null : r));
           window.scrollTo({ top: restoreY, left: 0, behavior: 'instant' });
           focusHeading();
-        }, t.revealMs),
+        }, t.holdMs + t.revealMs),
       );
     };
     timers.push(

@@ -11,6 +11,7 @@ import {
   formatTicker,
   magneticOffset,
   PAGE_BUDGET_MS,
+  PAGE_TRANSITION_MS,
   reduced,
   staggerDelay,
   STAGGER_MAX_DELAY,
@@ -42,8 +43,8 @@ describe('motion tokens', () => {
     expect(TRACK_DRAW_MS).toBe(5000);
     expect(cssVar('--track-draw-duration')).toBe(`${TRACK_DRAW_MS / 1000}s`);
   });
-  it('page budget is under 900ms', () => {
-    expect(PAGE_BUDGET_MS).toBeLessThanOrEqual(900);
+  it('page budget is cover + hold + reveal', () => {
+    expect(PAGE_BUDGET_MS).toBe(PAGE_TRANSITION_MS.cover + PAGE_TRANSITION_MS.hold + PAGE_TRANSITION_MS.reveal);
   });
 });
 
