@@ -25,7 +25,7 @@ import {
  *   3. reveal: the overlay clears while the new page glides in (PageEnter).
  * Every step is driven by timers and a promise, never animation callbacks, so navigation always
  * completes (hidden tab, failed animation, slow network). The overlay never takes pointer events.
- * Host / excluded routes swap synchronously. Total time with code ready: < 450ms.
+ * Host / excluded routes swap synchronously. Total time with code ready: < 900ms.
  */
 
 const LIGHTS_KEY = 'kc-lights-out-seen';
@@ -78,7 +78,7 @@ export function PageEnter({ animate, dir, children }: { animate: boolean; dir: D
     <motion.div
       initial={animate ? (reduce ? { opacity: 0 } : { opacity: 0, x: dir * 28 }) : false}
       animate={{ opacity: 1, x: 0 }}
-      transition={reduce ? { duration: DUR.fast } : { duration: DUR.slow, ease: EASE.out }}
+      transition={reduce ? { duration: DUR.fast } : { duration: DUR.slow * 2, ease: EASE.out }}
     >
       {children}
     </motion.div>

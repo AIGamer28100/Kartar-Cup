@@ -4,7 +4,7 @@
  * motion.test.ts checks the two stay in sync. Pure module: no React, no DOM.
  *
  * Rules of thumb
- * - Page transitions finish in under 450ms (PAGE_BUDGET_MS) and never block input.
+ * - Page transitions finish in under 900ms (PAGE_BUDGET_MS) and never block input.
  * - Animate transform / opacity only (SVG stroke-dashoffset is fine).
  * - Under prefers-reduced-motion: no movement; use `reduced()` to collapse a transition to an
  *   instant or short opacity-only one.
@@ -34,7 +34,7 @@ export const DUR_MS = {
 } as const satisfies Record<keyof typeof DUR, number>;
 
 /** Hard ceiling for any route transition (cover + reveal). */
-export const PAGE_BUDGET_MS = 450;
+export const PAGE_BUDGET_MS = 900;
 
 /** The owner's TrackMap outline draw-on duration (R44: deliberate, never shorten). Mirrors
  * --track-draw-duration in tokens.css; the kart dot that leads the line uses the same value. */

@@ -42,8 +42,8 @@ describe('motion tokens', () => {
     expect(TRACK_DRAW_MS).toBe(5000);
     expect(cssVar('--track-draw-duration')).toBe(`${TRACK_DRAW_MS / 1000}s`);
   });
-  it('page budget is under 450ms', () => {
-    expect(PAGE_BUDGET_MS).toBeLessThanOrEqual(450);
+  it('page budget is under 900ms', () => {
+    expect(PAGE_BUDGET_MS).toBeLessThanOrEqual(900);
   });
 });
 

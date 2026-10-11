@@ -15,9 +15,9 @@ describe('transitionFor', () => {
   it('kerb-sweep between ordinary public pages', () => {
     expect(transitionFor('/', '/events', 'PUSH', false)).toEqual({
       kind: 'kerb-sweep',
-      coverMs: 200,
-      revealMs: 230,
-      durationMs: 430,
+      coverMs: 400,
+      revealMs: 460,
+      durationMs: 860,
       dir: 1,
     });
     expect(transitionFor('/events', '/gallery', 'PUSH', false)?.kind).toBe('kerb-sweep');
@@ -36,12 +36,12 @@ describe('transitionFor', () => {
     expect(transitionFor('/profile', '/tickets/t1', 'PUSH', false)?.kind).toBe('pit-lane');
   });
   it('lights-out only for the first navigation away from landing', () => {
-    expect(transitionFor('/', '/events', 'PUSH', true)).toMatchObject({ kind: 'lights-out', durationMs: 440 });
+    expect(transitionFor('/', '/events', 'PUSH', true)).toMatchObject({ kind: 'lights-out', durationMs: 880 });
     expect(transitionFor('/', '/events', 'PUSH', false)?.kind).toBe('kerb-sweep');
     expect(transitionFor('/events', '/gallery', 'PUSH', true)?.kind).toBe('kerb-sweep');
   });
   it('back/forward is a quick crossfade, even on first visit', () => {
-    expect(transitionFor('/events', '/', 'POP', false)).toMatchObject({ kind: 'crossfade', dir: -1, durationMs: 280 });
+    expect(transitionFor('/events', '/', 'POP', false)).toMatchObject({ kind: 'crossfade', dir: -1, durationMs: 560 });
     expect(transitionFor('/', '/events', 'POP', true)?.kind).toBe('crossfade');
   });
   it('replace navigations stay quiet', () => {

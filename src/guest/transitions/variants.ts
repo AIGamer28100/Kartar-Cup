@@ -27,11 +27,12 @@ export interface Transition {
 }
 
 export const TIMING: Record<TransitionKind, { coverMs: number; revealMs: number }> = {
-  'kerb-sweep': { coverMs: 200, revealMs: 230 },
-  chequered: { coverMs: 200, revealMs: 230 },
-  'pit-lane': { coverMs: 200, revealMs: 230 },
-  'lights-out': { coverMs: 260, revealMs: 180 },
-  crossfade: { coverMs: 130, revealMs: 150 },
+  // Doubled 2026-10-11 at the owner's request (was 200/230, 260/180, 130/150); reduced motion unchanged.
+  'kerb-sweep': { coverMs: 400, revealMs: 460 },
+  chequered: { coverMs: 400, revealMs: 460 },
+  'pit-lane': { coverMs: 400, revealMs: 460 },
+  'lights-out': { coverMs: 520, revealMs: 360 },
+  crossfade: { coverMs: 260, revealMs: 300 },
   reduced: { coverMs: 70, revealMs: 80 },
 };
 
