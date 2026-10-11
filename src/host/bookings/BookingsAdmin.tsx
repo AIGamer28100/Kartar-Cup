@@ -131,7 +131,7 @@ export function BookingEventForm() {
   const isCancelled = form.cancelled ?? false;
   const show = (k: keyof typeof errors) => (touched ? errors[k] : undefined);
   return (
-    <div className="pb-32">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-3 py-4">
         {backLink}
         <p className="font-mono text-sm" role="status">
@@ -324,8 +324,8 @@ export function BookingEventForm() {
       <TiersEditor form={form} errors={errors} patch={patch} />
       <DiscountsEditor form={form} errors={errors} patch={patch} />
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-base/95 px-6 py-3 backdrop-blur md:px-10 lg:px-16">
-        <div className="mx-auto flex max-w-[87.5rem] flex-wrap items-center gap-3">
+      <div className="sticky bottom-0 z-10 mt-6 border-t border-line bg-base/95 py-3 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-3">
           <Button disabled={busy || isCancelled} onClick={() => void save()}>
             <FloppyDisk size={20} weight="regular" aria-hidden="true" /> {busy ? 'Saving...' : 'Save event'}
           </Button>
