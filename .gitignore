@@ -171,3 +171,4 @@ worker/**/.cf.env
 
 # Clean-room product specification (local only)
 spec/
+.claude/.atomic-index/
