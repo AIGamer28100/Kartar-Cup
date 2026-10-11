@@ -217,7 +217,7 @@ function EventCard({ event, index }: { event: BookingEvent; index: number }) {
           {event.venue.name}, {event.venue.city}
         </span>
       </p>
-      {event.description && <p className="mt-3 line-clamp-3 text-pretty text-sm text-muted">{event.description}</p>}
+      {event.description && <p className="mt-3 line-clamp-3 whitespace-pre-line text-pretty text-sm text-muted">{event.description}</p>}
       {event.cancelled && event.cancelReason?.trim() && (
         <p className="mt-3 line-clamp-2 text-pretty text-sm text-muted">{event.cancelReason.trim()}</p>
       )}

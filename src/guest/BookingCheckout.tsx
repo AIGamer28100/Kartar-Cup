@@ -355,7 +355,7 @@ export function EventDetails({
           <span>·</span>
           <span>{event.venue.city}</span>
         </div>
-        {event.description && <p className="text-pretty text-muted">{event.description}</p>}
+        {event.description && <p className="whitespace-pre-line text-pretty text-muted">{event.description}</p>}
         <p className={`inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${eventSoldOut ? 'text-accent-text' : 'text-muted'}`}>
           {seatsLabel(event)}
         </p>
