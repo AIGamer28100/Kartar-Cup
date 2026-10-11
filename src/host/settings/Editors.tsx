@@ -30,6 +30,7 @@ export function QuestionsEditor({ form, errors, patch }: { form: FormState; erro
                 <option value="team">Team</option>
                 <option value="driver">Driver</option>
                 <option value="yesno">Yes / No</option>
+                <option value="card">Play card (driver + points)</option>
               </select>
             </Field>
             <Field id={`q-points-${q.id}`} label="Points">

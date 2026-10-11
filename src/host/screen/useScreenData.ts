@@ -6,8 +6,7 @@ import {
   watchActiveResults,
   watchScreenState,
 } from '../../lib/db';
-import { pointsMap, rankEntries } from '../../lib/scoring';
-import { useCardBonus } from '../useCardBonus';
+import { cardBonusByUid, pointsMap, rankEntries } from '../../lib/scoring';
 import type { Entry, EventConfig, RankedRow, ScreenState } from '../../lib/types';
 
 export interface ScreenData {
@@ -38,7 +37,6 @@ export function useScreenData(): ScreenData {
   const [screenState, setScreenStateLocal] = useState<ScreenState>(SEALED);
   const [ready, setReady] = useState({ event: false, entries: false });
   const [error, setError] = useState<string | null>(null);
-  const cardBonus = useCardBonus(config?.raceId);
 
   useEffect(() => watchActiveEventId(setEventId, (e) => setError(e.message)), []);
 
@@ -80,8 +78,8 @@ export function useScreenData(): ScreenData {
       answers: e.answers,
       submittedAtMs: e.submittedAt.toMillis(),
     }));
-    return rankEntries(scorable, results, screenState.overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, cardBonus);
-  }, [entries, results, screenState.overrideUid, config, cardBonus]);
+    return rankEntries(scorable, results, screenState.overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, config ? cardBonusByUid(scorable, config.questions) : undefined);
+  }, [entries, results, screenState.overrideUid, config]);
 
   return {
     loading: eventId === undefined || !(ready.event && ready.entries),

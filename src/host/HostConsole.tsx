@@ -6,7 +6,7 @@ import { RowsSkeleton } from '../components/Skeleton';
 import { useTimedOut } from '../lib/useTimedOut';
 import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
-import { maxScore, pointsMap, rankEntries, winner } from '../lib/scoring';
+import { cardBonusByUid, maxScore, pointsMap, rankEntries, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
 import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
@@ -15,13 +15,11 @@ import PodiumController from './screen/PodiumController';
 import OverlayControls from './overlay/OverlayControls';
 import RaceControl from './RaceControl';
 import RevealWinner from './RevealWinner';
-import { useCardBonus } from './useCardBonus';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
   const { loading, error, config, entries, results } = useHostData();
   const stuck = useTimedOut(loading);
-  const cardBonus = useCardBonus(config?.raceId);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
   const overrideUid = localOverride !== undefined ? localOverride : (config?.tiebreakOverride ?? null);
 
@@ -33,8 +31,8 @@ export default function HostConsole() {
       submittedAtMs: e.submittedAt.toMillis(),
     }));
     // Without a config (nothing live) fall back to the defaults, exactly as before.
-    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, cardBonus);
-  }, [entries, results, overrideUid, config, cardBonus]);
+    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, config ? cardBonusByUid(scorable, config.questions) : undefined);
+  }, [entries, results, overrideUid, config]);
 
   function exportCsv() {
     const byUid = new Map(entries.map((e) => [e.uid, e]));

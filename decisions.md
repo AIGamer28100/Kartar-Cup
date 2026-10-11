@@ -229,3 +229,13 @@ Check before every hosting deploy: `grep -l 127.0.0.1 dist/assets/*.js` must pri
   search fails with a CORS error. The Worker's own gate (origin allowlist + Firebase ID token) is the
   access control. Rejected: Access SSO (no login flow inside a fetch) and an Access service token (its
   secret would sit in the public bundle).
+
+## Play-card quiz question: answer encoding (2026-10-11, R71)
+The card answer needs two values (driver + points) but every other answer is one string, and `answerOk` in firestore.rules runs 8 times inside a rules file already near its 1000-expression budget.
+
+| Option | Verdict | Why |
+|---|---|---|
+| A. One string `"<driverId>:<points>"`, checked by one regex in rules | CHOSEN | One extra expression per answer; `answers` stays `Record<string,string>` for every consumer; parsed in one helper |
+| B. A map `{driver, points}` per answer | Rejected | Several extra expressions x8 against the budget, and every consumer typed for strings changes |
+
+Scoring: the card question has no correct answer, so it is outside per-question scoring and `maxScore`; its points are the bonus. Points are capped 0..999.

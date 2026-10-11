@@ -1,4 +1,5 @@
 import { DEFAULT_QUESTION_IDS, MAX_QUESTION_POINTS } from './types';
+import { parseCardAnswer } from './cardAnswer';
 import type { Answers, RankedRow, Results, ScorableEntry } from './types';
 
 /** Per-question weight by question id; a missing id is worth 1. */
@@ -14,8 +15,8 @@ export function pointsMap(questions: { id: string; points?: number }[]): PointsM
   return Object.fromEntries(questions.map((q) => [q.id, pointsOf(q)]));
 }
 
-export function maxScore(questions: { points?: number }[]): number {
-  return questions.reduce((n, q) => n + pointsOf(q), 0);
+export function maxScore(questions: { points?: number; kind?: string }[]): number {
+  return questions.filter((q) => q.kind !== 'card').reduce((n, q) => n + pointsOf(q), 0);
 }
 
 export function normalize(id: string): string {
@@ -76,17 +77,16 @@ export function rankEntries(
   }));
 }
 
-/** R46: each guest's Play-card points. A booking counts when it is not cancelled and carries a drawn
- * card, and only for the given booking events (the ones that belong to the race being scored).
- * One card per booking, so a multi-seat booking still adds the card's points once, to the buyer. */
+/** R71: each guest's Play-card points, read from their self-reported card-question answer. */
 export function cardBonusByUid(
-  bookings: { buyerUid: string; status: string; bookingEventId: string; playCard?: { points: number } }[],
-  bookingEventIds: ReadonlySet<string>,
+  entries: { uid: string; answers: Answers }[],
+  questions: { id: string; kind: string }[],
 ): Record<string, number> {
+  const cardIds = questions.filter((q) => q.kind === 'card').map((q) => q.id);
   const out: Record<string, number> = {};
-  for (const b of bookings) {
-    if (b.status === 'cancelled' || !b.playCard || !bookingEventIds.has(b.bookingEventId)) continue;
-    out[b.buyerUid] = (out[b.buyerUid] ?? 0) + Math.max(0, Math.trunc(b.playCard.points));
+  for (const e of entries) {
+    const n = cardIds.reduce((t, id) => t + (parseCardAnswer(e.answers[id])?.points ?? 0), 0);
+    if (n > 0) out[e.uid] = n;
   }
   return out;
 }

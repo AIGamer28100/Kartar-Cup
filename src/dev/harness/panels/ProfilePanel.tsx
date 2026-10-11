@@ -2,12 +2,11 @@ import { useMemo, useState } from 'react';
 import AchievementsSection from '../../../guest/AchievementsSection';
 import { computeStreaks } from '../../../guest/achievements';
 import { PHONE_ERROR, bookingStatusLabel, entryStatusLabel, formatInr, initials, parsePhone, sortOwnEntries, type OwnEntryRow } from '../../../guest/profileModel';
-import { cardBonusByUid } from '../../../lib/scoring';
-import { BASE_MS, mockBooking, mockBookingEvent, mockPlayCard } from '../../fixtures';
+import { BASE_MS, mockBooking, mockBookingEvent } from '../../fixtures';
 import type { PanelProps } from '../MockLab';
-import { Case, Grid, Json, Pick } from '../parts';
+import { Case, Grid, Pick } from '../parts';
 
-/* ProfilePage and useOwnCardBonus read Firestore, so they are not mounted. AchievementsSection takes plain props and is, along with the model helpers. */
+/* ProfilePage reads Firestore, so they are not mounted. AchievementsSection takes plain props and is, along with the model helpers. */
 
 type Who = 'loading' | 'new' | 'regular' | 'streak';
 const WHO: { id: Who; label: string }[] = [
@@ -37,7 +36,6 @@ export default function ProfilePanel(_props: PanelProps) {
   const [who, setWho] = useState<Who>('regular');
   const { rows, bookings } = useMemo(() => dataFor(who), [who]);
   const event = mockBookingEvent();
-  const withCard = [mockBooking({ playCard: mockPlayCard() }), mockBooking({ id: 'b2', status: 'cancelled', playCard: mockPlayCard() })];
   return (
     <Grid>
       <Case title="Achievements" note="AchievementsSection from the guest's own entries and bookings (R15/R31): skeleton while loading, locked and earned tiles, streaks." wide>
@@ -71,9 +69,6 @@ export default function ProfilePanel(_props: PanelProps) {
           ))}
         </ul>
         <p className="mt-1 text-xs text-muted">Error copy: {PHONE_ERROR}</p>
-      </Case>
-      <Case title="Card bonus" note="What useOwnCardBonus sums: Play card points on live bookings of the quiz's event (R46). The cancelled booking is skipped.">
-        <Json label="cardBonusByUid" value={cardBonusByUid(withCard, new Set([event.id]))} />
       </Case>
     </Grid>
   );

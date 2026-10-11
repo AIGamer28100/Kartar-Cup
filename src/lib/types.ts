@@ -64,7 +64,7 @@ export interface DriverCfg {
   teamId: string;
   grid: number;
 }
-export type QuestionKind = 'team' | 'driver' | 'yesno';
+export type QuestionKind = 'team' | 'driver' | 'yesno' | 'card';
 export const YESNO_OPTIONS: Option[] = [
   { id: 'yes', label: 'Yes' },
   { id: 'no', label: 'No' },

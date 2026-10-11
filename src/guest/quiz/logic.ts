@@ -1,3 +1,4 @@
+import { parseCardAnswer } from '../../lib/cardAnswer';
 import { QUIZ_CLOSE_FRACTION, closeLap, quizHeldByDelay, type QuizClockInput } from '../../lib/quizWindow';
 import type { EventConfig, QuestionCfg } from '../../lib/types';
 import type { PickMap } from '../draft';
@@ -67,7 +68,8 @@ export function urgency(msLeft: number): 'calm' | 'soon' | 'final' {
   return msLeft <= MIN ? 'final' : msLeft <= 5 * MIN ? 'soon' : 'calm';
 }
 
-export const isAnswered = (q: QuestionCfg, answers: PickMap): boolean => !!answers[q.id];
+export const isAnswered = (q: QuestionCfg, answers: PickMap): boolean =>
+  q.kind === 'card' ? parseCardAnswer(answers[q.id]) !== null : !!answers[q.id];
 
 export function countAnswered(questions: QuestionCfg[], answers: PickMap): number {
   return questions.filter((q) => isAnswered(q, answers)).length;

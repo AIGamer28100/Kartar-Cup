@@ -184,6 +184,8 @@ export function validate(f: FormState): Errors {
     e.questions = 'Keep each prompt to 80 characters and each hint to 160.';
   else if (f.questions.length < 1 || f.questions.some((q) => !q.prompt.trim()))
     e.questions = 'Add at least one question; every question needs a prompt.';
+  else if (f.questions.filter((q) => q.kind === 'card').length > 1)
+    e.questions = 'Only one question can be the Play card question.';
   else if (f.questions.some((q) => q.points !== undefined && (!Number.isInteger(q.points) || q.points < 1 || q.points > MAX_QUESTION_POINTS)))
     e.questions = `Points per question must be a whole number from 1 to ${MAX_QUESTION_POINTS}.`;
   return e;

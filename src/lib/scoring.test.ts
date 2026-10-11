@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankEntries, scoreEntry, winner } from './scoring';
+import { cardBonusByUid, maxScore, rankEntries, scoreEntry, winner } from './scoring';
 import type { Answers, Results, ScorableEntry } from './types';
 
 const R: Results = { q1: ['mercedes'], q2: ['norris', 'piastri'], q3: ['stroll'], q4: ['haas'], q5: ['russell'] };
@@ -56,5 +56,25 @@ describe('rankEntries', () => {
   });
   it('empty entries gives null winner', () => {
     expect(winner(rankEntries([], R))).toBeNull();
+  });
+});
+
+describe('card question (R71)', () => {
+  const qs = [{ id: 'q1', kind: 'team' }, { id: 'q6', kind: 'card' }];
+  it('bonus is the parsed points; bad or missing answers add nothing', () => {
+    const b = cardBonusByUid(
+      [
+        { uid: 'a', answers: { q6: 'norris:12' } },
+        { uid: 'b', answers: { q6: 'norris:1000' } },
+        { uid: 'c', answers: {} },
+      ],
+      qs,
+    );
+    expect(b).toEqual({ a: 12 });
+  });
+  it('is outside maxScore and added to the ranked total', () => {
+    expect(maxScore(qs)).toBe(1);
+    const rows = rankEntries([{ uid: 'a', name: 'A', answers: { q1: 'x', q6: 'norris:7' }, submittedAtMs: 0 }], { q1: [] }, null, ['q1', 'q6'], undefined, { a: 7 });
+    expect(rows[0].score).toBe(7);
   });
 });

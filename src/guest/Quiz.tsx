@@ -7,6 +7,7 @@ import { maxScore, pointsOf } from '../lib/scoring';
 import type { EventConfig, QuestionCfg } from '../lib/types';
 import type { PickMap } from './draft';
 import PicksCard from './PicksCard';
+import { formatCardAnswer, parseCardAnswer } from '../lib/cardAnswer';
 import AnswerGrid from './quiz/AnswerGrid';
 import { useFaces } from './quiz/faces';
 import { cardsFor } from './quiz/grid';
@@ -40,6 +41,7 @@ const KIND_LABEL: Record<QuestionCfg['kind'], string> = {
   driver: 'Pick a driver',
   team: 'Pick a team',
   yesno: 'Yes or no',
+  card: 'Read your Play card',
 };
 
 /** Sticky action bar on phones (thumb reach), inline beside the grid on wide screens. */
@@ -147,7 +149,7 @@ export default function Quiz({ config, answers, step, submitting, error, onAnswe
               q={q}
               value={answers[q.id]}
               advancing={advancing}
-              onPick={(id) => pick(q, id)}
+              onPick={(id) => (q.kind === 'card' ? onAnswer(q.id, id) : pick(q, id))}
               onBack={step > 0 ? () => go(step - 1) : undefined}
               onNext={() => go(fromReview ? total : step + 1)}
               last={step === total - 1 || fromReview}
@@ -186,7 +188,18 @@ function Question({
   const uid = useId();
   const headId = `${uid}-q`;
   const searchable = cards.length >= SEARCH_MIN_OPTIONS;
-  const picked = cards.find((c) => c.id === value);
+  // R71: the card question stores "<driver>:<points>"; each half is kept here until both are set.
+  const isCard = q.kind === 'card';
+  const parsed = parseCardAnswer(value);
+  const [cDriver, setCDriver] = useState(parsed?.driverId ?? '');
+  const [cPoints, setCPoints] = useState(parsed ? String(parsed.points) : '');
+  const setCard = (d: string, p: string) => {
+    setCDriver(d);
+    setCPoints(p);
+    onPick(d && /^\d{1,3}$/.test(p) ? formatCardAnswer(d, Number(p)) : '');
+  };
+  const pickedId = isCard ? cDriver : value;
+  const picked = cards.find((c) => c.id === pickedId);
 
   return (
     <div className="grid flex-1 content-start gap-x-14 gap-y-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]">
@@ -246,13 +259,31 @@ function Question({
           </div>
         )}
         {shown.length > 0 ? (
-          <AnswerGrid cards={shown} value={value} onPick={onPick} labelledBy={headId} />
+          <AnswerGrid cards={shown} value={pickedId} onPick={isCard ? (id) => setCard(id, cPoints) : onPick} labelledBy={headId} />
         ) : (
           <div role="status" className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-muted">
             Nobody on the grid matches that.{' '}
             <button type="button" onClick={() => setQuery('')} className="min-h-11 font-medium text-ink underline focus-visible:outline-2 focus-visible:outline-accent">
               Show everyone
             </button>
+          </div>
+        )}
+        {isCard && (
+          <div className="mt-4 sm:max-w-xs">
+            <label htmlFor={`${uid}-pts`} className="block text-sm font-medium text-ink">
+              Points on your card (0 to 999)
+            </label>
+            <input
+              id={`${uid}-pts`}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{1,3}"
+              maxLength={3}
+              autoComplete="off"
+              className="mt-1 min-h-11 w-full rounded-lg border border-line bg-raised px-3 text-[1rem] text-ink focus:border-accent"
+              value={cPoints}
+              onChange={(e) => setCard(cDriver, e.target.value.replace(/\D/g, '').slice(0, 3))}
+            />
           </div>
         )}
         <p className="mt-3 hidden font-mono text-[0.7rem] uppercase tracking-widest text-muted pointer-fine:block">

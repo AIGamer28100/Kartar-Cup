@@ -7,6 +7,7 @@ import Avatar from './Avatar';
  * email/phone (R15/privacy), same discipline as the host's own Leaderboard component. */
 export default function StandingsScreen({ config, ranked }: { config: EventConfig; ranked: RankedRow[] }) {
   const reduce = useReducedMotion();
+  const scoredIds = config.questions.filter((q) => q.kind !== 'card').map((q) => q.id);
 
   if (ranked.length === 0) {
     return (
@@ -46,9 +47,9 @@ export default function StandingsScreen({ config, ranked }: { config: EventConfi
             <span
               className="hidden gap-1.5 sm:flex"
               role="img"
-              aria-label={config.questionIds.map((id, i2) => `${i2 + 1} ${r.ticks[id] ? 'right' : 'wrong'}`).join(', ')}
+              aria-label={scoredIds.map((id, i2) => `${i2 + 1} ${r.ticks[id] ? 'right' : 'wrong'}`).join(', ')}
             >
-              {config.questionIds.map((id) => (
+              {scoredIds.map((id) => (
                 <span
                   key={id}
                   className={`grid size-[clamp(1.5rem,2vw,2.25rem)] place-items-center rounded-md border ${

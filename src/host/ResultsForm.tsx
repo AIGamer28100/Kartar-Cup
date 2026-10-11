@@ -84,7 +84,7 @@ export default function ResultsForm({
     async (auto: boolean) => {
       const none = { outcome: 'error' as const, found: 0, total: 0 };
       if (!config || !race) return { ...none, reason: 'no race' };
-      const total = config.questions.filter((q) => q.kind !== 'yesno').length;
+      const total = config.questions.filter((q) => q.kind !== 'yesno' && q.kind !== 'card').length;
       setPulling(true);
       setMsg(null);
       try {
@@ -154,7 +154,7 @@ export default function ResultsForm({
           </p>
           {derived.length > 0 && (
             <p className="mt-1 text-sm text-muted">
-              From OpenF1: {derived.length} of {config.questions.length} questions; the rest (yes/no and unmatched ones) need a manual answer. Nothing is published until you press Save results.
+              From OpenF1: {derived.length} of {config.questions.filter((q) => q.kind !== 'card').length} questions; the rest (yes/no and unmatched ones) need a manual answer. Nothing is published until you press Save results.
             </p>
           )}
         </div>
@@ -178,7 +178,7 @@ export default function ResultsForm({
         </ul>
       )}
       <div className="mt-6 divide-y divide-line">
-        {config.questions.map((q, i) => {
+        {config.questions.filter((q) => q.kind !== 'card').map((q, i) => {
           const saved = results[q.id] ?? [];
           const opts = optionsFor(config, q);
           const picked = draft[q.id] ?? [];

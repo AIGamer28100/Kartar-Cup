@@ -1,3 +1,4 @@
+import { parseCardAnswer } from '../lib/cardAnswer';
 import { pointsMap, scoreEntry } from '../lib/scoring';
 import { YESNO_OPTIONS } from '../lib/types';
 import type { EventConfig, Option, QuestionCfg } from '../lib/types';
@@ -21,6 +22,8 @@ export function optionsFor(config: EventConfig, q: QuestionCfg): Option[] {
 
 export function optionLabel(config: EventConfig, q: QuestionCfg, id: string | undefined): string {
   if (!id) return 'No pick';
+  const card = q.kind === 'card' ? parseCardAnswer(id) : null;
+  if (card) return `${optionLabel(config, { ...q, kind: 'driver' }, card.driverId)} · ${card.points} pts`;
   return optionsFor(config, q).find((o) => o.id === id)?.label ?? id;
 }
 

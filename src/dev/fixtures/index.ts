@@ -6,6 +6,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { normalizeDrivers, slug } from '../../lib/openf1';
 import type { OpenF1Driver } from '../../lib/openf1';
+import { formatCardAnswer } from '../../lib/cardAnswer';
 import { cardBonusByUid, maxScore, pointsMap, rankEntries } from '../../lib/scoring';
 import { googleMapsPinUrl } from '../../lib/placeSearch';
 import type {
@@ -66,6 +67,7 @@ const QUESTIONS: QuestionCfg[] = [
   { id: 'q3', kind: 'driver', prompt: 'Which driver will DNF?' },
   { id: 'q4', kind: 'team', prompt: 'Which constructor has the FASTEST pit stop?' },
   { id: 'q5', kind: 'driver', prompt: 'Which driver sets the FASTEST LAP?' },
+  { id: 'q6', kind: 'card', prompt: 'Which driver is on your Play card, and how many points does it show?' },
 ];
 const QUESTION_IDS = QUESTIONS.map((q) => q.id);
 
@@ -86,7 +88,7 @@ export const mockEventConfig = (over: Partial<EventConfig> = {}): EventConfig =>
   drivers: grid.drivers.map((d) => ({ ...d })),
   questions: QUESTIONS.map((q) => ({ ...q })),
   questionIds: [...QUESTION_IDS],
-  nextQuestionSeq: 6,
+  nextQuestionSeq: 7,
   winnerRevealed: false,
   tiebreakOverride: null,
   createdAt: ts(BASE_MS - 10 * DAY),
@@ -178,7 +180,7 @@ export const mockEntries = (n = 12): Entry[] => {
     const order = [...QUESTIONS].sort(() => rng() - 0.5);
     const correct = new Set(order.slice(0, want).map((q) => q.id));
     const answers: Record<string, string> = {};
-    for (const q of QUESTIONS) {
+    for (const q of QUESTIONS.filter((q) => q.kind !== 'card')) {
       const opts = optionsFor(q);
       const accepted = results[q.id];
       if (correct.has(q.id)) {
@@ -188,6 +190,7 @@ export const mockEntries = (n = 12): Entry[] => {
         answers[q.id] = wrong[Math.floor(rng() * wrong.length)];
       }
     }
+    answers.q6 = formatCardAnswer(cfg.drivers[0].id, CARD_HOLDERS[i] ?? 0);
     const name = NAMES[i % NAMES.length] + (i >= NAMES.length ? ` ${Math.floor(i / NAMES.length) + 1}` : '');
     const at = BASE_MS - 3 * DAY + i * 61_000 + Math.floor(rng() * 30_000);
     return {
@@ -204,10 +207,6 @@ export const mockEntries = (n = 12): Entry[] => {
 
 export const mockRanked = (n = 12): RankedRow[] => {
   const cfg = mockEventConfig();
-  const bookings = Object.entries(CARD_HOLDERS)
-    .filter(([i]) => Number(i) < n)
-    .map(([i, points]) => mockBooking({ buyerUid: uidOf(Number(i)), playCard: { ...mockPlayCard(), points } }));
-  const bonus = cardBonusByUid(bookings, new Set([mockBookingEvent().id]));
   const scorable = mockEntries(n).map((e) => ({
     uid: e.uid,
     name: e.name,
@@ -215,7 +214,7 @@ export const mockRanked = (n = 12): RankedRow[] => {
     answers: e.answers,
     submittedAtMs: e.submittedAt.toMillis(),
   }));
-  return rankEntries(scorable, mockResults(), null, cfg.questionIds, pointsMap(cfg.questions), bonus);
+  return rankEntries(scorable, mockResults(), null, cfg.questionIds, pointsMap(cfg.questions), cardBonusByUid(scorable, cfg.questions));
 };
 
 /** Highest possible score for the mock quiz (exported for tests and harness labels). */

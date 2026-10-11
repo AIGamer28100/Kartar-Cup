@@ -38,12 +38,12 @@ describe('buildDefaultEvent', () => {
     const { config: e } = await buildDefaultEvent(ALL_RACES[0]);
     expect(e.totalLaps).toBe(factsFor(ALL_RACES[0].id)?.laps);
   });
-  it('has 22 drivers, 11 teams, 5 questions with mirrored ids, falling back to the static grid without network', async () => {
+  it('has 22 drivers, 11 teams, 6 questions with mirrored ids, falling back to the static grid without network', async () => {
     const { config: ev, gridStatus } = await buildDefaultEvent(ALL_RACES[0]);
     expect(gridStatus.kind).toBe('error');
     expect(ev.drivers).toHaveLength(22);
     expect(ev.teams).toHaveLength(11);
-    expect(ev.questions).toHaveLength(5);
+    expect(ev.questions).toHaveLength(6);
     expect(ev.questionIds).toEqual(ev.questions.map((q) => q.id));
     expect(ev.drivers.every((d) => ev.teams.some((t) => t.id === d.teamId))).toBe(true);
     expect(ev.override).toBe('none');

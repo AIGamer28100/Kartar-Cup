@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { DUR, EASE, SPRING } from '../../lib/motion';
 import type { QuestionCfg } from '../../lib/types';
 import type { PickMap } from '../draft';
+import { isAnswered } from './logic';
 
 /** One start-light lamp: dark socket, red glow when lit. */
 function Lamp({ lit, size = 'sm', delay = 0 }: { lit: boolean; size?: 'sm' | 'lg'; delay?: number }) {
@@ -36,7 +37,7 @@ export function LightsRail({
   return (
     <ol aria-label="Your calls" className="m-0 flex list-none flex-wrap items-center rounded-full border border-line bg-raised/70 p-0 px-1">
       {questions.map((q, i) => {
-        const done = !!answers[q.id];
+        const done = isAnswered(q, answers);
         const here = i === current;
         const label = `Call ${i + 1}: ${done ? 'picked' : 'no pick yet'}`;
         const dot = (

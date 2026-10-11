@@ -52,6 +52,30 @@ beforeAll(async () => {
 afterAll(async () => { await env.cleanup(); });
 beforeEach(async () => { await env.clearFirestore(); await seed(); });
 
+describe('card question answers (R71)', () => {
+  const cardEv = (n = 3) => {
+    const ids = Array.from({ length: n }, (_, i) => 'q' + (i + 1));
+    return { questionIds: ids, questions: ids.map((id, i) => ({ id, prompt: 'p', kind: i === n - 1 ? 'card' : 'team' })) };
+  };
+  it('accepts "<driver>:<points>"', async () => {
+    await seed(cardEv());
+    await assertSucceeds(submit({ answers: { q1: 'a', q2: 'b', q3: 'norris:42' } }));
+  });
+  it('rejects a bad format or points over 999', async () => {
+    await seed(cardEv());
+    for (const bad of ['norris', 'norris:', 'norris:1000', 'norris:-1', 'norris:x', ':5', 'a b:5']) {
+      await assertFails(submit({ answers: { q1: 'a', q2: 'b', q3: bad } }));
+    }
+  });
+  it('still fits the budget with 8 card questions', async () => {
+    const ev = cardEv(8);
+    ev.questions = ev.questions.map((q) => ({ ...q, kind: 'card' }));
+    await seed(ev);
+    const answers = Object.fromEntries(ev.questionIds.map((id) => [id, 'norris:42']));
+    await assertSucceeds(submit({ answers }));
+  });
+});
+
 describe('link-token gate', () => {
   it('a valid token for this quiz is accepted', async () => { await assertSucceeds(submit()); });
   it('no token is rejected', async () => {

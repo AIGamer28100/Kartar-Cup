@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { Check, PencilSimple, X } from '@phosphor-icons/react';
+import { parseCardAnswer } from '../lib/cardAnswer';
 import { pointsOf } from '../lib/scoring';
 import type { EventConfig } from '../lib/types';
 import type { PickMap } from './draft';
 import { cardsFor, type AnswerCard } from './quiz/grid';
+import { isAnswered } from './quiz/logic';
 import { useFaces } from './quiz/faces';
 import PointsBadge from './quiz/PointsBadge';
 import Tile from './quiz/Tile';
@@ -30,12 +32,12 @@ export default function PicksCard({
   const byQ = useMemo(() => {
     const m = new Map<string, AnswerCard | undefined>();
     for (const q of config.questions) {
-      const id = answers[q.id];
+      const id = q.kind === 'card' ? parseCardAnswer(answers[q.id])?.driverId : answers[q.id];
       m.set(q.id, id ? cardsFor(config, q, faces).find((c) => c.id === id) : undefined);
     }
     return m;
   }, [config, answers, faces]);
-  const made = config.questions.filter((q) => !!answers[q.id]).length;
+  const made = config.questions.filter((q) => isAnswered(q, answers)).length;
   const total = config.questions.length;
   return (
     <section aria-label={title ?? 'Your locked picks'} className="min-w-0">
@@ -48,7 +50,8 @@ export default function PicksCard({
       <ol className="m-0 grid list-none gap-2 p-0">
         {config.questions.map((q, i) => {
           const card = byQ.get(q.id);
-          const id = answers[q.id];
+          const id = q.kind === 'card' ? parseCardAnswer(answers[q.id])?.driverId : answers[q.id];
+          const cardPts = q.kind === 'card' ? parseCardAnswer(answers[q.id])?.points : undefined;
           const tick = ticks ? !!ticks[q.id] : null;
           return (
             <li
@@ -70,6 +73,7 @@ export default function PicksCard({
                 </p>
                 <p className={`truncate font-semibold ${id ? 'text-ink' : 'text-accent-text'}`}>
                   {card ? card.label : id ? id : 'No pick yet'}
+                  {cardPts !== undefined && <span className="font-normal text-muted"> · {cardPts} pts</span>}
                   {card?.kind === 'driver' && card.sub && <span className="font-normal text-muted"> / {card.sub}</span>}
                 </p>
               </div>

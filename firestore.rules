@@ -134,10 +134,11 @@ service cloud.firestore {
         && (d.tiebreakOverride == null || (d.tiebreakOverride is string && d.tiebreakOverride.size() <= 128));
     }
     // qs[i] is the question config for questionIds[i] (validEvent keeps both lists the same size, same order).
-    // yesno questions take exactly 'yes' or 'no'; team/driver ids stay free-form strings as before.
+    // yesno questions take exactly 'yes' or 'no'; card questions take '<driverId>:<points>' (R71); team/driver ids stay free-form strings as before.
     function answerOk(a, q, qs, i) {
       return q.size() <= i || (a[q[i]] is string && a[q[i]].size() <= 40
-        && (qs[i].get('kind', 'team') != 'yesno' || a[q[i]] in ['yes','no']));
+        && (qs[i].get('kind', 'team') != 'yesno' || a[q[i]] in ['yes','no'])
+        && (qs[i].get('kind', 'team') != 'card' || a[q[i]].matches('^[A-Za-z0-9_-]{1,30}:[0-9]{1,3}$')));
     }
     function validEntry(eventId, uid) {
       let d = request.resource.data;

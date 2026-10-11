@@ -113,7 +113,7 @@ export default function CrowdReveal({
   results: Results;
 }) {
   const reduce = !!useReducedMotion();
-  const ids = config?.questionIds;
+  const ids = config?.questions.filter((q) => q.kind !== 'card').map((q) => q.id);
   const hasResults = Object.values(results).some((r) => r.length > 0);
 
   const model = useMemo(() => {

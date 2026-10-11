@@ -104,7 +104,7 @@ export default function ScreenApp() {
       {screenState.mode === 'lobby' && <LobbyScreen config={config} entryCount={entryCount} joinUrl={joinUrl} />}
       {screenState.mode === 'standings' && <StandingsScreen config={config} ranked={ranked} />}
       {screenState.mode === 'podium' && (
-        <PodiumScreen p1={p1} p2={p2} p3={p3} stage={stage} totalQuestions={maxScore(config.questions)} weighted={maxScore(config.questions) !== config.questions.length} />
+        <PodiumScreen p1={p1} p2={p2} p3={p3} stage={stage} totalQuestions={maxScore(config.questions)} weighted={maxScore(config.questions) !== config.questions.filter((q) => q.kind !== 'card').length} />
       )}
 
       <div

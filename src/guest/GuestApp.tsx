@@ -15,7 +15,8 @@ import { OpensPill, ClosePill } from './quiz/RaceClock';
 import { ClosedRoom, ScoredRoom, WaitingRoom } from './quiz/Rooms';
 import GoogleCta, { accountName } from './SignIn';
 import { useGuestSession, type GuestSession } from './useGuestSession';
-import { useOwnCardBonus } from './useOwnCardBonus';
+import { cardBonusByUid } from '../lib/scoring';
+import { isAnswered } from './quiz/logic';
 
 const LOCKED_MSG = 'Your picks are already locked in.';
 const CLOSED_MSG = 'Pit lane closed: your picks arrived after the window shut.';
@@ -58,8 +59,6 @@ function EventFlow({
   const [draft, setDraft] = useState<Draft>(() => loadDraft(event.id));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  // R46: Play-card points drawn at the watch party count towards this guest's score.
-  const cardBonus = useOwnCardBonus(s.user?.uid, event.raceId);
 
   const patch = (p: Partial<Draft>) =>
     setDraft((d) => {
@@ -72,13 +71,13 @@ function EventFlow({
 
   if (status === 'scored') {
     const sc = entryAnswers && s.results ? scoreOwn(event, entryAnswers, s.results.answers) : null;
-    return <ScoredRoom config={event} name={s.entry?.name ?? ''} answers={entryAnswers} score={sc} cardBonus={cardBonus} />;
+    return <ScoredRoom config={event} name={s.entry?.name ?? ''} answers={entryAnswers} score={sc} cardBonus={entryAnswers ? (cardBonusByUid([{ uid: '', answers: entryAnswers }], event.questions)[''] ?? 0) : 0} />;
   }
 
   if (status === 'closed') return <ClosedRoom config={event} answers={entryAnswers} />;
 
   const submit = async () => {
-    if (!event.questions.every((q) => !!draft.answers[q.id])) return;
+    if (!event.questions.every((q) => isAnswered(q, draft.answers))) return;
     setSubmitting(true);
     setError('');
     try {

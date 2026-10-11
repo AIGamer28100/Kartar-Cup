@@ -12,7 +12,7 @@ describe('mock fixtures', () => {
 
   it('build the five-question Malaysia grid from the captured drivers', () => {
     const cfg = mockEventConfig();
-    expect(cfg.questions).toHaveLength(5);
+    expect(cfg.questions).toHaveLength(6);
     expect(cfg.drivers.length).toBe(22);
     expect(mockMaxScore()).toBeGreaterThanOrEqual(5);
   });

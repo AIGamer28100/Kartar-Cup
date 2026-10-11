@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { cardImageSrc, drawRandomPlayCard, nextPassNumber, toSnapshot } from '../../../lib/cards';
 import { cardBonusByUid } from '../../../lib/scoring';
-import { mockBooking, mockBookingEvent, mockCards, mockPlayCard } from '../../fixtures';
+import { mockBookingEvent, mockCards } from '../../fixtures';
 import type { PanelProps } from '../MockLab';
 import { Case, Grid, Json, LabButton } from '../parts';
 
@@ -15,13 +15,6 @@ export default function CardsPanel(_props: PanelProps) {
   const [rand, setRand] = useState(0);
   const event = mockBookingEvent({ cardSeq: seq });
   const drawn = drawRandomPlayCard(cards, () => rand);
-  const bookings = [
-    mockBooking({ buyerUid: 'u1', playCard: mockPlayCard() }),
-    mockBooking({ buyerUid: 'u1', id: 'b2', playCard: { ...mockPlayCard(), points: 2 } }),
-    mockBooking({ buyerUid: 'u2', id: 'b3', status: 'cancelled', playCard: mockPlayCard() }),
-    mockBooking({ buyerUid: 'u3', id: 'b4', bookingEventId: 'other-event', playCard: mockPlayCard() }),
-    mockBooking({ buyerUid: 'u4', id: 'b5' }),
-  ];
   return (
     <Grid>
       <Case title="Deck" note="mockCards(): one VIP design and four Play cards (driver, code, number, points)." wide>
@@ -63,8 +56,8 @@ export default function CardsPanel(_props: PanelProps) {
         <p className="mt-3 text-xs text-muted">Next pass: <span className="font-mono text-ink">#{nextPassNumber(event)}</span></p>
         <p className="mt-1 text-xs text-muted">Image src: <span className="font-mono text-ink">{String(cardImageSrc({ image: IMG, imageUrl: 'https://cdn.example.test/c.png' }))}</span> (CDN link wins) · <span className="font-mono text-ink">{String(cardImageSrc({ image: 'inline' }))}</span> · <span className="font-mono text-ink">{String(cardImageSrc(null))}</span></p>
       </Case>
-      <Case title="Score bonus" note="cardBonusByUid: sums Play card points per guest (R46); skips cancelled bookings and other events." wide>
-        <Json label="bonus by uid for the five bookings (u1 two cards, u2 cancelled, u3 other event, u4 no card)" value={cardBonusByUid(bookings, new Set([event.id]))} />
+      <Case title="Score bonus" note="cardBonusByUid: parses each guest's card-question answer (R71); bad or missing answers add 0." wide>
+        <Json label="bonus by uid (u1 norris:5, u2 malformed, u3 no answer)" value={cardBonusByUid([{ uid: 'u1', answers: { q6: 'norris:5' } }, { uid: 'u2', answers: { q6: 'norris:x' } }, { uid: 'u3', answers: {} }], [{ id: 'q6', kind: 'card' }])} />
       </Case>
     </Grid>
   );

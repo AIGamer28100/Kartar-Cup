@@ -61,6 +61,8 @@ export const QUESTIONS: Question[] = [
     hint: 'Gun crew is ready. Two seconds or we talk about it.' },
   { id: 'q5', kind: 'driver', prompt: 'Which driver sets the FASTEST LAP?',
     hint: 'Purple sector, purple sector. Send it, no mercy.' },
+  { id: 'q6', kind: 'card', prompt: 'Which driver is on your Play card, and how many points does it show?',
+    hint: 'Check your card, read it back. Driver and points, over.' },
 ];
 
 export const DEFAULT_RACE_DURATION_MIN = 90;
@@ -146,12 +148,12 @@ export async function buildDefaultEvent(
 }
 
 export function optionsFor(q: Question): Option[] {
-  return q.kind === 'team' ? TEAMS : DRIVERS;
+  return q.kind === 'team' ? TEAMS : DRIVERS; // card -> DRIVERS
 }
 
 export function validateEventConfig(): string[] {
   const errs: string[] = [];
-  if (QUESTIONS.length !== 5) errs.push('expected 5 questions');
+  if (QUESTIONS.length !== 6) errs.push('expected 6 questions');
   if (new Set(QUESTIONS.map((q) => q.id)).size !== QUESTIONS.length) errs.push('duplicate question ids');
   if (TEAMS.length !== 11) errs.push('expected 11 teams');
   if (DRIVERS.length !== 22) errs.push('expected 22 drivers');
