@@ -1,0 +1,572 @@
+{
+  "season": 2026,
+  "generatedAt": "2026-09-27T04:21:58Z",
+  "fastf1Version": "3.8.3",
+  "sourceStatus": {
+    "fastf1-2026": {
+      "events": 23,
+      "version": "3.8.3"
+    },
+    "jolpica-2026": {
+      "url": "https://api.jolpi.ca/ergast/f1/2026.json",
+      "http": 200,
+      "races": 23
+    },
+    "jolpica-2026-circuits": {
+      "url": "https://api.jolpi.ca/ergast/f1/2026/circuits.json",
+      "http": 200
+    },
+    "livetiming-2026": {
+      "url": "https://livetiming.formula1.com/static/2026/Index.json",
+      "http": 200,
+      "meetings": 17
+    },
+    "formula1-index-2026": {
+      "url": "https://www.formula1.com/en/racing/2026",
+      "http": 200,
+      "rounds_named": 8
+    }
+  },
+  "rounds": [
+    {
+      "id": "2026-r15-azerbaijan",
+      "season": 2026,
+      "round": 15,
+      "eventName": "Azerbaijan Grand Prix",
+      "officialName": "FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026",
+      "circuit": "Baku City Circuit",
+      "circuitDetail": {
+        "id": "baku",
+        "name": "Baku City Circuit",
+        "shortNameLivetiming": "Baku",
+        "livetimingKey": 144,
+        "lengthKm": 6.003
+      },
+      "locality": "Baku",
+      "country": "azerbaijan",
+      "lat": 40.3725,
+      "long": 49.8533,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-09-24T08:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-09-24T12:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-09-25T08:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-09-25T12:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-09-26T11:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-09-26T11:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1",
+        "livetiming"
+      ],
+      "f1PageRanAlready": true,
+      "sources": [
+        "fastf1",
+        "livetiming",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r16-malaysia",
+      "season": 2026,
+      "round": 16,
+      "eventName": "Bahrain Grand Prix",
+      "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX IN MALAYSIA 2026",
+      "officialNameCaseSource": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX IN MALAYSIA 2026",
+      "circuit": "Sepang International Circuit",
+      "circuitDetail": {
+        "id": "sepang",
+        "name": "Sepang International Circuit",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 5.543
+      },
+      "locality": "Kuala Lumpur",
+      "country": "bahrain",
+      "lat": 2.76083,
+      "long": 101.738,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-10-02T04:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-10-02T08:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-10-03T04:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-10-03T08:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-10-04T07:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-10-04T07:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "conflict",
+      "conflicts": [
+        {
+          "field": "country",
+          "values": {
+            "fastf1": "bahrain",
+            "jolpica": "malaysia"
+          }
+        }
+      ]
+    },
+    {
+      "id": "2026-r17-singapore",
+      "season": 2026,
+      "round": 17,
+      "eventName": "Singapore Grand Prix",
+      "officialName": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026",
+      "circuit": "Marina Bay Street Circuit",
+      "circuitDetail": {
+        "id": "marina_bay",
+        "name": "Marina Bay Street Circuit",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 4.927
+      },
+      "locality": "Marina Bay",
+      "country": "singapore",
+      "lat": 1.2914,
+      "long": 103.864,
+      "format": "sprint_qualifying",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-10-09T08:30:00Z"
+        },
+        {
+          "name": "Sprint Qualifying",
+          "startUtc": "2026-10-09T12:30:00Z"
+        },
+        {
+          "name": "Sprint",
+          "startUtc": "2026-10-10T09:00:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-10-10T13:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-10-11T12:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-10-11T12:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r18-united-states",
+      "season": 2026,
+      "round": 18,
+      "eventName": "United States Grand Prix",
+      "officialName": "FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026",
+      "circuit": "Circuit of the Americas",
+      "circuitDetail": {
+        "id": "americas",
+        "name": "Circuit of the Americas",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 5.513
+      },
+      "locality": "Austin",
+      "country": "united states",
+      "lat": 30.1328,
+      "long": -97.6411,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-10-23T17:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-10-23T21:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-10-24T17:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-10-24T21:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-10-25T20:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-10-25T20:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r19-mexico",
+      "season": 2026,
+      "round": 19,
+      "eventName": "Mexico City Grand Prix",
+      "officialName": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2026",
+      "officialNameCaseSource": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2026",
+      "circuit": "Autódromo Hermanos Rodríguez",
+      "circuitDetail": {
+        "id": "rodriguez",
+        "name": "Autódromo Hermanos Rodríguez",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 4.304
+      },
+      "locality": "Mexico City",
+      "country": "mexico",
+      "lat": 19.4042,
+      "long": -99.0907,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-10-30T18:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-10-30T22:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-10-31T17:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-10-31T21:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-11-01T20:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-11-01T20:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r20-brazil",
+      "season": 2026,
+      "round": 20,
+      "eventName": "São Paulo Grand Prix",
+      "officialName": "FORMULA 1 MSC CRUISES GRANDE PRÊMIO DE SÃO PAULO 2026",
+      "officialNameCaseSource": "FORMULA 1 MSC CRUISES GRANDE PRÊMIO DE SÃO PAULO 2026",
+      "circuit": "Autódromo José Carlos Pace",
+      "circuitDetail": {
+        "id": "interlagos",
+        "name": "Autódromo José Carlos Pace",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 4.309
+      },
+      "locality": "São Paulo",
+      "country": "brazil",
+      "lat": -23.7036,
+      "long": -46.6997,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-11-06T15:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-11-06T19:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-11-07T14:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-11-07T18:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-11-08T17:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-11-08T17:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r21-las-vegas",
+      "season": 2026,
+      "round": 21,
+      "eventName": "Las Vegas Grand Prix",
+      "officialName": "FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026",
+      "circuit": "Las Vegas Strip Street Circuit",
+      "circuitDetail": {
+        "id": "vegas",
+        "name": "Las Vegas Strip Street Circuit",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 6.201
+      },
+      "locality": "Las Vegas",
+      "country": "united states",
+      "lat": 36.1147,
+      "long": -115.173,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-11-20T00:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-11-20T04:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-11-21T00:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-11-21T04:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-11-22T04:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-11-22T04:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r22-qatar",
+      "season": 2026,
+      "round": 22,
+      "eventName": "Qatar Grand Prix",
+      "officialName": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026",
+      "circuit": "Lusail International Circuit",
+      "circuitDetail": {
+        "id": "losail",
+        "name": "Lusail International Circuit",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 5.419
+      },
+      "locality": "Lusail",
+      "country": "qatar",
+      "lat": 25.49,
+      "long": 51.4542,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-11-27T13:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-11-27T17:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-11-28T14:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-11-28T18:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-11-29T16:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-11-29T16:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "confirmed by >=2 sources",
+      "conflicts": []
+    },
+    {
+      "id": "2026-r23-abu-dhabi",
+      "season": 2026,
+      "round": 23,
+      "eventName": "Abu Dhabi Grand Prix",
+      "officialName": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026",
+      "officialNameCaseSource": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026",
+      "circuit": "Yas Marina Circuit",
+      "circuitDetail": {
+        "id": "yas_marina",
+        "name": "Yas Marina Circuit",
+        "shortNameLivetiming": null,
+        "livetimingKey": null,
+        "lengthKm": 5.281
+      },
+      "locality": "Yas Marina",
+      "country": "united arab emirates",
+      "lat": 24.4672,
+      "long": 54.6031,
+      "format": "conventional",
+      "sessions": [
+        {
+          "name": "Practice 1",
+          "startUtc": "2026-12-04T09:30:00Z"
+        },
+        {
+          "name": "Practice 2",
+          "startUtc": "2026-12-04T13:00:00Z"
+        },
+        {
+          "name": "Practice 3",
+          "startUtc": "2026-12-05T10:30:00Z"
+        },
+        {
+          "name": "Qualifying",
+          "startUtc": "2026-12-05T14:00:00Z"
+        },
+        {
+          "name": "Race",
+          "startUtc": "2026-12-06T13:00:00Z"
+        }
+      ],
+      "raceStartUtc": "2026-12-06T13:00:00Z",
+      "raceStartNullReason": null,
+      "raceStartAgreeing": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "f1PageRanAlready": false,
+      "sources": [
+        "fastf1",
+        "jolpica",
+        "formula1"
+      ],
+      "confidence": "conflict",
+      "conflicts": [
+        {
+          "field": "locality",
+          "values": {
+            "fastf1": "Yas Marina",
+            "jolpica": "Abu Dhabi"
+          }
+        }
+      ]
+    }
+  ]
+}

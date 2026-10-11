@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-10-07T17:26:35.301Z",
+  "note": "Real API responses, captured by scripts/capture-f1-fixtures.mjs. Dev mock harness only.",
+  "doneMeetingKey": 1308,
+  "nextMeetingKey": 1296,
+  "raceSessionKey": 11731,
+  "qualiSessionKey": 11730,
+  "files": {
+    "sessions.done": "https://api.openf1.org/v1/sessions?meeting_key=1308",
+    "drivers.race": "https://api.openf1.org/v1/drivers?session_key=11731",
+    "session_result.race": "https://api.openf1.org/v1/session_result?session_key=11731",
+    "weather.race": "https://api.openf1.org/v1/weather?session_key=11731",
+    "stints.race": "https://api.openf1.org/v1/stints?session_key=11731",
+    "drivers.quali": "https://api.openf1.org/v1/drivers?session_key=11730",
+    "session_result.quali": "https://api.openf1.org/v1/session_result?session_key=11730",
+    "weather.quali": "https://api.openf1.org/v1/weather?session_key=11730",
+    "stints.quali": "https://api.openf1.org/v1/stints?session_key=11730",
+    "laps.race": "https://api.openf1.org/v1/laps?session_key=11731",
+    "meetings.done": "https://api.openf1.org/v1/meetings?meeting_key=1308",
+    "sessions.next": "https://api.openf1.org/v1/sessions?meeting_key=1296",
+    "meetings.next": "https://api.openf1.org/v1/meetings?meeting_key=1296",
+    "sessions.raceYear": "https://api.openf1.org/v1/sessions?session_type=Race&year=2026",
+    "jolpica.schedule": "https://api.jolpi.ca/ergast/f1/2026.json?limit=40",
+    "jolpica.driverStandings": "https://api.jolpi.ca/ergast/f1/2026/driverstandings.json?limit=30",
+    "jolpica.constructorStandings": "https://api.jolpi.ca/ergast/f1/2026/constructorstandings.json?limit=15",
+    "meteo.forecast": "https://api.open-meteo.com/v1/forecast?latitude=1.2914&longitude=103.8640&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&start_date=2026-10-09&end_date=2026-10-11&timezone=UTC"
+  }
+}

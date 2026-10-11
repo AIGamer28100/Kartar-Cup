@@ -141,3 +141,34 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+node_modules
+dist
+.env.local
+test-results
+.firebase
+firestore-debug.log
+.env*.local
+scripts/.venv
+scripts/.cache
+docs/
+.agents/
+.claude/
+# Local-only folders (never committed)
+brand/
+
+# tsc emit artifacts (project is noEmit; stale .js shadows .ts in Vite resolution)
+src/**/*.js
+
+# Cloudflare Worker local secrets and state
+worker/**/.dev.vars
+worker/**/.wrangler/
+
+# Cloudflare deploy credentials for scripts/deploy-worker.sh (never commit)
+worker/**/.cf.env
+
+# Emulator/e2e mode file: no secrets, must be shared so the e2e run is reproducible
+!.env.e2e
+
+# Clean-room product specification (local only)
+spec/
+.claude/.atomic-index/

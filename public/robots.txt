@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /host
+Disallow: /tickets
+Disallow: /profile
+Disallow: /join
+
+Sitemap: https://kartar-cup.web.app/sitemap.xml
