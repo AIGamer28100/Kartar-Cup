@@ -3,8 +3,10 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Check, X } from '@phosphor-icons/react';
 import Button from '../components/Button';
 import { QUESTIONS } from '../config/event';
+import { inputCls } from './settings/ui';
+import { saveFix } from '../lib/db';
 import { pointsOf } from '../lib/scoring';
-import type { QuestionCfg, RankedRow } from '../lib/types';
+import type { Entry, QuestionCfg, RankedRow } from '../lib/types';
 
 // Host tools stay low-motion (R20): a quick linear reorder, no spring bounce.
 const reorder = { duration: 0.18, ease: 'easeOut' } as const;
@@ -15,6 +17,9 @@ export default function Leaderboard({
   canPick,
   questions,
   onPick,
+  entries = [],
+  cardFix = {},
+  dnf = new Set<string>(),
 }: {
   rows: RankedRow[];
   overrideUid: string | null;
@@ -22,14 +27,54 @@ export default function Leaderboard({
   /** The live event's questions (ids, prompts, points); absent falls back to the original five. */
   questions?: QuestionCfg[];
   onPick: (uid: string | null) => void;
+  /** All entries, so DNF'd guests (absent from `rows`) can still be listed and reinstated. */
+  entries?: Entry[];
+  /** Host card-point corrections by uid (results doc). */
+  cardFix?: Record<string, number>;
+  dnf?: Set<string>;
 }) {
   const [pending, setPending] = useState<string | null>(null);
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [pts, setPts] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [fixErr, setFixErr] = useState<string | null>(null);
+  const dnfEntries = entries.filter((e) => dnf.has(e.uid));
+
+  async function apply(uid: string, fix: Parameters<typeof saveFix>[1]) {
+    setBusy(true);
+    setFixErr(null);
+    try {
+      await saveFix(uid, fix);
+      setFixing(null);
+    } catch (e) {
+      setFixErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const dnfList = dnfEntries.length > 0 && (
+    <section aria-label="Disqualified" className="pb-8">
+      <h3 className="text-lg font-semibold">DNF ({dnfEntries.length})</h3>
+      <ul className="mt-2 divide-y divide-line">
+        {dnfEntries.map((e) => (
+          <li key={e.uid} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <span className="text-lg text-muted line-through">{e.name}</span>
+            <Button variant="secondary" disabled={busy} onClick={() => void apply(e.uid, { dnf: false })}>
+              Reinstate
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
   const reduceMotion = useReducedMotion();
 
   if (rows.length === 0) {
     return (
       <section aria-label="Leaderboard" className="py-16">
         <p className="text-2xl text-muted">No picks yet, the grid is quiet.</p>
+        {dnfList}
       </section>
     );
   }
@@ -83,7 +128,7 @@ export default function Leaderboard({
                 {r.score}
                 {(r.bonus ?? 0) > 0 && (
                   <span className="block text-xs text-muted md:text-sm 2xl:text-base">
-                    {r.quizScore ?? 0} + {r.bonus} card
+                    {r.quizScore ?? 0} + {r.bonus} card{r.uid in cardFix ? ' (fixed)' : ''}
                   </span>
                 )}
               </span>
@@ -104,6 +149,52 @@ export default function Leaderboard({
                 </button>
               ) : (
                 <div className={rowCls}>{inner}</div>
+              )}
+              <button
+                type="button"
+                aria-expanded={fixing === r.uid}
+                onClick={() => {
+                  setFixing(fixing === r.uid ? null : r.uid);
+                  setPts(String(r.bonus ?? 0));
+                  setFixErr(null);
+                }}
+                className="mb-2 min-h-11 text-sm text-muted underline hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                Adjust {r.name}
+              </button>
+              {fixing === r.uid && (
+                <div className="flex flex-wrap items-end gap-3 pb-4" role="group" aria-label={`Adjust ${r.name}`}>
+                  <label className="flex flex-col gap-1 text-sm text-muted">
+                    Card points
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={pts}
+                      onChange={(e) => setPts(e.target.value)}
+                      className={`${inputCls} w-28`}
+                    />
+                  </label>
+                  <Button
+                    disabled={busy || pts.trim() === '' || !Number.isFinite(Number(pts)) || Number(pts) < 0}
+                    onClick={() => void apply(r.uid, { points: Number(pts) })}
+                  >
+                    Save points
+                  </Button>
+                  {r.uid in cardFix && (
+                    <Button variant="ghost" disabled={busy} onClick={() => void apply(r.uid, { points: null })}>
+                      Use guest's entry
+                    </Button>
+                  )}
+                  <Button variant="secondary" disabled={busy} onClick={() => void apply(r.uid, { dnf: true })}>
+                    DNF (disqualify)
+                  </Button>
+                  {fixErr && (
+                    <p role="alert" className="w-full text-accent-text">
+                      {fixErr}
+                    </p>
+                  )}
+                </div>
               )}
               {pending === r.uid && (
                 <div className="flex flex-wrap items-center gap-3 pb-4" role="group">
@@ -127,6 +218,12 @@ export default function Leaderboard({
           );
         })}
       </ol>
+      {fixErr && fixing === null && (
+        <p role="alert" className="mt-2 text-accent-text">
+          {fixErr}
+        </p>
+      )}
+      <div className="mt-6">{dnfList}</div>
     </section>
   );
 }

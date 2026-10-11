@@ -10,6 +10,10 @@ export interface ResultsDoc {
   answers: Results;
   source: string;
   updatedAt: Timestamp;
+  /** Host correction of a guest's Play-card points, by uid; replaces what the guest entered. */
+  cardFix?: Record<string, number>;
+  /** Uids the host disqualified (DNF): dropped from the ranking, stats and podium. */
+  dnf?: string[];
 }
 export interface Entry {
   uid: string;

@@ -6,8 +6,8 @@ import {
   watchActiveResults,
   watchScreenState,
 } from '../../lib/db';
-import { cardBonusByUid, pointsMap, rankEntries } from '../../lib/scoring';
-import type { Entry, EventConfig, RankedRow, ScreenState } from '../../lib/types';
+import { rankWithFixes } from '../../lib/scoring';
+import type { Entry, EventConfig, RankedRow, ResultsDoc, ScreenState } from '../../lib/types';
 
 export interface ScreenData {
   loading: boolean;
@@ -27,13 +27,13 @@ const SEALED: ScreenState = {
 };
 
 /** Everything the big screen (and the PodiumController) need for the active event: config,
- * entries, ranked leaderboard (via rankEntries — never reimplemented), and host-controlled
+ * entries, ranked leaderboard (via rankWithFixes — never reimplemented), and host-controlled
  * screen/state. */
 export function useScreenData(): ScreenData {
   const [eventId, setEventId] = useState<string | null | undefined>(undefined);
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [results, setResults] = useState<Record<string, string[]>>({});
+  const [resultsDoc, setResultsDoc] = useState<ResultsDoc | null>(null);
   const [screenState, setScreenStateLocal] = useState<ScreenState>(SEALED);
   const [ready, setReady] = useState({ event: false, entries: false });
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export function useScreenData(): ScreenData {
       setEntries(e);
       setReady((r) => ({ ...r, entries: true }));
     }, fail);
-    const u3 = watchActiveResults((r) => setResults(r?.answers ?? {}), fail);
+    const u3 = watchActiveResults(setResultsDoc, fail);
     const u4 = watchScreenState(eventId, setScreenStateLocal, fail);
     return () => {
       u1();
@@ -78,8 +78,8 @@ export function useScreenData(): ScreenData {
       answers: e.answers,
       submittedAtMs: e.submittedAt.toMillis(),
     }));
-    return rankEntries(scorable, results, screenState.overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, config ? cardBonusByUid(scorable, config.questions) : undefined);
-  }, [entries, results, screenState.overrideUid, config]);
+    return rankWithFixes(scorable, resultsDoc?.answers ?? {}, screenState.overrideUid, config, resultsDoc);
+  }, [entries, resultsDoc, screenState.overrideUid, config]);
 
   return {
     loading: eventId === undefined || !(ready.event && ready.entries),

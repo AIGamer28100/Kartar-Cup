@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   'event.extend-closes': 'Moved the closing time',
   'event.set-lights-out': 'Set the lights-out time',
   'results.save': 'Saved race results',
+  'results.fix': 'Fixed card points / DNF',
   'winner.reveal': 'Revealed the winner',
   'booking-event.create': 'Created a booking event',
   'booking-event.update': 'Edited a booking event',

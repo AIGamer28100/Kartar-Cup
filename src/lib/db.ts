@@ -1,7 +1,10 @@
 import {
   Timestamp,
+  arrayRemove,
+  arrayUnion,
   collection,
   collectionGroup,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -442,7 +445,7 @@ export async function listOwnEntries(uid: string): Promise<OwnEntryRow[]> {
       if (config.winnerRevealed) {
         const rs = await getDoc(resultsRef(id));
         if (rs.exists()) {
-          const key = (rs.data() as ResultsDoc).answers;
+          const key = (rs.data() as ResultsDoc).answers ?? {};
           score = scoreEntry(entry.answers, key, config.questionIds, pointsMap(config.questions ?? [])).score;
           const pts = pointsMap(config.questions ?? []);
           maxScore = (config.questionIds ?? Object.keys(key))
@@ -480,8 +483,22 @@ export function watchEventResults(
 /** Saves the answer key. `eventId` names the quiz (per-event results page); omitted = the live quiz. */
 export async function saveResults(r: Results, source: string, eventId?: string): Promise<void> {
   const id = eventId ?? (await requireActive());
-  await setDoc(resultsRef(id), { answers: r, source, updatedAt: serverTimestamp() });
+  // merge: keeps the host's card fixes and DNF list (saveFix) when the answer key is re-saved.
+  await setDoc(resultsRef(id), { answers: r, source, updatedAt: serverTimestamp() }, { merge: true });
   logAudit('results.save', id, source || 'no source note');
+}
+
+/** Host correction on the live quiz: `points` replaces a guest's card points (null = back to what they
+ * entered); `dnf` disqualifies or reinstates them. The guest's entry itself is never edited. */
+export async function saveFix(uid: string, fix: { points?: number | null; dnf?: boolean }): Promise<void> {
+  const id = await requireActive();
+  const patch: Record<string, unknown> = {};
+  if (fix.points !== undefined) patch[`cardFix.${uid}`] = fix.points === null ? deleteField() : Math.max(0, Math.trunc(fix.points));
+  if (fix.dnf !== undefined) patch.dnf = fix.dnf ? arrayUnion(uid) : arrayRemove(uid);
+  // set+merge cannot take dotted paths, so make sure the doc exists, then update.
+  await setDoc(resultsRef(id), {}, { merge: true });
+  await updateDoc(resultsRef(id), patch);
+  logAudit('results.fix', id, `uid=${uid} ${JSON.stringify(fix)}`);
 }
 
 export async function revealWinner(overrideUid: string | null): Promise<void> {

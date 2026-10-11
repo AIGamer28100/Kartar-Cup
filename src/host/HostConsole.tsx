@@ -6,7 +6,7 @@ import { RowsSkeleton } from '../components/Skeleton';
 import { useTimedOut } from '../lib/useTimedOut';
 import { EVENT_NAME } from '../config/event';
 import { toCsv } from '../lib/csv';
-import { cardBonusByUid, maxScore, pointsMap, rankEntries, winner } from '../lib/scoring';
+import { maxScore, rankWithFixes, winner } from '../lib/scoring';
 import type { ScorableEntry } from '../lib/types';
 import CrowdReveal from './CrowdReveal';
 import Leaderboard from './Leaderboard';
@@ -18,7 +18,7 @@ import RevealWinner from './RevealWinner';
 import { useHostData } from './useHostData';
 
 export default function HostConsole() {
-  const { loading, error, config, entries, results } = useHostData();
+  const { loading, error, config, entries, results, resultsDoc } = useHostData();
   const stuck = useTimedOut(loading);
   const [localOverride, setLocalOverride] = useState<string | null | undefined>(undefined);
   const overrideUid = localOverride !== undefined ? localOverride : (config?.tiebreakOverride ?? null);
@@ -31,8 +31,9 @@ export default function HostConsole() {
       submittedAtMs: e.submittedAt.toMillis(),
     }));
     // Without a config (nothing live) fall back to the defaults, exactly as before.
-    return rankEntries(scorable, results, overrideUid, config?.questionIds, config ? pointsMap(config.questions) : undefined, config ? cardBonusByUid(scorable, config.questions) : undefined);
-  }, [entries, results, overrideUid, config]);
+    return rankWithFixes(scorable, results, overrideUid, config, resultsDoc);
+  }, [entries, results, overrideUid, config, resultsDoc]);
+  const dnf = useMemo(() => new Set(resultsDoc?.dnf ?? []), [resultsDoc]);
 
   function exportCsv() {
     const byUid = new Map(entries.map((e) => [e.uid, e]));
@@ -73,6 +74,9 @@ export default function HostConsole() {
         canPick={!config?.winnerRevealed}
         questions={config?.questions}
         onPick={setLocalOverride}
+        entries={entries}
+        cardFix={resultsDoc?.cardFix ?? {}}
+        dnf={dnf}
       />
       <RevealWinner
         winner={winner(ranked)}
@@ -80,7 +84,7 @@ export default function HostConsole() {
         revealed={config?.winnerRevealed ?? false}
         max={config ? maxScore(config.questions) : undefined}
       />
-      <CrowdReveal config={config} entries={entries} results={results} />
+      <CrowdReveal config={config} entries={entries.filter((e) => !dnf.has(e.uid))} results={results} />
       <LiveControls />
       <PodiumController />
       <OverlayControls />

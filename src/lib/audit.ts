@@ -23,6 +23,7 @@ export type AuditAction =
   | 'quiz.link-create'
   | 'quiz.link-revoke'
   | 'results.save'
+  | 'results.fix'
   | 'winner.reveal'
   | 'booking-event.create'
   | 'booking-event.update'

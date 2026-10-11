@@ -1,6 +1,6 @@
 import { DEFAULT_QUESTION_IDS, MAX_QUESTION_POINTS } from './types';
 import { parseCardAnswer } from './cardAnswer';
-import type { Answers, RankedRow, Results, ScorableEntry } from './types';
+import type { Answers, QuestionCfg, RankedRow, Results, ResultsDoc, ScorableEntry } from './types';
 
 /** Per-question weight by question id; a missing id is worth 1. */
 export type PointsMap = Record<string, number>;
@@ -93,4 +93,20 @@ export function cardBonusByUid(
 
 export function winner(rows: RankedRow[]): RankedRow | null {
   return rows.length ? rows[0] : null;
+}
+
+/** Ranking with the host's corrections applied: DNF entries are dropped and a card fix replaces the
+ * guest's own card points. Console and big screen both rank through this, so they always agree. */
+export function rankWithFixes(
+  entries: ScorableEntry[],
+  r: Results,
+  override: string | null | undefined,
+  config: { questionIds?: string[]; questions: QuestionCfg[] } | null,
+  fixes: Pick<ResultsDoc, 'cardFix' | 'dnf'> | null | undefined,
+): RankedRow[] {
+  const dnf = new Set(fixes?.dnf ?? []);
+  const live = entries.filter((e) => !dnf.has(e.uid));
+  if (!config) return rankEntries(live, r, override);
+  const bonus = { ...cardBonusByUid(live, config.questions), ...fixes?.cardFix };
+  return rankEntries(live, r, override, config.questionIds, pointsMap(config.questions), bonus);
 }

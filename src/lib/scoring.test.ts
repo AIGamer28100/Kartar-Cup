@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { cardBonusByUid, maxScore, rankEntries, scoreEntry, winner } from './scoring';
-import type { Answers, Results, ScorableEntry } from './types';
+import { cardBonusByUid, maxScore, rankEntries, rankWithFixes, scoreEntry, winner } from './scoring';
+import type { Answers, QuestionCfg, Results, ScorableEntry } from './types';
 
 const R: Results = { q1: ['mercedes'], q2: ['norris', 'piastri'], q3: ['stroll'], q4: ['haas'], q5: ['russell'] };
 const A: Answers = { q1: 'mercedes', q2: 'norris', q3: 'stroll', q4: 'haas', q5: 'russell' };
@@ -76,5 +76,36 @@ describe('card question (R71)', () => {
     expect(maxScore(qs)).toBe(1);
     const rows = rankEntries([{ uid: 'a', name: 'A', answers: { q1: 'x', q6: 'norris:7' }, submittedAtMs: 0 }], { q1: [] }, null, ['q1', 'q6'], undefined, { a: 7 });
     expect(rows[0].score).toBe(7);
+  });
+});
+
+describe('rankWithFixes', () => {
+  const config = {
+    questionIds: ['q1', 'q6'],
+    questions: [
+      { id: 'q1', kind: 'driver', prompt: 'Winner' },
+      { id: 'q6', kind: 'card', prompt: 'Play card' },
+    ] satisfies QuestionCfg[],
+  };
+  const entries: ScorableEntry[] = [
+    { uid: 'a', name: 'A', answers: { q1: 'nor', q6: 'nor:50' }, submittedAtMs: 1 },
+    { uid: 'b', name: 'B', answers: { q1: 'nor', q6: 'nor:3' }, submittedAtMs: 2 },
+    { uid: 'c', name: 'C', answers: { q1: 'nor' }, submittedAtMs: 3 },
+  ];
+  const r = { q1: ['nor'] };
+
+  it('replaces a wrong card entry with the host fix', () => {
+    const rows = rankWithFixes(entries, r, null, config, { cardFix: { a: 2 } });
+    expect(rows.map((x) => [x.uid, x.score])).toEqual([['b', 4], ['a', 3], ['c', 1]]);
+  });
+
+  it('drops DNF entries from the ranking', () => {
+    const rows = rankWithFixes(entries, r, null, config, { dnf: ['a'] });
+    expect(rows.map((x) => x.uid)).toEqual(['b', 'c']);
+    expect(rows[0].rank).toBe(1);
+  });
+
+  it('matches plain ranking with no fixes', () => {
+    expect(rankWithFixes(entries, r, null, config, null).map((x) => x.score)).toEqual([51, 4, 1]);
   });
 });
